@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { QuoteSelector } from "@/lib/anchor";
 import { resolveBoard, resolveDoc } from "@/lib/boards";
-import { addComment, addReply, deleteComment, deleteReply, editComment, editReply, mutate, readComments, setStatus } from "@/lib/comments-store";
+import { addComment, addReply, commentsPath, deleteComment, deleteReply, editComment, editReply, mutate, readComments, setStatus } from "@/lib/comments-store";
 import { getRoot } from "@/lib/paths";
 
 const MAX_BODY = 10_000;
@@ -39,7 +39,7 @@ async function json(req: NextRequest): Promise<Record<string, unknown> | null> {
 export async function GET(req: NextRequest) {
   const t = target(req.nextUrl.searchParams.get("board"), req.nextUrl.searchParams.get("doc"));
   if (!t) return bad("unknown board or doc");
-  return NextResponse.json({ comments: readComments(t.boardDir).docs[t.doc] ?? [] });
+  return NextResponse.json({ comments: readComments(commentsPath(t.boardDir)).docs[t.doc] ?? [] });
 }
 
 /** POST {board, doc, quote, body, author} — a new comment on a passage. */
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   const q = quote(b.quote);
   const body = text(b.body, MAX_BODY);
   if (!q || !body) return bad("quote and body are required");
-  const comment = await mutate(t.boardDir, (f) => addComment(f, t.doc, { quote: q, body, author: author(b.author) }));
+  const comment = await mutate(commentsPath(t.boardDir), (f) => addComment(f, t.doc, { quote: q, body, author: author(b.author) }));
   return NextResponse.json({ comment }, { status: 201 });
 }
 
@@ -70,30 +70,30 @@ export async function PATCH(req: NextRequest) {
     if (b.action === "reply") {
       const body = text(b.body, MAX_BODY);
       if (!body) return bad("body is required");
-      return NextResponse.json({ comment: await mutate(t.boardDir, (f) => addReply(f, t.doc, id, { body, author: who })) });
+      return NextResponse.json({ comment: await mutate(commentsPath(t.boardDir), (f) => addReply(f, t.doc, id, { body, author: who })) });
     }
     if (b.action === "edit") {
       const body = text(b.body, MAX_BODY);
       if (!body) return bad("body is required");
-      return NextResponse.json({ comment: await mutate(t.boardDir, (f) => editComment(f, t.doc, id, body)) });
+      return NextResponse.json({ comment: await mutate(commentsPath(t.boardDir), (f) => editComment(f, t.doc, id, body)) });
     }
     if (b.action === "delete") {
-      await mutate(t.boardDir, (f) => deleteComment(f, t.doc, id));
+      await mutate(commentsPath(t.boardDir), (f) => deleteComment(f, t.doc, id));
       return NextResponse.json({ deleted: id });
     }
     if (b.action === "edit-reply" || b.action === "delete-reply") {
       const replyId = text(b.replyId, 64);
       if (!replyId) return bad("replyId is required");
       if (b.action === "delete-reply") {
-        return NextResponse.json({ comment: await mutate(t.boardDir, (f) => deleteReply(f, t.doc, id, replyId)) });
+        return NextResponse.json({ comment: await mutate(commentsPath(t.boardDir), (f) => deleteReply(f, t.doc, id, replyId)) });
       }
       const body = text(b.body, MAX_BODY);
       if (!body) return bad("body is required");
-      return NextResponse.json({ comment: await mutate(t.boardDir, (f) => editReply(f, t.doc, id, replyId, body)) });
+      return NextResponse.json({ comment: await mutate(commentsPath(t.boardDir), (f) => editReply(f, t.doc, id, replyId, body)) });
     }
     if (b.action === "resolve" || b.action === "reopen") {
       const status = b.action === "resolve" ? "resolved" : "open";
-      return NextResponse.json({ comment: await mutate(t.boardDir, (f) => setStatus(f, t.doc, id, status, who)) });
+      return NextResponse.json({ comment: await mutate(commentsPath(t.boardDir), (f) => setStatus(f, t.doc, id, status, who)) });
     }
   } catch (err) {
     if (err instanceof Error && /not found/.test(err.message)) return bad(err.message, 404);

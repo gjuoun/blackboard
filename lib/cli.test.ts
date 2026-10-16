@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { anchor } from "./anchor";
 import { comment, comments, reply, status } from "./cli";
-import { addComment, addReply, mutate, readComments } from "./comments-store";
+import { addComment, addReply, commentsPath, mutate, readComments } from "./comments-store";
 import { renderPlainText } from "./markdown";
 import { makeFixtureRoot } from "./test-fixture";
 
@@ -27,7 +27,7 @@ describe("cli commands", () => {
     const c = await comment(root, "demo", "design.md", "The cache is warm.", "why warm?", "agent", 2);
     const text = await renderPlainText(DESIGN);
     expect(anchor(text, c.quote)?.start).toBe(text.lastIndexOf("The cache is warm."));
-    expect(readComments(demo).docs["design.md"][0]).toMatchObject({ author: "agent", body: "why warm?" });
+    expect(readComments(commentsPath(demo)).docs["design.md"][0]).toMatchObject({ author: "agent", body: "why warm?" });
   });
 
   test("reply and resolve find the comment's doc by id", async () => {
@@ -56,7 +56,7 @@ describe("blackboard wait", () => {
     const t0 = Date.now();
     const p = Bun.spawn(["bun", BIN, "--root", root, "wait", "demo", "--json", "--timeout", "10s"], { stdout: "pipe" });
     await Bun.sleep(400);
-    await mutate(demo, (f) => addComment(f, "design.md", { quote: { exact: "Later text.", prefix: "", suffix: "" }, body: "look here", author: "jun" }));
+    await mutate(commentsPath(demo), (f) => addComment(f, "design.md", { quote: { exact: "Later text.", prefix: "", suffix: "" }, body: "look here", author: "jun" }));
     expect(await p.exited).toBe(0);
     expect(Date.now() - t0).toBeLessThan(3000);
     const out = JSON.parse(await new Response(p.stdout).text());
@@ -66,11 +66,11 @@ describe("blackboard wait", () => {
 
   test("wait ignores my own reply and times out (exit 3)", async () => {
     const { root, demo } = setup();
-    const c = await mutate(demo, (f) => addComment(f, "design.md", { quote: { exact: "x", prefix: "", suffix: "" }, body: "old", author: "jun" }));
+    const c = await mutate(commentsPath(demo), (f) => addComment(f, "design.md", { quote: { exact: "x", prefix: "", suffix: "" }, body: "old", author: "jun" }));
     const since = new Date().toISOString();
     const p = Bun.spawn(["bun", BIN, "--root", root, "wait", "demo", "--since", since, "--timeout", "1500ms", "--author", "agent"], { stdout: "pipe" });
     await Bun.sleep(300);
-    await mutate(demo, (f) => addReply(f, "design.md", c.id, { body: "mine", author: "agent" }));
+    await mutate(commentsPath(demo), (f) => addReply(f, "design.md", c.id, { body: "mine", author: "agent" }));
     expect(await p.exited).toBe(3);
     expect(await new Response(p.stdout).text()).toContain(`next: ${since}`);
   });

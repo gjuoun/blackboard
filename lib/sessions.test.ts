@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { closeSession, getSession, listSessions, openSession, resolveSession, SCRATCHPAD_ID, scratchpadSession } from "./sessions";
+import { closeSession, getSession, listSessions, openSession, resolveSession, SCRATCHPAD_ID, scratchpadSession, sessionCommentsPath } from "./sessions";
 
 /** A temp home plus a few docs: one in a nested folder, a non-markdown file, a symlink to a doc. */
 function fixture() {
@@ -97,6 +97,13 @@ describe("closeSession", () => {
     expect(listSessions(home)).toHaveLength(0);
     expect(existsSync(join(commentsDir, "comments.json"))).toBe(true);
     expect(() => closeSession(home, s.id)).toThrow(/no session/);
+  });
+});
+
+describe("sessionCommentsPath", () => {
+  test("lives under the home, one folder per session; refuses odd ids", () => {
+    expect(sessionCommentsPath("/h", "abc123")).toBe("/h/sessions/abc123/comments.json");
+    expect(() => sessionCommentsPath("/h", "../x")).toThrow(/bad session id/);
   });
 });
 

@@ -5,7 +5,7 @@ import { DocView } from "@/components/DocView";
 import { FileTree } from "@/components/FileTree";
 import { Toc } from "@/components/Toc";
 import { listDocs, resolveBoard, resolveDoc } from "@/lib/boards";
-import { readComments } from "@/lib/comments-store";
+import { commentsPath, readComments } from "@/lib/comments-store";
 import { renderMarkdown } from "@/lib/markdown";
 import { getRoot } from "@/lib/paths";
 
@@ -32,7 +32,7 @@ export default async function DocPage({ params }: PageProps<"/b/[board]/[...doc]
         <FileTree board={board} docs={listDocs(boardDir)} current={doc} />
         <Toc toc={toc} />
       </aside>
-      <DocView key={`${board}/${doc}`} board={board} doc={doc} html={html} initialComments={readComments(boardDir).docs[doc] ?? []} />
+      <DocView key={`${board}/${doc}`} board={board} doc={doc} html={html} initialComments={readComments(commentsPath(boardDir)).docs[doc] ?? []} />
     </div>
   );
 }

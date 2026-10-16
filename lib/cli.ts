@@ -1,7 +1,7 @@
 import { readFileSync, watch, type FSWatcher } from "node:fs";
 import { activitySince, type Activity } from "./activity";
 import { listBoards, resolveBoard, resolveDoc, type Board } from "./boards";
-import { addComment, addReply, mutate, readComments, setStatus, type Comment, type CommentFile } from "./comments-store";
+import { addComment, addReply, commentsPath, mutate, readComments, setStatus, type Comment, type CommentFile } from "./comments-store";
 import { renderPlainText } from "./markdown";
 import { selectorFor } from "./selector";
 
@@ -33,7 +33,7 @@ export function boards(root: string): Board[] {
 
 /** Comments on a board (or one doc), open only unless `all`, in doc order then creation order. */
 export function comments(root: string, name: string, opts: { doc?: string; all?: boolean } = {}): DocComment[] {
-  const file = readComments(board(root, name));
+  const file = readComments(commentsPath(board(root, name)));
   return Object.entries(file.docs)
     .filter(([doc]) => !opts.doc || doc === opts.doc)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -44,14 +44,14 @@ export function comments(root: string, name: string, opts: { doc?: string; all?:
 export async function reply(root: string, name: string, id: string, body: string, author: string): Promise<DocComment> {
   if (!body.trim()) throw new CliError("reply text is empty", 2);
   const dir = board(root, name);
-  const doc = docOf(readComments(dir), id);
-  return { ...(await mutate(dir, (f) => addReply(f, doc, id, { body: body.trim(), author }))), doc };
+  const doc = docOf(readComments(commentsPath(dir)), id);
+  return { ...(await mutate(commentsPath(dir), (f) => addReply(f, doc, id, { body: body.trim(), author }))), doc };
 }
 
 export async function status(root: string, name: string, id: string, to: "resolved" | "open", author: string): Promise<DocComment> {
   const dir = board(root, name);
-  const doc = docOf(readComments(dir), id);
-  return { ...(await mutate(dir, (f) => setStatus(f, doc, id, to, author))), doc };
+  const doc = docOf(readComments(commentsPath(dir)), id);
+  return { ...(await mutate(commentsPath(dir), (f) => setStatus(f, doc, id, to, author))), doc };
 }
 
 /** Comment on the n-th occurrence of `quote` in a doc, as the agent. The page highlights it live. */
@@ -70,7 +70,7 @@ export async function comment(
   if (!file) throw new CliError(`no doc "${doc}" on board "${name}"`);
   const sel = selectorFor(await renderPlainText(readFileSync(file, "utf8")), quote, occurrence);
   if (!sel.ok) throw new CliError(sel.error);
-  return { ...(await mutate(dir, (f) => addComment(f, doc, { quote: sel.selector, body: note.trim(), author }))), doc };
+  return { ...(await mutate(commentsPath(dir), (f) => addComment(f, doc, { quote: sel.selector, body: note.trim(), author }))), doc };
 }
 
 /** "90s", "30m", "2h" or plain milliseconds. */
@@ -102,7 +102,7 @@ export function waitForActivity(root: string, name: string, opts: { since?: stri
     const check = () => {
       let found;
       try {
-        found = activitySince(readComments(dir), since, opts.me);
+        found = activitySince(readComments(commentsPath(dir)), since, opts.me);
       } catch {
         return; // unreadable for a moment: try again on the next event or poll
       }

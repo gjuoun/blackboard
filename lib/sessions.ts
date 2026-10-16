@@ -105,6 +105,15 @@ export function closeSession(home: string, id: string): Session {
   });
 }
 
+/**
+ * Where a session's comments live: <home>/sessions/<id>/comments.json, outside the doc's repo.
+ * The file's `docs` map has one key, the doc's file name.
+ */
+export function sessionCommentsPath(home: string, id: string): string {
+  if (!ID.test(id)) throw new SessionError(`bad session id "${id}"`);
+  return join(home, "sessions", id, "comments.json");
+}
+
 /** An id, or a path (relative to `cwd`) to a registered file. Null when neither matches. */
 export function resolveSession(home: string, idOrPath: string, cwd = process.cwd()): Session | null {
   const byId = getSession(home, idOrPath);
