@@ -152,6 +152,12 @@ export type SessionRow = Session &
     open: number;
   };
 
+/** "/Users/me/notes/a.md" -> "~/notes/a.md". */
+function tildify(p: string): string {
+  const h = process.env.HOME;
+  return h && p.startsWith(h + "/") ? "~" + p.slice(h.length) : p;
+}
+
 function openCount(home: string, id: string): number {
   try {
     return Object.values(readComments(sessionCommentsPath(home, id)).docs)
@@ -172,7 +178,7 @@ export function sessionRow(home: string, s: Session): SessionRow {
     branch: m.branch,
     missing: m.missing,
     stats: m.stats,
-    location: m.repo ? `${m.repo.name}/${m.repo.relPath}` : s.path,
+    location: m.repo ? `${m.repo.name}/${m.repo.relPath}` : tildify(s.path),
     updatedAt: m.updatedAt ?? s.openedAt,
     open: openCount(home, s.id),
   };
