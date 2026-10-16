@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
 import * as cli from "../lib/cli";
 import { getHome } from "../lib/home";
+import { formatImport } from "../lib/import";
 
 const HELP = `blackboard — review markdown files and their comments, from the shell
 
@@ -22,6 +23,8 @@ Usage:
   blackboard wait     <session> [--since <iso>] [--timeout 30m]
       blocks until someone else comments, replies, edits, reopens or resolves;
       prints the events and "next: <iso>" (pass it as --since to the next wait)
+  blackboard import   <root> [--dry-run]         copy comments from an old folder of boards
+                                                 (<root>/<board>/.blackboard/comments.json) into sessions
 
 <session> is a session id or a path to the registered file.
 
@@ -57,6 +60,7 @@ async function main(argv: string[]): Promise<number> {
       since: { type: "string" },
       timeout: { type: "string" },
       "no-browser": { type: "boolean" },
+      "dry-run": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -124,6 +128,12 @@ async function main(argv: string[]): Promise<number> {
       const r = await cli.waitForActivity(home, args[0], { since: o.since, timeoutMs: cli.parseDuration(o.timeout ?? "30m"), me: author });
       print({ events: r.events, next: r.next }, r.timedOut ? `nothing new\n\nnext: ${r.next}` : cli.formatActivity(r));
       return r.timedOut ? 3 : 0;
+    }
+    case "import": {
+      need(1, "import <root> [--dry-run]");
+      const r = await cli.importRoot(home, args[0], o["dry-run"]);
+      print(r, formatImport(r, o["dry-run"]));
+      return 0;
     }
     default:
       throw new cli.CliError(`unknown command "${cmd}"\n\n${HELP}`, 2);

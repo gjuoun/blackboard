@@ -137,5 +137,7 @@ describe("blackboard binary", () => {
     expect(run(home, ["open", "--no-browser", docs]).code).toBe(1);
     expect(run(home, ["reply", id]).code).toBe(2);
     expect(run(home, ["frobnicate"]).code).toBe(2);
+    expect(run(home, ["import", join(docs, "no-such-root")]).code).toBe(1);
+    expect(run(home, ["import"]).code).toBe(2);
   });
 });
