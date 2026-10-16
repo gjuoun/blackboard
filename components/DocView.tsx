@@ -7,6 +7,7 @@ import { buildTextMap, offsetOf, rangeOf } from "@/lib/text-map";
 import { CommentPanel, type PanelComment } from "./CommentPanel";
 import { DocBody } from "./DocBody";
 import { useComments } from "./useComments";
+import { useLiveDoc } from "./useLiveDoc";
 
 const AUTHOR_KEY = "bb-author";
 type Draft = { selector: QuoteSelector; top: number; left: number };
@@ -33,7 +34,8 @@ export function DocView({ board, doc, html, initialComments }: { board: string; 
     localStorage.setItem(AUTHOR_KEY, v.trim() || "jun");
   };
 
-  const { comments, error, add, reply, setResolved } = useComments(board, doc, initialComments, author.trim() || "jun");
+  const { comments, error, add, reply, setResolved, reload } = useComments(board, doc, initialComments, author.trim() || "jun");
+  useLiveDoc(board, reload);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [composing, setComposing] = useState<QuoteSelector | null>(null);
   const [note, setNote] = useState("");
