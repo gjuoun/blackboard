@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       const watcher = watch(boardDir, { recursive: true }, (_event, filename) => {
         if (!filename) return;
         const rel = filename.toString().split("\\").join("/");
-        if (rel.endsWith(".tmp")) return;
+        if (rel.endsWith(".tmp") || rel.endsWith(".lock")) return;
         pending.add(rel);
         timer ??= setTimeout(() => {
           timer = null;

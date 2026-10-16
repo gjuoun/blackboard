@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { QuoteSelector } from "./anchor";
+import { withFileLock } from "./lock";
 import { resolveSafe } from "./paths";
 
 /**
@@ -20,6 +21,8 @@ export type Comment = {
   status: CommentStatus;
   resolvedAt?: string;
   resolvedBy?: string;
+  reopenedAt?: string;
+  reopenedBy?: string;
   replies: Reply[];
 };
 export type CommentFile = { version: 1; docs: Record<string, Comment[]> };
@@ -52,16 +55,20 @@ function writeAtomic(p: string, data: CommentFile) {
 const queues = new Map<string, Promise<unknown>>();
 
 /**
- * Read, change and write the board's comment file. Calls for one board run one at a time, so
- * two requests never lose each other's writes; the write goes to a temp file renamed over the old one.
+ * Read, change and write the board's comment file. Calls in this process are queued, and every
+ * process (web app, CLI) holds the file lock for the read-change-write, so no writer loses another's
+ * change. The write goes to a temp file renamed over the old one.
  */
 export function mutate<T>(boardDir: string, change: (file: CommentFile) => T): Promise<T> {
   const p = commentsPath(boardDir);
   const run = (queues.get(p) ?? Promise.resolve()).catch(() => {}).then(() => {
-    const file = readComments(boardDir);
-    const result = change(file);
-    writeAtomic(p, file);
-    return result;
+    mkdirSync(dirname(p), { recursive: true });
+    return withFileLock(p, () => {
+      const file = readComments(boardDir);
+      const result = change(file);
+      writeAtomic(p, file);
+      return result;
+    });
   });
   queues.set(p, run);
   return run;
@@ -128,6 +135,10 @@ export function setStatus(file: CommentFile, doc: string, id: string, status: Co
     c.resolvedAt = now();
     c.resolvedBy = by;
   } else {
+    if (c.resolvedAt) {
+      c.reopenedAt = now();
+      c.reopenedBy = by;
+    }
     delete c.resolvedAt;
     delete c.resolvedBy;
   }

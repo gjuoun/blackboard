@@ -2,6 +2,7 @@ import type { Element, ElementContent, Root as HastRoot } from "hast";
 import { toString as hastToString } from "hast-util-to-string";
 import type { FootnoteDefinition, PhrasingContent, Root as MdastRoot } from "mdast";
 import { toString as mdToString } from "mdast-util-to-string";
+import rehypeParse from "rehype-parse";
 import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import remarkFrontmatter from "remark-frontmatter";
@@ -158,4 +159,23 @@ export async function renderMarkdown(src: string): Promise<Rendered> {
     .use(rehypeStringify)
     .process(src);
   return { html: String(file), toc, frontmatter: fm.data };
+}
+
+/** Text of a HAST tree in document order, skipping diagram blocks (as buildTextMap does in the browser). */
+function hastText(node: HastRoot | ElementContent): string {
+  if (node.type === "text") return node.value;
+  if (node.type === "element" && node.properties.dataTestid === "mermaid") return "";
+  if (node.type === "root" || node.type === "element") return node.children.map((c) => hastText(c as ElementContent)).join("");
+  return "";
+}
+
+/**
+ * The plain text a reader's browser sees for this doc: the coordinate system comment quotes live
+ * in. Lets the CLI build a quote selector without a browser. Parsed back from the rendered HTML
+ * so it matches what the HTML parser keeps.
+ */
+export async function renderPlainText(src: string): Promise<string> {
+  const { html } = await renderMarkdown(src);
+  const tree = unified().use(rehypeParse, { fragment: true }).parse(html);
+  return hastText(tree);
 }

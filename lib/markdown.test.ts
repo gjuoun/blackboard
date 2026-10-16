@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { renderMarkdown } from "./markdown";
+import { renderMarkdown, renderPlainText } from "./markdown";
 
 const FENCE = "```";
 
@@ -75,6 +75,11 @@ describe("renderMarkdown", () => {
     expect(frontmatter).toBeNull();
     expect(html).toContain('class="frontmatter-error"');
     expect(html).toContain("tags: [unclosed");
+  });
+
+  test("plain text skips mermaid and keeps the text between blocks", async () => {
+    const text = await renderPlainText("# Title\n\nPara one.\n\n" + FENCE + "mermaid\nflowchart LR\n  A --> B\n" + FENCE + "\n\nPara two.\n");
+    expect(text).toBe("Title\nPara one.\n\nPara two.");
   });
 
   test("escapes raw HTML instead of rendering it", async () => {

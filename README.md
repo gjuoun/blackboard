@@ -3,8 +3,8 @@
 A local web app for reading a project's planning docs (markdown with mermaid diagrams) and
 leaving comments on the text, so Jun and an agent can go back and forth on a plan.
 
-There is no agent connection: the agent reads the docs and the comment file from disk, and
-Jun reads and comments in the browser.
+Jun reads and comments in the browser; an agent reads the docs from disk and takes part in
+the comments through the `blackboard` CLI (see [CLI for agents](#cli-for-agents)).
 
 ## Run it
 
@@ -48,6 +48,52 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
   a tooltip. They are not comments.
 - **New board** — the home form creates `<root>/<slug>/` from [`templates/board`](templates/board).
 
+## CLI for agents
+
+`blackboard` reads and answers comments from a shell, so any agent with a shell (pi, Claude
+Code, Codex) can take part. It edits `.blackboard/comments.json` directly under a lock shared
+with the web app, so it works whether or not the app is running; an open page shows its
+changes live.
+
+```sh
+bun link                       # once, from this repo: puts `blackboard` on PATH (~/.bun/bin)
+
+blackboard boards
+blackboard comments <board> [--doc design.md] [--all] [--json]   # open comments by default
+blackboard reply    <board> <comment-id> "text"
+blackboard resolve  <board> <comment-id>          # or: reopen
+blackboard comment  <board> <doc> --quote "passage" [--occurrence 2] "note"
+blackboard wait     <board> [--since <iso>] [--timeout 30m] [--json]
+```
+
+| Setting | Default | Meaning |
+|---------|---------|---------|
+| `--root` / `BLACKBOARD_ROOT` | (required) | Folder of boards |
+| `--author` / `BLACKBOARD_AUTHOR` | `agent` | Name on what the CLI writes; `wait` ignores this author's own activity |
+
+Exit codes: `0` ok, `1` command failed (unknown board / doc / id, quote not found), `2` bad
+usage, `3` `wait` timed out with nothing new.
+
+- `comment` finds the passage in the doc's rendered text (the same text the browser anchors
+  against), so the highlight lands where the agent meant. `--occurrence` picks a repeat.
+- `wait` blocks until someone else comments, replies, edits, reopens or resolves, then prints
+  the events and `next: <iso>`. Pass that as `--since` to the next `wait` so nothing is missed
+  or repeated.
+
+### The agent loop
+
+```sh
+since=$(date -u +%FT%TZ)
+while true; do
+  out=$(blackboard wait my-board --since "$since" --json --timeout 30m) || [ $? -eq 3 ] || break
+  since=$(jq -r .next <<<"$out")
+  # read the events / `blackboard comments my-board`, edit the docs,
+  # then `blackboard reply my-board <id> "done: …"` and maybe `blackboard resolve …`
+done
+```
+
+In pi, run `blackboard wait` with `bash_bg`: its completion message is the notification.
+
 ## Comment file
 
 One file per board: `<board>/.blackboard/comments.json`. Writes go to a temp file that is
@@ -90,11 +136,12 @@ reported, never overwritten.
 - `quote.exact` is the selected text; `prefix` / `suffix` are up to 32 characters around it,
   used to pick the right copy when the passage repeats. Offsets are over the doc's rendered
   plain text, with diagram blocks left out.
-- `status` is `open` or `resolved`; `resolvedAt` / `resolvedBy` exist only while resolved.
+- `status` is `open` or `resolved`; `resolvedAt` / `resolvedBy` exist only while resolved;
+  `reopenedAt` / `reopenedBy` record the last reopen.
 - `editedAt` appears on a comment or reply once its body has been edited. Deleting removes the
   entry from the file (no tombstone); a doc with no comments left drops its key.
-- An agent may add a reply by editing the file (keep the shape; any unique `id`). The page
-  picks the change up live.
+- Prefer the `blackboard` CLI to editing the file by hand: it takes the shared lock
+  (`comments.json.lock`), so it never races the web app.
 
 ## Board template
 
@@ -112,7 +159,9 @@ agent reading the file.
 app/                      pages, /api/comments, /api/watch (SSE), server action for new boards
 components/               DocView (selection + highlights), CommentPanel, FileTree, Toc, Mermaid
 lib/anchor.ts             find a quoted passage again (pure, tested)
-lib/comments-store.ts     comment file read / queued atomic write
+lib/comments-store.ts     comment file read / locked atomic write (lib/lock.ts)
+lib/activity.ts           what others did since a time (for `wait`)
+lib/cli.ts, bin/          the `blackboard` command
 lib/paths.ts, boards.ts   root confinement, board and doc listing
 lib/markdown.ts           unified pipeline: GFM, heading ids, legacy marks, mermaid placeholders
 proxy.ts                  localhost-only Host and Origin checks
