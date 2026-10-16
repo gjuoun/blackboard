@@ -48,5 +48,8 @@
   "trustedDependencies": [
     "sharp",
     "unrs-resolver"
-  ]
+  ],
+  "bin": {
+    "blackboard": "bin/blackboard.ts"
+  }
 }

@@ -2,8 +2,8 @@ import { existsSync, lstatSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 /** The folder that holds every board. Required: the app has nothing to show without it. */
-export function getRoot(): string {
-  const root = process.env.BLACKBOARD_ROOT;
+export function getRoot(explicit?: string): string {
+  const root = explicit ?? process.env.BLACKBOARD_ROOT;
   if (!root) throw new Error("BLACKBOARD_ROOT is not set: point it at a folder of boards");
   const abs = resolve(root.replace(/^~(?=$|\/)/, process.env.HOME ?? "~"));
   if (!existsSync(abs)) throw new Error(`BLACKBOARD_ROOT does not exist: ${abs}`);
