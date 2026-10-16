@@ -1,29 +1,27 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import { NewBoardForm } from "@/components/NewBoardForm";
-import { listBoards } from "@/lib/boards";
-import { getRoot } from "@/lib/paths";
+import { getHome } from "@/lib/home";
+import { SCRATCHPAD_ID, sessionRows } from "@/lib/sessions";
 
 export default async function Home() {
   await connection();
-  const root = getRoot();
-  const boards = listBoards(root);
+  const rows = sessionRows(getHome()).filter((r) => r.id !== SCRATCHPAD_ID);
   return (
     <main className="home">
       <header className="home-header">
-        <h1>Blackboard</h1>
-        <p className="muted">{root}</p>
+        <h1>Sessions</h1>
       </header>
-      <NewBoardForm />
-      {boards.length === 0 ? <p className="muted">No boards yet.</p> : null}
+      {rows.length === 0 ? (
+        <p className="muted">
+          No sessions yet. Run <code>blackboard open &lt;file&gt;</code>.
+        </p>
+      ) : null}
       <ul className="board-grid">
-        {boards.map((b) => (
-          <li key={b.name}>
-            <Link className="board-card" data-testid="board-card" href={`/b/${encodeURIComponent(b.name)}`}>
-              <strong>{b.name}</strong>
-              <span className="muted">
-                {b.docCount} {b.docCount === 1 ? "doc" : "docs"}
-              </span>
+        {rows.map((r) => (
+          <li key={r.id}>
+            <Link className="board-card" data-testid="session-row" href={`/s/${r.id}`}>
+              <strong>{r.title}</strong>
+              <span className="muted">{r.location}</span>
             </Link>
           </li>
         ))}

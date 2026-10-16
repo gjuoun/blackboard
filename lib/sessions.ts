@@ -61,10 +61,23 @@ export function realDoc(file: string, cwd = process.cwd()): string {
   } catch {
     throw new SessionError(`no such file: ${abs}`);
   }
-  if (!existsSync(abs)) throw new SessionError(isLink ? `dangling symlink: ${abs}` : `no such file: ${abs}`);
-  const real = realpathSync(abs);
+  // Docs live anywhere on disk by design; the ignore comments keep the build from tracing the whole project.
+  if (!existsSync(/*turbopackIgnore: true*/ abs)) throw new SessionError(isLink ? `dangling symlink: ${abs}` : `no such file: ${abs}`);
+  const real = realpathSync(/*turbopackIgnore: true*/ abs);
   if (!statSync(real).isFile() || !real.toLowerCase().endsWith(".md")) throw new SessionError(`not a markdown file: ${abs}`);
   return real;
+}
+
+/**
+ * The session's file if it can still be served: it exists, is markdown, and still realpaths to
+ * itself (a file swapped for a symlink to somewhere else is refused). Null otherwise.
+ */
+export function servablePath(s: Session): string | null {
+  try {
+    return realDoc(s.path) === s.path ? s.path : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Stable per file: opening the same file again finds the same session. */

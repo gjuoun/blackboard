@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { closeSession, getSession, listSessions, openSession, resolveSession, SCRATCHPAD_ID, scratchpadSession, sessionCommentsPath } from "./sessions";
+import { closeSession, getSession, listSessions, openSession, resolveSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath } from "./sessions";
 
 /** A temp home plus a few docs: one in a nested folder, a non-markdown file, a symlink to a doc. */
 function fixture() {
@@ -97,6 +97,18 @@ describe("closeSession", () => {
     expect(listSessions(home)).toHaveLength(0);
     expect(existsSync(join(commentsDir, "comments.json"))).toBe(true);
     expect(() => closeSession(home, s.id)).toThrow(/no session/);
+  });
+});
+
+describe("servablePath", () => {
+  test("refuses a registered file that was removed or swapped for a symlink elsewhere", () => {
+    const { base, home, docs } = fixture();
+    const s = openSession(home, join(docs, "sub", "notes.md"));
+    expect(servablePath(s)).toBe(s.path);
+    rmSync(s.path);
+    expect(servablePath(s)).toBeNull();
+    symlinkSync(join(base, "secret.txt"), s.path);
+    expect(servablePath(s)).toBeNull();
   });
 });
 

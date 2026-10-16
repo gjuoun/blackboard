@@ -102,7 +102,8 @@ export function docMeta(path: string, commentsFile?: string): DocMeta {
   let repo: DocRepo | null = null;
   let branch: string | null = null;
   if (top) {
-    const root = realpathSync(top);
+    // Docs live anywhere on disk by design; keep the build from tracing the whole project.
+    const root = realpathSync(/*turbopackIgnore: true*/ top);
     repo = { name: basename(root), root, relPath: relative(root, path).split("\\").join("/") };
     branch = git(dir, "branch", "--show-current") ?? git(dir, "rev-parse", "--short", "HEAD");
   }

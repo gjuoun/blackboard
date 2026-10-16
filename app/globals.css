@@ -37,6 +37,12 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .top-nav { grid-column: 1 / -1; position: sticky; top: 0; z-index: 10; height: var(--nav-h); display: flex; align-items: center; gap: 8px; padding: 0 16px; background: var(--bg-subtle); border-bottom: 1px solid var(--border); font-size: 14px; }
 .top-nav a { font-weight: 600; }
 .crumb { color: var(--muted); }
+.doc-head { min-width: 0; }
+.doc-head .doc-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40ch; }
+.doc-location { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.branch-chip { flex: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); }
+.missing-badge { flex: none; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: #fdecea; color: #b42318; }
+.doc-missing { grid-column: 1 / -1; max-width: 720px; margin: 0 auto; padding: 32px 24px; }
 .sidebar { position: sticky; top: var(--nav-h); align-self: start; max-height: calc(100vh - var(--nav-h)); overflow: auto; padding: 16px; border-right: 1px solid var(--border); font-size: 14px; }
 .sidebar h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 6px; }
 .sidebar ul { list-style: none; padding-left: 12px; margin: 0; }
