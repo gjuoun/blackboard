@@ -38,6 +38,15 @@ describe("comment file", () => {
     expect(readComments(demo).docs["design.md"].map((c) => c.body).sort()).toEqual(["one", "two"]);
   });
 
+  test("six processes adding at once all land", async () => {
+    const demo = fresh();
+    const child = new URL("./test-mutator.ts", import.meta.url).pathname;
+    const procs = Array.from({ length: 6 }, (_, p) => Bun.spawn(["bun", child, demo, "15", `p${p}`], { stderr: "pipe" }));
+    const codes = await Promise.all(procs.map((p) => p.exited));
+    expect(codes).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(readComments(demo).docs["design.md"].length).toBe(90);
+  }, 20_000);
+
   test("leaves no temp files behind", async () => {
     const demo = fresh();
     await mutate(demo, (f) => addComment(f, "design.md", { quote, body: "x", author: "jun" }));
