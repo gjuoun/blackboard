@@ -16,13 +16,16 @@ Usage:
   blackboard resolve  <board> <comment-id>
   blackboard reopen   <board> <comment-id>
   blackboard comment  <board> <doc> --quote <passage> [--occurrence <n>] <note>
+  blackboard wait     <board> [--since <iso>] [--timeout 30m]
+      blocks until someone else comments, replies, edits, reopens or resolves;
+      prints the events and "next: <iso>" (pass it as --since to the next wait)
 
 Options:
   --root <dir>     folder of boards (default: $BLACKBOARD_ROOT)
   --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or "agent")
   --json           machine-readable output
 
-Exit codes: 0 ok, 1 command failed, 2 bad usage.`;
+Exit codes: 0 ok, 1 command failed, 2 bad usage, 3 wait timed out.`;
 
 async function main(argv: string[]): Promise<number> {
   const { values: o, positionals } = parseArgs({
@@ -36,6 +39,8 @@ async function main(argv: string[]): Promise<number> {
       json: { type: "boolean" },
       quote: { type: "string" },
       occurrence: { type: "string" },
+      since: { type: "string" },
+      timeout: { type: "string" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -84,6 +89,12 @@ async function main(argv: string[]): Promise<number> {
       const c = await cli.comment(root, args[0], args[1], o.quote, args.slice(2).join(" "), author, n);
       print(c, `commented ${c.id} on ${c.doc}`);
       return 0;
+    }
+    case "wait": {
+      need(1, "wait <board> [--since <iso>] [--timeout 30m]");
+      const r = await cli.waitForActivity(root, args[0], { since: o.since, timeoutMs: cli.parseDuration(o.timeout ?? "30m"), me: author });
+      print({ events: r.events, next: r.next }, r.timedOut ? `nothing new\n\nnext: ${r.next}` : cli.formatActivity(r));
+      return r.timedOut ? 3 : 0;
     }
     default:
       throw new cli.CliError(`unknown command "${cmd}"\n\n${HELP}`, 2);

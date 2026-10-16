@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, watch, type FSWatcher } from "node:fs";
+import { activitySince, type Activity } from "./activity";
 import { listBoards, resolveBoard, resolveDoc, type Board } from "./boards";
 import { addComment, addReply, mutate, readComments, setStatus, type Comment, type CommentFile } from "./comments-store";
 import { renderPlainText } from "./markdown";
@@ -70,6 +71,59 @@ export async function comment(
   const sel = selectorFor(await renderPlainText(readFileSync(file, "utf8")), quote, occurrence);
   if (!sel.ok) throw new CliError(sel.error);
   return { ...(await mutate(dir, (f) => addComment(f, doc, { quote: sel.selector, body: note.trim(), author }))), doc };
+}
+
+/** "90s", "30m", "2h" or plain milliseconds. */
+export function parseDuration(s: string): number {
+  const m = /^(\d+(?:\.\d+)?)(ms|s|m|h)?$/.exec(s.trim());
+  if (!m) throw new CliError(`bad duration "${s}" (use e.g. 90s, 30m, 2h)`, 2);
+  return Number(m[1]) * { ms: 1, s: 1000, m: 60_000, h: 3_600_000 }[(m[2] ?? "ms") as "ms" | "s" | "m" | "h"];
+}
+
+export type WaitResult = { events: Activity[]; next: string; timedOut: boolean };
+
+/**
+ * Block until someone other than `me` comments, replies, edits, reopens or resolves on the board
+ * after `since` (default: now), or until the timeout. Watches the board folder and also polls every
+ * 2 s, so a missed file event only costs latency.
+ */
+export function waitForActivity(root: string, name: string, opts: { since?: string; timeoutMs: number; me: string }): Promise<WaitResult> {
+  const dir = board(root, name);
+  const since = opts.since ? new Date(opts.since).toISOString() : new Date().toISOString();
+  if (since === "Invalid Date") throw new CliError(`bad --since "${opts.since}"`, 2);
+  return new Promise((resolve) => {
+    let watcher: FSWatcher | null = null;
+    const finish = (r: WaitResult) => {
+      watcher?.close();
+      clearInterval(poll);
+      clearTimeout(timer);
+      resolve(r);
+    };
+    const check = () => {
+      let found;
+      try {
+        found = activitySince(readComments(dir), since, opts.me);
+      } catch {
+        return; // unreadable for a moment: try again on the next event or poll
+      }
+      if (found.events.length > 0) finish({ ...found, timedOut: false });
+    };
+    const poll = setInterval(check, 2000);
+    const timer = setTimeout(() => finish({ events: [], next: since, timedOut: true }), opts.timeoutMs);
+    try {
+      watcher = watch(dir, { recursive: true }, (_e, f) => {
+        if (f && String(f).startsWith(".blackboard")) check();
+      });
+    } catch {
+      // polling still runs
+    }
+    check();
+  });
+}
+
+export function formatActivity(r: WaitResult): string {
+  const lines = r.events.map((e) => `${e.at}  ${e.kind}  ${e.doc}  ${e.commentId}  ${e.author}\n  > ${e.quote}\n  ${e.body.replace(/\n/g, "\n  ")}`);
+  return [...lines, `next: ${r.next}`].join("\n\n");
 }
 
 const squash = (s: string) => s.replace(/\s+/g, " ").trim();

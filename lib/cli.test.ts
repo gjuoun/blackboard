@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { anchor } from "./anchor";
 import { comment, comments, reply, status } from "./cli";
-import { readComments } from "./comments-store";
+import { addComment, addReply, mutate, readComments } from "./comments-store";
 import { renderPlainText } from "./markdown";
 import { makeFixtureRoot } from "./test-fixture";
 
@@ -47,6 +47,32 @@ describe("cli commands", () => {
     await expect(comment(root, "demo", "missing.md", "x", "n", "a")).rejects.toThrow('no doc "missing.md"');
     await expect(comment(root, "demo", "design.md", "absent", "n", "a")).rejects.toThrow("quote not found");
     await expect(reply(root, "demo", "c_nope", "t", "a")).rejects.toThrow("no comment c_nope");
+  });
+});
+
+describe("blackboard wait", () => {
+  test("wait returns when jun comments", async () => {
+    const { root, demo } = setup();
+    const t0 = Date.now();
+    const p = Bun.spawn(["bun", BIN, "--root", root, "wait", "demo", "--json", "--timeout", "10s"], { stdout: "pipe" });
+    await Bun.sleep(400);
+    await mutate(demo, (f) => addComment(f, "design.md", { quote: { exact: "Later text.", prefix: "", suffix: "" }, body: "look here", author: "jun" }));
+    expect(await p.exited).toBe(0);
+    expect(Date.now() - t0).toBeLessThan(3000);
+    const out = JSON.parse(await new Response(p.stdout).text());
+    expect(out.events.map((e: { kind: string; author: string; body: string }) => `${e.kind}:${e.author}:${e.body}`)).toEqual(["comment:jun:look here"]);
+    expect(out.next).toBe(out.events[0].at);
+  });
+
+  test("wait ignores my own reply and times out (exit 3)", async () => {
+    const { root, demo } = setup();
+    const c = await mutate(demo, (f) => addComment(f, "design.md", { quote: { exact: "x", prefix: "", suffix: "" }, body: "old", author: "jun" }));
+    const since = new Date().toISOString();
+    const p = Bun.spawn(["bun", BIN, "--root", root, "wait", "demo", "--since", since, "--timeout", "1500ms", "--author", "agent"], { stdout: "pipe" });
+    await Bun.sleep(300);
+    await mutate(demo, (f) => addReply(f, "design.md", c.id, { body: "mine", author: "agent" }));
+    expect(await p.exited).toBe(3);
+    expect(await new Response(p.stdout).text()).toContain(`next: ${since}`);
   });
 });
 
