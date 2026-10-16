@@ -3,7 +3,6 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { dirname } from "node:path";
 import type { QuoteSelector } from "./anchor";
 import { withFileLock } from "./lock";
-import { resolveSafe } from "./paths";
 
 /**
  * On-disk format of a comment file. Plain JSON on purpose: an agent reads it straight from
@@ -29,12 +28,6 @@ export type CommentFile = { version: 1; docs: Record<string, Comment[]> };
 
 const now = () => new Date().toISOString();
 const newId = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
-
-export function commentsPath(boardDir: string): string {
-  const p = resolveSafe(boardDir, ".blackboard/comments.json");
-  if (!p) throw new Error("comment file path leaves the board");
-  return p;
-}
 
 /** The comments in a comment file; empty when the file does not exist. A file that does not parse is an error, never silently replaced. */
 export function readComments(p: string): CommentFile {

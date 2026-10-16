@@ -66,14 +66,6 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .title-cell .location { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .title-cell .missing-badge { margin-left: 8px; }
 .sessions-empty { padding: 16px; }
-.board-grid { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-.board-card { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; color: var(--fg); height: 100%; }
-.board-card:hover { border-color: var(--accent); text-decoration: none; }
-.board-card strong { overflow-wrap: anywhere; }
-
-.new-board { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 8px; }
-.new-board input { flex: 1; min-width: 240px; font: inherit; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; }
-.form-error { flex-basis: 100%; margin: 0; color: #cf222e; font-size: 13px; }
 
 /* Doc layout: nav on top, sidebar left, doc centre, comments right */
 .doc-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr) 320px; grid-template-rows: var(--nav-h) auto; min-height: calc(100vh - var(--tabs-h)); }
