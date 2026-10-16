@@ -20,7 +20,7 @@ const highlights = () => (typeof CSS !== "undefined" && "highlights" in CSS ? CS
  * stored selector is anchored back to text offsets and drawn with the CSS Custom Highlight API,
  * which leaves the page DOM untouched.
  */
-export function DocView({ board, doc, html, initialComments }: { board: string; doc: string; html: string; initialComments: Comment[] }) {
+export function DocView({ session, title, path, html, initialComments }: { session: string; title: string; path: string; html: string; initialComments: Comment[] }) {
   const bodyRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [author, setAuthor] = useState("jun");
@@ -34,8 +34,8 @@ export function DocView({ board, doc, html, initialComments }: { board: string; 
     localStorage.setItem(AUTHOR_KEY, v.trim() || "jun");
   };
 
-  const { comments, error, add, reply, setResolved, reload, edit, remove, editReply, removeReply } = useComments(board, doc, initialComments, author.trim() || "jun");
-  useLiveDoc(board, reload);
+  const { comments, error, add, reply, setResolved, reload, edit, remove, editReply, removeReply } = useComments(session, initialComments, author.trim() || "jun");
+  useLiveDoc(session, reload);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [composing, setComposing] = useState<QuoteSelector | null>(null);
   const [note, setNote] = useState("");
@@ -174,7 +174,7 @@ export function DocView({ board, doc, html, initialComments }: { board: string; 
     if (!body || !r) return;
     const range = rangeOf(buildTextMap(body), r.start, r.end);
     const rect = range?.getBoundingClientRect();
-    if (rect && (rect.top < 60 || rect.bottom > innerHeight)) scrollBy({ top: rect.top - innerHeight / 3, behavior: "smooth" });
+    if (rect && (rect.top < 100 || rect.bottom > innerHeight)) scrollBy({ top: rect.top - innerHeight / 3, behavior: "smooth" });
   };
 
   const panelComments: PanelComment[] = useMemo(() => {
@@ -223,8 +223,8 @@ export function DocView({ board, doc, html, initialComments }: { board: string; 
         ) : null}
       </main>
       <CommentPanel
-        board={board}
-        doc={doc}
+        title={title}
+        path={path}
         comments={panelComments}
         activeId={activeId}
         flashId={flashId}

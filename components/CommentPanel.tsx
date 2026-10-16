@@ -91,11 +91,11 @@ function ReplyBox({ onReply }: { onReply: (body: string) => Promise<void> }) {
 }
 
 /** Copies the open comments as markdown, to paste to an agent by hand. */
-function CopyButton({ board, doc, comments }: { board: string; doc: string; comments: PanelComment[] }) {
+function CopyButton({ title, path, comments }: { title: string; path: string; comments: PanelComment[] }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(exportComments(board, doc, comments));
+      await navigator.clipboard.writeText(exportComments(title, path, comments));
       setState("copied");
     } catch {
       setState("failed");
@@ -110,8 +110,8 @@ function CopyButton({ board, doc, comments }: { board: string; doc: string; comm
 }
 
 type Props = {
-  board: string;
-  doc: string;
+  title: string;
+  path: string;
   comments: PanelComment[];
   activeId: string | null;
   flashId: string | null;
@@ -144,7 +144,7 @@ export function CommentPanel(p: Props) {
         <h2>
           Comments <span className="muted">{open} open</span>
         </h2>
-        <CopyButton board={p.board} doc={p.doc} comments={p.comments} />
+        <CopyButton title={p.title} path={p.path} comments={p.comments} />
       </div>
       <div className="panel-meta">
         <label>

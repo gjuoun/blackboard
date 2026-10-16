@@ -1,9 +1,11 @@
-import { readFileSync, watch, type FSWatcher } from "node:fs";
+import { readFileSync, mkdirSync, watch, type FSWatcher } from "node:fs";
+import { basename, dirname } from "node:path";
 import { activitySince, type Activity } from "./activity";
-import { listBoards, resolveBoard, resolveDoc, type Board } from "./boards";
+import { importBoards, type ImportResult } from "./import";
 import { addComment, addReply, mutate, readComments, setStatus, type Comment, type CommentFile } from "./comments-store";
 import { renderPlainText } from "./markdown";
 import { selectorFor } from "./selector";
+import { closeSession, openSession, resolveSession, SessionError, sessionCommentsPath, sessionRows, type Session, type SessionRow } from "./sessions";
 
 /** A failure the CLI reports on stderr. code 1 = the command failed, 2 = bad usage. */
 export class CliError extends Error {
@@ -14,63 +16,96 @@ export class CliError extends Error {
 
 export type DocComment = Comment & { doc: string };
 
-function board(root: string, name: string): string {
-  const dir = resolveBoard(root, name);
-  if (!dir) throw new CliError(`no board "${name}" under ${root}`);
-  return dir;
+const DEFAULT_URL = "http://127.0.0.1:38770";
+
+/** Where the web app shows a session: $BLACKBOARD_URL (default the local app) + /s/<id>. */
+export const sessionUrl = (id: string) => `${(process.env.BLACKBOARD_URL || DEFAULT_URL).replace(/\/+$/, "")}/s/${id}`;
+
+/** A session named by id or by a path to its file (relative to `cwd`). */
+function find(home: string, ref: string, cwd = process.cwd()): { session: Session; file: string; doc: string } {
+  const session = resolveSession(home, ref, cwd);
+  if (!session) throw new CliError(`no session "${ref}" (register the file with: blackboard open <file>)`);
+  return { session, file: sessionCommentsPath(home, session.id), doc: basename(session.path) };
 }
 
-/** Comment ids are unique within a board, so a command can name a comment without its doc. */
+/** Comment ids are unique within a session, so a command can name a comment by id alone. */
 function docOf(file: CommentFile, id: string): string {
   const doc = Object.keys(file.docs).find((d) => file.docs[d].some((c) => c.id === id));
-  if (!doc) throw new CliError(`no comment ${id} on this board`);
+  if (!doc) throw new CliError(`no comment ${id} on this session`);
   return doc;
 }
 
-export function boards(root: string): Board[] {
-  return listBoards(root);
+/** Register a markdown file as a session (again is fine) and give its URL. */
+export function open(home: string, file: string, cwd = process.cwd()): { session: Session; url: string } {
+  try {
+    const session = openSession(home, file, cwd);
+    return { session, url: sessionUrl(session.id) };
+  } catch (err) {
+    if (err instanceof SessionError) throw new CliError(err.message);
+    throw err;
+  }
 }
 
-/** Comments on a board (or one doc), open only unless `all`, in doc order then creation order. */
-export function comments(root: string, name: string, opts: { doc?: string; all?: boolean } = {}): DocComment[] {
-  const file = readComments(board(root, name));
-  return Object.entries(file.docs)
-    .filter(([doc]) => !opts.doc || doc === opts.doc)
-    .sort(([a], [b]) => a.localeCompare(b))
+/** Bring comments over from an old folder of boards (see importBoards). */
+export async function importRoot(home: string, root: string, dryRun = false): Promise<ImportResult> {
+  try {
+    return await importBoards(home, root, { dryRun });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT" || (err as NodeJS.ErrnoException).code === "ENOTDIR") throw new CliError(`not a folder: ${root}`);
+    throw err;
+  }
+}
+
+export function sessions(home: string): SessionRow[] {
+  return sessionRows(home);
+}
+
+export function close(home: string, ref: string, cwd = process.cwd()): Session {
+  return closeSession(home, find(home, ref, cwd).session.id);
+}
+
+/** A session's comments, open only unless `all`, in creation order. */
+export function comments(home: string, ref: string, opts: { all?: boolean; cwd?: string } = {}): DocComment[] {
+  const { file } = find(home, ref, opts.cwd);
+  return Object.entries(readComments(file).docs)
     .flatMap(([doc, list]) => list.map((c) => ({ ...c, doc })))
     .filter((c) => opts.all || c.status === "open");
 }
 
-export async function reply(root: string, name: string, id: string, body: string, author: string): Promise<DocComment> {
+export async function reply(home: string, ref: string, id: string, body: string, author: string, cwd = process.cwd()): Promise<DocComment> {
   if (!body.trim()) throw new CliError("reply text is empty", 2);
-  const dir = board(root, name);
-  const doc = docOf(readComments(dir), id);
-  return { ...(await mutate(dir, (f) => addReply(f, doc, id, { body: body.trim(), author }))), doc };
+  const { file } = find(home, ref, cwd);
+  const doc = docOf(readComments(file), id);
+  return { ...(await mutate(file, (f) => addReply(f, doc, id, { body: body.trim(), author }))), doc };
 }
 
-export async function status(root: string, name: string, id: string, to: "resolved" | "open", author: string): Promise<DocComment> {
-  const dir = board(root, name);
-  const doc = docOf(readComments(dir), id);
-  return { ...(await mutate(dir, (f) => setStatus(f, doc, id, to, author))), doc };
+export async function status(home: string, ref: string, id: string, to: "resolved" | "open", author: string, cwd = process.cwd()): Promise<DocComment> {
+  const { file } = find(home, ref, cwd);
+  const doc = docOf(readComments(file), id);
+  return { ...(await mutate(file, (f) => setStatus(f, doc, id, to, author))), doc };
 }
 
-/** Comment on the n-th occurrence of `quote` in a doc, as the agent. The page highlights it live. */
+/** Comment on the n-th occurrence of `quote` in the session's doc, as the agent. The page highlights it live. */
 export async function comment(
-  root: string,
-  name: string,
-  doc: string,
+  home: string,
+  ref: string,
   quote: string,
   note: string,
   author: string,
   occurrence = 1,
+  cwd = process.cwd(),
 ): Promise<DocComment> {
   if (!note.trim()) throw new CliError("comment text is empty", 2);
-  const dir = board(root, name);
-  const file = resolveDoc(root, name, doc);
-  if (!file) throw new CliError(`no doc "${doc}" on board "${name}"`);
-  const sel = selectorFor(await renderPlainText(readFileSync(file, "utf8")), quote, occurrence);
+  const { session, file, doc } = find(home, ref, cwd);
+  let src: string;
+  try {
+    src = readFileSync(session.path, "utf8");
+  } catch {
+    throw new CliError(`the doc is missing: ${session.path}`);
+  }
+  const sel = selectorFor(await renderPlainText(src), quote, occurrence);
   if (!sel.ok) throw new CliError(sel.error);
-  return { ...(await mutate(dir, (f) => addComment(f, doc, { quote: sel.selector, body: note.trim(), author }))), doc };
+  return { ...(await mutate(file, (f) => addComment(f, doc, { quote: sel.selector, body: note.trim(), author }))), doc };
 }
 
 /** "90s", "30m", "2h" or plain milliseconds. */
@@ -83,14 +118,16 @@ export function parseDuration(s: string): number {
 export type WaitResult = { events: Activity[]; next: string; timedOut: boolean };
 
 /**
- * Block until someone other than `me` comments, replies, edits, reopens or resolves on the board
- * after `since` (default: now), or until the timeout. Watches the board folder and also polls every
- * 2 s, so a missed file event only costs latency.
+ * Block until someone other than `me` comments, replies, edits, reopens or resolves on the session
+ * after `since` (default: now), or until the timeout. Watches the session's comment folder and also
+ * polls every 2 s, so a missed file event only costs latency.
  */
-export function waitForActivity(root: string, name: string, opts: { since?: string; timeoutMs: number; me: string }): Promise<WaitResult> {
-  const dir = board(root, name);
-  const since = opts.since ? new Date(opts.since).toISOString() : new Date().toISOString();
-  if (since === "Invalid Date") throw new CliError(`bad --since "${opts.since}"`, 2);
+export function waitForActivity(home: string, ref: string, opts: { since?: string; timeoutMs: number; me: string; cwd?: string }): Promise<WaitResult> {
+  const { file } = find(home, ref, opts.cwd);
+  const parsed = opts.since ? new Date(opts.since) : new Date();
+  if (Number.isNaN(parsed.getTime())) throw new CliError(`bad --since "${opts.since}"`, 2);
+  const since = parsed.toISOString();
+  mkdirSync(dirname(file), { recursive: true });
   return new Promise((resolve) => {
     let watcher: FSWatcher | null = null;
     const finish = (r: WaitResult) => {
@@ -102,7 +139,7 @@ export function waitForActivity(root: string, name: string, opts: { since?: stri
     const check = () => {
       let found;
       try {
-        found = activitySince(readComments(dir), since, opts.me);
+        found = activitySince(readComments(file), since, opts.me);
       } catch {
         return; // unreadable for a moment: try again on the next event or poll
       }
@@ -111,9 +148,7 @@ export function waitForActivity(root: string, name: string, opts: { since?: stri
     const poll = setInterval(check, 2000);
     const timer = setTimeout(() => finish({ events: [], next: since, timedOut: true }), opts.timeoutMs);
     try {
-      watcher = watch(dir, { recursive: true }, (_e, f) => {
-        if (f && String(f).startsWith(".blackboard")) check();
-      });
+      watcher = watch(dirname(file), () => check());
     } catch {
       // polling still runs
     }
@@ -138,4 +173,12 @@ export function formatComments(list: DocComment[]): string {
       return lines.join("\n");
     })
     .join("\n\n");
+}
+
+/** One line per session: id, title, where it is, branch, open comments. */
+export function formatSessions(rows: SessionRow[]): string {
+  if (rows.length === 0) return "no sessions (register a file with: blackboard open <file>)";
+  return rows
+    .map((r) => `${r.id}  ${r.title}  ${r.location}  ${r.branch ?? "-"}  ${r.open} open${r.missing ? "  (missing)" : ""}`)
+    .join("\n");
 }

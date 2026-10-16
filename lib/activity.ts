@@ -17,7 +17,7 @@ export type Activity = {
 const squash = (s: string) => s.replace(/\s+/g, " ").trim();
 
 /**
- * What other people did on a board after `since`: new comments and replies, edits, reopens and
+ * What other people did on a session after `since`: new comments and replies, edits, reopens and
  * resolves, oldest first. `me` filters out the caller's own writes. `next` is the newest event
  * time (or `since`), to pass as the next `since`.
  */

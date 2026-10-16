@@ -11,10 +11,11 @@ const comments: (Comment & { orphaned: boolean })[] = [
 ];
 
 describe("exportComments", () => {
-  const md = exportComments("demo", "design.md", comments);
+  const md = exportComments("Design", "/work/repo/docs/design.md", comments);
 
-  test("starts with the doc and the open count", () => {
-    expect(md.split("\n")[0]).toBe("## demo/design.md — 2 open comments");
+  test("starts with the doc's title, the open count and its file", () => {
+    expect(md.split("\n")[0]).toBe("## Design — 2 open comments");
+    expect(md.split("\n")[2]).toBe("File: `/work/repo/docs/design.md`");
   });
 
   test("quotes the passage, then the note, then replies", () => {
@@ -30,6 +31,6 @@ describe("exportComments", () => {
   });
 
   test("says so when nothing is open", () => {
-    expect(exportComments("demo", "design.md", [comments[1]])).toBe("## demo/design.md — no open comments\n");
+    expect(exportComments("Design", "/d.md", [comments[1]])).toBe("## Design — no open comments\n\nFile: `/d.md`\n");
   });
 });
