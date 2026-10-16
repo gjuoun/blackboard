@@ -27,6 +27,11 @@ describe("comment file", () => {
     expect(stored.status).toBe("resolved");
     expect(stored.resolvedBy).toBe("jun");
     expect(stored.replies.map((r: { body: string }) => r.body)).toEqual(["Preloaded at boot."]);
+
+    await mutate(demo, (f) => setStatus(f, "design.md", c.id, "open", "jun"));
+    const reopened = readComments(demo).docs["design.md"][0];
+    expect(reopened).toMatchObject({ status: "open", reopenedBy: "jun" });
+    expect(reopened.resolvedAt).toBeUndefined();
   });
 
   test("two concurrent mutations both land", async () => {

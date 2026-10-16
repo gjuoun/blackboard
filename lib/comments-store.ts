@@ -21,6 +21,8 @@ export type Comment = {
   status: CommentStatus;
   resolvedAt?: string;
   resolvedBy?: string;
+  reopenedAt?: string;
+  reopenedBy?: string;
   replies: Reply[];
 };
 export type CommentFile = { version: 1; docs: Record<string, Comment[]> };
@@ -133,6 +135,10 @@ export function setStatus(file: CommentFile, doc: string, id: string, status: Co
     c.resolvedAt = now();
     c.resolvedBy = by;
   } else {
+    if (c.resolvedAt) {
+      c.reopenedAt = now();
+      c.reopenedBy = by;
+    }
     delete c.resolvedAt;
     delete c.resolvedBy;
   }
