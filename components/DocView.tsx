@@ -174,7 +174,7 @@ export function DocView({ session, title, path, html, initialComments }: { sessi
     if (!body || !r) return;
     const range = rangeOf(buildTextMap(body), r.start, r.end);
     const rect = range?.getBoundingClientRect();
-    if (rect && (rect.top < 60 || rect.bottom > innerHeight)) scrollBy({ top: rect.top - innerHeight / 3, behavior: "smooth" });
+    if (rect && (rect.top < 100 || rect.bottom > innerHeight)) scrollBy({ top: rect.top - innerHeight / 3, behavior: "smooth" });
   };
 
   const panelComments: PanelComment[] = useMemo(() => {

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { DocHeader } from "@/components/DocHeader";
 import { DocView } from "@/components/DocView";
+import { RegisterTab } from "@/components/RegisterTab";
 import { Toc } from "@/components/Toc";
 import { readComments } from "@/lib/comments-store";
 import { getHome } from "@/lib/home";
@@ -24,6 +25,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   if (!file) {
     return (
       <div className="doc-layout">
+        <RegisterTab id={session.id} title={row.title} path={session.path} />
         <DocHeader row={row} />
         <main className="doc-missing" data-testid="doc-missing">
           <h1>{row.title}</h1>
@@ -42,6 +44,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   const doc = basename(file);
   return (
     <div className="doc-layout">
+      <RegisterTab id={session.id} title={row.title} path={session.path} />
       <DocHeader row={row} />
       <aside className="sidebar">
         <Toc toc={toc} />
