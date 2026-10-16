@@ -10,7 +10,7 @@ export function NewBoardForm() {
       <input
         name="topic"
         data-testid="new-board-name"
-        placeholder="New board topic, e.g. MAF connected rewards"
+        placeholder="New board topic, e.g. Search ranking v2"
         defaultValue={state.topic}
         required
         maxLength={120}

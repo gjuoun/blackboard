@@ -6,11 +6,14 @@ leaving comments on the text, so Jun and an agent can go back and forth on a pla
 Jun reads and comments in the browser; an agent reads the docs from disk and takes part in
 the comments through the `blackboard` CLI (see [CLI for agents](#cli-for-agents)).
 
+Requires [bun](https://bun.sh) 1.3+. macOS and Linux; browsers: Chrome/Edge and Safari 17.2+
+(CSS Custom Highlight API).
+
 ## Run it
 
 ```sh
 bun install
-BLACKBOARD_ROOT=~/.notebook/kanban/mistplay/mistplay-files bun dev
+BLACKBOARD_ROOT=~/projects/plans bun dev   # a folder whose sub-folders are boards
 # open http://127.0.0.1:38770
 ```
 
@@ -167,3 +170,7 @@ lib/markdown.ts           unified pipeline: GFM, heading ids, legacy marks, merm
 proxy.ts                  localhost-only Host and Origin checks
 templates/board/          new-board template
 ```
+
+## License
+
+[MIT](LICENSE) © Jun Guo

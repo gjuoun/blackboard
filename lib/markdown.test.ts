@@ -43,25 +43,25 @@ describe("renderMarkdown", () => {
   test("renders front matter as a field table that keeps arrays and nesting", async () => {
     const src = [
       "---",
-      "id: JM-116",
+      "id: PLAN-42",
       "status: In Progress",
       "created: 2026-09-24",
       "tags:",
-      "  - maf",
+      "  - search",
       "  - auth",
       "sub_issue: []",
       "pr: \"\"",
       "owner:",
       "  name: jun",
-      "  team: lp",
+      "  team: core",
       "---",
       "",
       "# Body",
     ].join("\n");
     const { html, frontmatter } = await renderMarkdown(src);
-    expect(frontmatter).toEqual({ id: "JM-116", status: "In Progress", created: "2026-09-24", tags: ["maf", "auth"], sub_issue: [], pr: "", owner: { name: "jun", team: "lp" } });
+    expect(frontmatter).toEqual({ id: "PLAN-42", status: "In Progress", created: "2026-09-24", tags: ["search", "auth"], sub_issue: [], pr: "", owner: { name: "jun", team: "core" } });
     expect(html.startsWith('<table class="frontmatter" data-testid="frontmatter">')).toBe(true);
-    expect(html).toContain('<th scope="row">tags</th><td><ul class="fm-list"><li class="fm-chip">maf</li><li class="fm-chip">auth</li></ul></td>');
+    expect(html).toContain('<th scope="row">tags</th><td><ul class="fm-list"><li class="fm-chip">search</li><li class="fm-chip">auth</li></ul></td>');
     expect(html).toContain('<th scope="row">created</th><td>2026-09-24</td>');
     expect(html).toContain('<th scope="row">sub_issue</th><td></td>');
     expect(html).toContain('<th scope="row">pr</th><td></td>');
