@@ -40,6 +40,43 @@ describe("renderMarkdown", () => {
     expect(html).not.toContain("language-mermaid");
   });
 
+  test("renders front matter as a field table that keeps arrays and nesting", async () => {
+    const src = [
+      "---",
+      "id: JM-116",
+      "status: In Progress",
+      "created: 2026-09-24",
+      "tags:",
+      "  - maf",
+      "  - auth",
+      "sub_issue: []",
+      "pr: \"\"",
+      "owner:",
+      "  name: jun",
+      "  team: lp",
+      "---",
+      "",
+      "# Body",
+    ].join("\n");
+    const { html, frontmatter } = await renderMarkdown(src);
+    expect(frontmatter).toEqual({ id: "JM-116", status: "In Progress", created: "2026-09-24", tags: ["maf", "auth"], sub_issue: [], pr: "", owner: { name: "jun", team: "lp" } });
+    expect(html.startsWith('<table class="frontmatter" data-testid="frontmatter">')).toBe(true);
+    expect(html).toContain('<th scope="row">tags</th><td><ul class="fm-list"><li class="fm-chip">maf</li><li class="fm-chip">auth</li></ul></td>');
+    expect(html).toContain('<th scope="row">created</th><td>2026-09-24</td>');
+    expect(html).toContain('<th scope="row">sub_issue</th><td></td>');
+    expect(html).toContain('<th scope="row">pr</th><td></td>');
+    expect(html).toContain('<th scope="row">owner</th><td><table class="fm-nested"><tbody><tr><th scope="row">name</th><td>jun</td></tr>');
+    expect(html).not.toContain("<hr>");
+    expect(html).toContain('<h1 id="body">Body</h1>');
+  });
+
+  test("shows front matter it cannot parse as source, with the error", async () => {
+    const { html, frontmatter } = await renderMarkdown("---\ntags: [unclosed\n---\n\ntext\n");
+    expect(frontmatter).toBeNull();
+    expect(html).toContain('class="frontmatter-error"');
+    expect(html).toContain("tags: [unclosed");
+  });
+
   test("escapes raw HTML instead of rendering it", async () => {
     const { html } = await renderMarkdown("<script>alert(1)</script>\n\nok\n");
     expect(html).not.toContain("<script>");

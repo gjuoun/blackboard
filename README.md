@@ -30,7 +30,8 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
 - **Boards** — the home page lists the folders under the root. A board's file tree is every
   `*.md` in it, recursively; dot-folders and `node_modules` are skipped.
 - **Doc view** — GitHub-style markdown (tables with sticky headers, heading anchors), a table of
-  contents and the file tree. Raw HTML in a doc is not rendered.
+  contents and the file tree. YAML front matter shows as a field / value table: lists as chips,
+  maps as nested tables, empty values as blank cells; YAML that does not parse is shown as source. Raw HTML in a doc is not rendered.
 - **Diagrams** — fenced `mermaid` blocks render in the browser from the bundled library, so
   they work offline.
 - **Comments** — select text, click **Comment**, type a note. Replies are flat; comments can be

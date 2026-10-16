@@ -102,6 +102,24 @@ button.link.danger { color: #cf222e; }
 .doc-body pre { background: var(--bg-subtle); padding: 12px 16px; border-radius: 6px; overflow: auto; }
 .doc-body blockquote { margin: 0; padding: 0 1em; color: var(--muted); border-left: 4px solid var(--border); }
 .doc-body img { max-width: 100%; }
+/* Front matter: field / value table */
+.doc-body table.frontmatter { width: 100%; margin: 0 0 24px; font-size: 13px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.doc-body table.frontmatter th, .doc-body table.frontmatter td { border-width: 0 0 1px 0; padding: 5px 12px; vertical-align: top; }
+.doc-body table.frontmatter tr:last-child > * { border-bottom-width: 0; }
+.doc-body table.frontmatter tbody tr:nth-child(2n) { background: none; }
+.doc-body table.frontmatter > tbody > tr > th { width: 1%; white-space: nowrap; background: var(--bg-subtle); color: var(--muted); font-weight: 500; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; border-right-width: 1px; }
+.doc-body table.fm-nested { margin: 0; font-size: 12px; border: 1px solid var(--border); border-radius: 6px; }
+.doc-body table.fm-nested th, .doc-body table.fm-nested td { border-width: 0 0 1px 0; padding: 2px 8px; }
+.doc-body table.fm-nested tr:last-child > * { border-bottom-width: 0; }
+.doc-body table.fm-nested th { color: var(--muted); font-weight: 500; white-space: nowrap; }
+.fm-list { display: flex; flex-wrap: wrap; gap: 4px; list-style: none; margin: 0; padding: 0; }
+.fm-chip { padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-subtle); font-size: 12px; line-height: 20px; }
+.fm-items { margin: 0; padding-left: 18px; }
+.fm-items > li + li { margin-top: 4px; }
+.fm-text { white-space: pre-wrap; }
+.frontmatter-error { margin: 0 0 24px; padding: 8px 12px; border: 1px solid #cf222e; border-radius: 8px; font-size: 13px; }
+.frontmatter-error p { margin: 0 0 6px; color: #cf222e; }
+
 .legacy-mark { background: var(--mark); border-bottom: 1px dashed #c9a400; cursor: help; }
 .mermaid-block { margin: 16px 0; }
 .mermaid-block.is-rendered .mermaid-src { display: none; }
