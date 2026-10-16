@@ -17,5 +17,19 @@ export function proxy(request: NextRequest) {
   if (!LOCAL_HOSTS.has(hostname(host).toLowerCase())) {
     return new NextResponse("Forbidden: Blackboard only answers localhost", { status: 403 });
   }
+  // A page on another site can still send a simple POST to 127.0.0.1 with the right Host.
+  // Browsers label those with Origin, so refuse writes whose Origin is not this machine.
+  const origin = request.headers.get("origin");
+  if (request.method !== "GET" && request.method !== "HEAD" && origin && !isLocalOrigin(origin)) {
+    return new NextResponse("Forbidden: cross-site write", { status: 403 });
+  }
   return NextResponse.next();
+}
+
+function isLocalOrigin(origin: string): boolean {
+  try {
+    return LOCAL_HOSTS.has(hostname(new URL(origin).host).toLowerCase());
+  } catch {
+    return false;
+  }
 }
