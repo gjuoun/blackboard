@@ -4,6 +4,36 @@ import { resolveSafe } from "./paths";
 
 export type Board = { name: string; docCount: number; updatedAt: number };
 
+/** A board folder from a URL segment: one visible first-level folder, never a nested path. */
+export function resolveBoard(root: string, board: string): string | null {
+  if (!board || board.includes("/") || board.includes("\\") || !visible(board)) return null;
+  const dir = resolveSafe(root, board);
+  if (!dir) return null;
+  try {
+    return statSync(dir).isDirectory() ? dir : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A markdown file inside one board. Paths into hidden folders or other boards are refused. */
+export function resolveDoc(root: string, board: string, doc: string): string | null {
+  const boardDir = resolveBoard(root, board);
+  if (!boardDir || !doc.toLowerCase().endsWith(".md")) return null;
+  if (doc.split("/").some((part) => !visible(part))) return null;
+  const file = resolveSafe(boardDir, doc);
+  if (!file) return null;
+  try {
+    return statSync(file).isFile() ? file : null;
+  } catch {
+    return null;
+  }
+}
+
+/** URL for a doc: each path segment encoded, "/" kept. */
+export const docHref = (board: string, doc: string) =>
+  `/b/${encodeURIComponent(board)}/${doc.split("/").map(encodeURIComponent).join("/")}`;
+
 const SKIP = new Set(["node_modules"]);
 const visible = (name: string) => !name.startsWith(".") && !SKIP.has(name);
 
