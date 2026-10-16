@@ -3,7 +3,7 @@ import { slugify } from "./slug";
 
 describe("slugify", () => {
   test("turns a topic into a folder name", () => {
-    expect(slugify("MAF Connected Rewards: admin dashboard")).toBe("maf-connected-rewards-admin-dashboard");
+    expect(slugify("Search ranking: admin dashboard")).toBe("search-ranking-admin-dashboard");
   });
 
   test("drops accents and stray punctuation", () => {
