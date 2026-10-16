@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import type { Comment } from "@/lib/comments-store";
+import { exportComments } from "@/lib/export";
 
 export type PanelComment = Comment & { orphaned: boolean };
 
@@ -35,7 +36,28 @@ function ReplyBox({ onReply }: { onReply: (body: string) => Promise<void> }) {
   );
 }
 
+/** Copies the open comments as markdown, to paste to an agent by hand. */
+function CopyButton({ board, doc, comments }: { board: string; doc: string; comments: PanelComment[] }) {
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(exportComments(board, doc, comments));
+      setState("copied");
+    } catch {
+      setState("failed");
+    }
+    setTimeout(() => setState("idle"), 1500);
+  };
+  return (
+    <button data-testid="copy-comments" onClick={copy} title="Copy open comments as markdown">
+      {state === "copied" ? "Copied ✓" : state === "failed" ? "Copy failed" : "Copy open"}
+    </button>
+  );
+}
+
 type Props = {
+  board: string;
+  doc: string;
   comments: PanelComment[];
   activeId: string | null;
   onActivate: (id: string) => void;
@@ -46,7 +68,6 @@ type Props = {
   author: string;
   onAuthor: (v: string) => void;
   composer: ReactNode;
-  toolbar?: ReactNode;
   error: string | null;
 };
 
@@ -61,7 +82,7 @@ export function CommentPanel(p: Props) {
         <h2>
           Comments <span className="muted">{open} open</span>
         </h2>
-        {p.toolbar}
+        <CopyButton board={p.board} doc={p.doc} comments={p.comments} />
       </div>
       <div className="panel-meta">
         <label>

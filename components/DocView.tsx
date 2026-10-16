@@ -180,6 +180,8 @@ export function DocView({ board, doc, html, initialComments }: { board: string; 
         ) : null}
       </main>
       <CommentPanel
+        board={board}
+        doc={doc}
         comments={panelComments}
         activeId={activeId}
         onActivate={activate}
