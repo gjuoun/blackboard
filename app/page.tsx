@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
+import { NewBoardForm } from "@/components/NewBoardForm";
 import { listBoards } from "@/lib/boards";
 import { getRoot } from "@/lib/paths";
 
@@ -13,6 +14,7 @@ export default async function Home() {
         <h1>Blackboard</h1>
         <p className="muted">{root}</p>
       </header>
+      <NewBoardForm />
       {boards.length === 0 ? <p className="muted">No boards yet.</p> : null}
       <ul className="board-grid">
         {boards.map((b) => (
