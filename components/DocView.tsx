@@ -40,6 +40,7 @@ export function DocView({ board, doc, html, initialComments }: { board: string; 
   const [composing, setComposing] = useState<QuoteSelector | null>(null);
   const [note, setNote] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [hoverId, setHoverId] = useState<string | null>(null);
   const [showResolved, setShowResolved] = useState(false);
   const [anchors, setAnchors] = useState<Record<string, TextRange | null>>({});
 
@@ -51,21 +52,24 @@ export function DocView({ board, doc, html, initialComments }: { board: string; 
     const next: Record<string, TextRange | null> = {};
     const open: Range[] = [];
     const active: Range[] = [];
+    const hover: Range[] = [];
     for (const c of comments) {
       const r = anchor(map.text, c.quote);
       next[c.id] = r;
       const range = r && rangeOf(map, r.start, r.end);
       if (!range) continue;
       if (c.id === activeId) active.push(range);
+      else if (c.id === hoverId) hover.push(range);
       else if (c.status === "open") open.push(range);
     }
     const hl = highlights();
     if (hl) {
       hl.set("bb-comment", new Highlight(...open));
+      hl.set("bb-comment-hover", new Highlight(...hover));
       hl.set("bb-comment-active", new Highlight(...active));
     }
     setAnchors((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
-  }, [comments, html, activeId]);
+  }, [comments, html, activeId, hoverId]);
   useEffect(() => () => highlights()?.clear(), []);
 
   // Track the reader's selection inside the doc and offer a Comment button next to it.
@@ -103,26 +107,63 @@ export function DocView({ board, doc, html, initialComments }: { board: string; 
     getSelection()?.removeAllRanges();
   };
 
-  // Clicking highlighted text selects its comment.
-  const onDocClick = useCallback(
-    (e: React.MouseEvent<HTMLElement>) => {
+  // Which open comment's passage is under a point, if any (the shortest one when they overlap).
+  const hitAt = useCallback(
+    (x: number, y: number): string | null => {
       const body = bodyRef.current;
-      if (!body || !getSelection()?.isCollapsed) return;
+      if (!body) return null;
       const d = document as Document & { caretRangeFromPoint?: (x: number, y: number) => Range | null };
-      const pos = d.caretPositionFromPoint?.(e.clientX, e.clientY);
-      const point = pos ? { node: pos.offsetNode, offset: pos.offset } : (() => { const r = d.caretRangeFromPoint?.(e.clientX, e.clientY); return r ? { node: r.startContainer, offset: r.startOffset } : null; })();
-      if (!point) return;
-      const at = offsetOf(buildTextMap(body), point.node, point.offset);
-      const hit = comments.find((c) => {
-        const r = anchors[c.id];
-        return r && c.status === "open" && at >= r.start && at <= r.end;
-      });
-      if (hit) {
-        setActiveId(hit.id);
-        document.querySelector(`[data-testid=comment-item][data-id="${hit.id}"]`)?.scrollIntoView({ block: "nearest" });
+      const pos = d.caretPositionFromPoint?.(x, y);
+      const r = pos ? null : d.caretRangeFromPoint?.(x, y);
+      const node = pos?.offsetNode ?? r?.startContainer;
+      if (!node || !body.contains(node)) return null;
+      const at = offsetOf(buildTextMap(body), node, pos?.offset ?? r?.startOffset ?? 0);
+      let best: { id: string; len: number } | null = null;
+      for (const c of comments) {
+        const range = anchors[c.id];
+        if (!range || c.status !== "open" || at < range.start || at >= range.end) continue;
+        const len = range.end - range.start;
+        if (!best || len < best.len) best = { id: c.id, len };
       }
+      return best?.id ?? null;
     },
     [anchors, comments],
+  );
+
+  // Hovering a highlight shows a pointer and a stronger highlight, so it reads as clickable.
+  const frame = useRef(0);
+  const onDocMove = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      const { clientX, clientY } = e;
+      cancelAnimationFrame(frame.current);
+      frame.current = requestAnimationFrame(() => {
+        const id = hitAt(clientX, clientY);
+        if (bodyRef.current) bodyRef.current.style.cursor = id ? "pointer" : "";
+        setHoverId(id);
+      });
+    },
+    [hitAt],
+  );
+  const onDocLeave = useCallback(() => {
+    cancelAnimationFrame(frame.current);
+    setHoverId(null);
+  }, []);
+
+  // Clicking highlighted text focuses its comment; clicking plain text clears the focus.
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const onDocClick = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      if (!getSelection()?.isCollapsed) return;
+      const id = hitAt(e.clientX, e.clientY);
+      setActiveId(id);
+      if (!id) return;
+      const item = document.querySelector<HTMLElement>(`[data-testid=comment-item][data-id="${id}"]`);
+      item?.scrollIntoView({ block: "center", behavior: "smooth" });
+      item?.focus({ preventScroll: true });
+      setFlashId(id);
+      setTimeout(() => setFlashId((cur) => (cur === id ? null : cur)), 900);
+    },
+    [hitAt],
   );
 
   // Selecting a comment scrolls its passage into view.
@@ -168,7 +209,7 @@ export function DocView({ board, doc, html, initialComments }: { board: string; 
   return (
     <>
       <main className="doc-main" ref={mainRef}>
-        <DocBody html={html} ref={bodyRef} onClick={onDocClick} />
+        <DocBody html={html} ref={bodyRef} onClick={onDocClick} onMouseMove={onDocMove} onMouseLeave={onDocLeave} />
         {draft ? (
           <button
             data-testid="comment-button"
@@ -186,6 +227,7 @@ export function DocView({ board, doc, html, initialComments }: { board: string; 
         doc={doc}
         comments={panelComments}
         activeId={activeId}
+        flashId={flashId}
         onActivate={activate}
         onReply={reply}
         onResolve={setResolved}

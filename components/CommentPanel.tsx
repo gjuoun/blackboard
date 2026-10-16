@@ -114,6 +114,7 @@ type Props = {
   doc: string;
   comments: PanelComment[];
   activeId: string | null;
+  flashId: string | null;
   onActivate: (id: string) => void;
   onReply: (id: string, body: string) => Promise<void>;
   onResolve: (id: string, resolved: boolean) => Promise<void>;
@@ -166,7 +167,8 @@ export function CommentPanel(p: Props) {
             data-id={c.id}
             data-status={c.status}
             data-orphaned={String(c.orphaned)}
-            className={`comment-item${c.id === p.activeId ? " is-active" : ""}`}
+            tabIndex={-1}
+            className={`comment-item${c.id === p.activeId ? " is-active" : ""}${c.id === p.flashId ? " is-flash" : ""}`}
             onClick={() => p.onActivate(c.id)}
           >
             <blockquote className="comment-quote" title={c.quote.exact}>

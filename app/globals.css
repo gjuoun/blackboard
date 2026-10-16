@@ -49,6 +49,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 
 /* Comments */
 ::highlight(bb-comment) { background-color: rgba(255, 196, 0, 0.35); }
+::highlight(bb-comment-hover) { background-color: rgba(255, 170, 0, 0.5); }
 ::highlight(bb-comment-active) { background-color: rgba(255, 140, 0, 0.55); }
 button { font: inherit; font-size: 13px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); cursor: pointer; }
 button:hover:not(:disabled) { border-color: var(--accent); }
@@ -69,6 +70,9 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .comment-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .comment-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px; cursor: pointer; }
 .comment-item.is-active { border-color: #d48806; box-shadow: 0 0 0 1px #d48806; }
+.comment-item:focus { outline: none; }
+.comment-item.is-flash { animation: bb-flash 0.9s ease-out; }
+@keyframes bb-flash { 0% { background: #fff1c2; } 100% { background: var(--bg); } }
 .comment-item[data-status=resolved] { opacity: 0.65; }
 .comment-item[data-orphaned=true] { border-style: dashed; }
 .comment-quote { margin: 0 0 6px; padding: 0 0 0 8px; border-left: 3px solid #f0c000; color: var(--muted); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

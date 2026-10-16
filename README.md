@@ -35,7 +35,10 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
   they work offline.
 - **Comments** — select text, click **Comment**, type a note. Replies are flat; comments can be
   resolved and reopened. Your own comments and replies (same author name) show **Edit** and
-  **Delete** on hover; delete asks first and removes the comment with its replies. Highlights use the CSS Custom Highlight API (Chrome, Safari 17.2+).
+  **Delete** on hover; delete asks first and removes the comment with its replies.
+- **Click a highlight** — the pointer changes over highlighted text; a click focuses that
+  comment in the panel (scrolled to the middle, flashed). Clicking plain text clears it. Clicking
+  a comment in the panel scrolls the doc to its passage. Highlights use the CSS Custom Highlight API (Chrome, Safari 17.2+).
 - **Live view** — the page refreshes when a file in the board changes. Highlights follow their
   passage; a comment whose passage is gone stays in the list as *orphaned*.
 - **Copy open** — copies the doc's open comments as markdown (quote, note, replies) to paste
