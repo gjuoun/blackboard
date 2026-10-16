@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { QuoteSelector } from "@/lib/anchor";
 import { resolveBoard, resolveDoc } from "@/lib/boards";
-import { addComment, addReply, mutate, readComments, setStatus } from "@/lib/comments-store";
+import { addComment, addReply, deleteComment, deleteReply, editComment, editReply, mutate, readComments, setStatus } from "@/lib/comments-store";
 import { getRoot } from "@/lib/paths";
 
 const MAX_BODY = 10_000;
@@ -54,7 +54,11 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ comment }, { status: 201 });
 }
 
-/** PATCH {board, doc, id, action: reply|resolve|reopen, body?, author?}. */
+/**
+ * PATCH {board, doc, id, action, body?, replyId?, author?}
+ * action: reply | resolve | reopen | edit | delete | edit-reply | delete-reply.
+ * delete answers {deleted: id}; every other action answers the updated {comment}.
+ */
 export async function PATCH(req: NextRequest) {
   const b = await json(req);
   const t = b && target(b.board, b.doc);
@@ -68,6 +72,25 @@ export async function PATCH(req: NextRequest) {
       if (!body) return bad("body is required");
       return NextResponse.json({ comment: await mutate(t.boardDir, (f) => addReply(f, t.doc, id, { body, author: who })) });
     }
+    if (b.action === "edit") {
+      const body = text(b.body, MAX_BODY);
+      if (!body) return bad("body is required");
+      return NextResponse.json({ comment: await mutate(t.boardDir, (f) => editComment(f, t.doc, id, body)) });
+    }
+    if (b.action === "delete") {
+      await mutate(t.boardDir, (f) => deleteComment(f, t.doc, id));
+      return NextResponse.json({ deleted: id });
+    }
+    if (b.action === "edit-reply" || b.action === "delete-reply") {
+      const replyId = text(b.replyId, 64);
+      if (!replyId) return bad("replyId is required");
+      if (b.action === "delete-reply") {
+        return NextResponse.json({ comment: await mutate(t.boardDir, (f) => deleteReply(f, t.doc, id, replyId)) });
+      }
+      const body = text(b.body, MAX_BODY);
+      if (!body) return bad("body is required");
+      return NextResponse.json({ comment: await mutate(t.boardDir, (f) => editReply(f, t.doc, id, replyId, body)) });
+    }
     if (b.action === "resolve" || b.action === "reopen") {
       const status = b.action === "resolve" ? "resolved" : "open";
       return NextResponse.json({ comment: await mutate(t.boardDir, (f) => setStatus(f, t.doc, id, status, who)) });
@@ -76,5 +99,5 @@ export async function PATCH(req: NextRequest) {
     if (err instanceof Error && /not found/.test(err.message)) return bad(err.message, 404);
     throw err;
   }
-  return bad("action must be reply, resolve or reopen");
+  return bad("unknown action");
 }

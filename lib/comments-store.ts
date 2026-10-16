@@ -8,7 +8,7 @@ import { resolveSafe } from "./paths";
  * On-disk format of <board>/.blackboard/comments.json. Plain JSON on purpose: an agent reads
  * it straight from disk. Keys of `docs` are board-relative doc paths ("research/notes.md").
  */
-export type Reply = { id: string; body: string; author: string; createdAt: string };
+export type Reply = { id: string; body: string; author: string; createdAt: string; editedAt?: string };
 export type CommentStatus = "open" | "resolved";
 export type Comment = {
   id: string;
@@ -16,6 +16,7 @@ export type Comment = {
   body: string;
   author: string;
   createdAt: string;
+  editedAt?: string;
   status: CommentStatus;
   resolvedAt?: string;
   resolvedBy?: string;
@@ -81,6 +82,42 @@ export function addComment(file: CommentFile, doc: string, input: { quote: Quote
 export function addReply(file: CommentFile, doc: string, id: string, input: { body: string; author: string }): Comment {
   const c = find(file, doc, id);
   c.replies.push({ id: newId("r"), body: input.body, author: input.author, createdAt: now() });
+  return c;
+}
+
+export function editComment(file: CommentFile, doc: string, id: string, body: string): Comment {
+  const c = find(file, doc, id);
+  c.body = body;
+  c.editedAt = now();
+  return c;
+}
+
+/** Removes the comment and its replies. Returns the removed comment. */
+export function deleteComment(file: CommentFile, doc: string, id: string): Comment {
+  const c = find(file, doc, id);
+  file.docs[doc] = file.docs[doc].filter((x) => x.id !== id);
+  if (file.docs[doc].length === 0) delete file.docs[doc];
+  return c;
+}
+
+function findReply(c: Comment, replyId: string): Reply {
+  const r = c.replies.find((x) => x.id === replyId);
+  if (!r) throw new Error(`reply ${replyId} not found on ${c.id}`);
+  return r;
+}
+
+export function editReply(file: CommentFile, doc: string, id: string, replyId: string, body: string): Comment {
+  const c = find(file, doc, id);
+  const r = findReply(c, replyId);
+  r.body = body;
+  r.editedAt = now();
+  return c;
+}
+
+export function deleteReply(file: CommentFile, doc: string, id: string, replyId: string): Comment {
+  const c = find(file, doc, id);
+  findReply(c, replyId);
+  c.replies = c.replies.filter((r) => r.id !== replyId);
   return c;
 }
 

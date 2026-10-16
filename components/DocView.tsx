@@ -34,7 +34,7 @@ export function DocView({ board, doc, html, initialComments }: { board: string; 
     localStorage.setItem(AUTHOR_KEY, v.trim() || "jun");
   };
 
-  const { comments, error, add, reply, setResolved, reload } = useComments(board, doc, initialComments, author.trim() || "jun");
+  const { comments, error, add, reply, setResolved, reload, edit, remove, editReply, removeReply } = useComments(board, doc, initialComments, author.trim() || "jun");
   useLiveDoc(board, reload);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [composing, setComposing] = useState<QuoteSelector | null>(null);
@@ -189,6 +189,10 @@ export function DocView({ board, doc, html, initialComments }: { board: string; 
         onActivate={activate}
         onReply={reply}
         onResolve={setResolved}
+        onEdit={edit}
+        onDelete={remove}
+        onEditReply={editReply}
+        onDeleteReply={removeReply}
         showResolved={showResolved}
         onShowResolved={setShowResolved}
         author={author}

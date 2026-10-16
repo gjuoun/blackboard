@@ -34,7 +34,8 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
 - **Diagrams** — fenced `mermaid` blocks render in the browser from the bundled library, so
   they work offline.
 - **Comments** — select text, click **Comment**, type a note. Replies are flat; comments can be
-  resolved and reopened. Highlights use the CSS Custom Highlight API (Chrome, Safari 17.2+).
+  resolved and reopened. Your own comments and replies (same author name) show **Edit** and
+  **Delete** on hover; delete asks first and removes the comment with its replies. Highlights use the CSS Custom Highlight API (Chrome, Safari 17.2+).
 - **Live view** — the page refreshes when a file in the board changes. Highlights follow their
   passage; a comment whose passage is gone stays in the list as *orphaned*.
 - **Copy open** — copies the doc's open comments as markdown (quote, note, replies) to paste
@@ -86,6 +87,8 @@ reported, never overwritten.
   used to pick the right copy when the passage repeats. Offsets are over the doc's rendered
   plain text, with diagram blocks left out.
 - `status` is `open` or `resolved`; `resolvedAt` / `resolvedBy` exist only while resolved.
+- `editedAt` appears on a comment or reply once its body has been edited. Deleting removes the
+  entry from the file (no tombstone); a doc with no comments left drops its key.
 - An agent may add a reply by editing the file (keep the shape; any unique `id`). The page
   picks the change up live.
 

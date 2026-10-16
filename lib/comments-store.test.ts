@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { addComment, addReply, commentsPath, mutate, readComments, setStatus } from "./comments-store";
+import { addComment, addReply, commentsPath, deleteComment, deleteReply, editComment, editReply, mutate, readComments, setStatus } from "./comments-store";
 import { makeFixtureRoot } from "./test-fixture";
 
 const quote = { exact: "The cache is warm.", prefix: "Later text. ", suffix: " End." };
@@ -55,6 +55,38 @@ describe("comment file", () => {
   test("errors on an unknown comment id instead of creating one", async () => {
     const demo = fresh();
     await expect(mutate(demo, (f) => addReply(f, "design.md", "c_missing", { body: "x", author: "jun" }))).rejects.toThrow(/not found/);
+  });
+
+  test("edits a comment and a reply, stamping editedAt", async () => {
+    const demo = fresh();
+    const c = await mutate(demo, (f) => addComment(f, "design.md", { quote, body: "typo", author: "jun" }));
+    const withReply = await mutate(demo, (f) => addReply(f, "design.md", c.id, { body: "re typo", author: "jun" }));
+    await mutate(demo, (f) => editComment(f, "design.md", c.id, "fixed"));
+    await mutate(demo, (f) => editReply(f, "design.md", c.id, withReply.replies[0].id, "re fixed"));
+    const stored = readComments(demo).docs["design.md"][0];
+    expect(stored.body).toBe("fixed");
+    expect(stored.editedAt).toBeString();
+    expect(stored.replies[0].body).toBe("re fixed");
+    expect(stored.replies[0].editedAt).toBeString();
+  });
+
+  test("deletes a reply, then the comment, and drops the empty doc key", async () => {
+    const demo = fresh();
+    const c = await mutate(demo, (f) => addComment(f, "design.md", { quote, body: "gone soon", author: "jun" }));
+    const keep = await mutate(demo, (f) => addComment(f, "design.md", { quote, body: "stays", author: "jun" }));
+    const r = await mutate(demo, (f) => addReply(f, "design.md", c.id, { body: "r", author: "jun" }));
+    await mutate(demo, (f) => deleteReply(f, "design.md", c.id, r.replies[0].id));
+    expect(readComments(demo).docs["design.md"].find((x) => x.id === c.id)?.replies).toEqual([]);
+    await mutate(demo, (f) => deleteComment(f, "design.md", c.id));
+    expect(readComments(demo).docs["design.md"].map((x) => x.id)).toEqual([keep.id]);
+    await mutate(demo, (f) => deleteComment(f, "design.md", keep.id));
+    expect(readComments(demo).docs).toEqual({});
+  });
+
+  test("errors on an unknown reply id", async () => {
+    const demo = fresh();
+    const c = await mutate(demo, (f) => addComment(f, "design.md", { quote, body: "x", author: "jun" }));
+    await expect(mutate(demo, (f) => editReply(f, "design.md", c.id, "r_missing", "y"))).rejects.toThrow(/not found/);
   });
 
   test("puts the file under .blackboard in the board", () => {
