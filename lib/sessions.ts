@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { readComments } from "./comments-store";
+import { docMeta, type DocMeta } from "./doc-meta";
 import { expandHome } from "./home";
 import { withFileLock } from "./lock";
 
@@ -125,6 +127,49 @@ export function resolveSession(home: string, idOrPath: string, cwd = process.cwd
     return null;
   }
   return getSession(home, sessionId(real));
+}
+
+/** One line of the session list: the registry entry plus what the file says about itself. */
+export type SessionRow = Session &
+  Pick<DocMeta, "title" | "repo" | "branch" | "missing" | "stats"> & {
+    /** "repo/rel/path.md" inside git, the absolute path outside it. */
+    location: string;
+    updatedAt: string;
+    /** Open comments. */
+    open: number;
+  };
+
+function openCount(home: string, id: string): number {
+  try {
+    return Object.values(readComments(sessionCommentsPath(home, id)).docs)
+      .flat()
+      .filter((c) => c.status === "open").length;
+  } catch {
+    return 0;
+  }
+}
+
+export function sessionRow(home: string, s: Session): SessionRow {
+  const commentsFile = sessionCommentsPath(home, s.id);
+  const m = docMeta(s.path, commentsFile);
+  return {
+    ...s,
+    title: m.title,
+    repo: m.repo,
+    branch: m.branch,
+    missing: m.missing,
+    stats: m.stats,
+    location: m.repo ? `${m.repo.name}/${m.repo.relPath}` : s.path,
+    updatedAt: m.updatedAt ?? s.openedAt,
+    open: openCount(home, s.id),
+  };
+}
+
+/** Every registered session with its title, location, branch and open comment count, most recently updated first. */
+export function sessionRows(home: string): SessionRow[] {
+  return listSessions(home)
+    .map((s) => sessionRow(home, s))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 /** The one global scratchpad: <home>/scratchpad.md, created on first use, always registered. */
