@@ -13,6 +13,7 @@
   "dependencies": {
     "hast-util-to-string": "^3.0.1",
     "mdast-util-to-string": "^4.0.0",
+    "mermaid": "^12.2.0",
     "next": "16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
