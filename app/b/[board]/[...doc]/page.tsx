@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DocBody } from "@/components/DocBody";
+import { DocView } from "@/components/DocView";
 import { FileTree } from "@/components/FileTree";
 import { Toc } from "@/components/Toc";
 import { listDocs, resolveBoard, resolveDoc } from "@/lib/boards";
+import { readComments } from "@/lib/comments-store";
 import { renderMarkdown } from "@/lib/markdown";
 import { getRoot } from "@/lib/paths";
 
@@ -31,9 +32,7 @@ export default async function DocPage({ params }: PageProps<"/b/[board]/[...doc]
         <FileTree board={board} docs={listDocs(boardDir)} current={doc} />
         <Toc toc={toc} />
       </aside>
-      <main className="doc-main">
-        <DocBody html={html} />
-      </main>
+      <DocView key={`${board}/${doc}`} board={board} doc={doc} html={html} initialComments={readComments(boardDir).docs[doc] ?? []} />
     </div>
   );
 }

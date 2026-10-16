@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { memo, useEffect, type Ref, type RefObject } from "react";
 import { renderMermaidIn } from "./Mermaid";
 
-/** The rendered doc. Diagrams are drawn in the browser after the HTML lands. */
-export function DocBody({ html }: { html: string }) {
-  const ref = useRef<HTMLElement>(null);
+type Props = { html: string; ref: Ref<HTMLElement>; onClick?: (e: React.MouseEvent<HTMLElement>) => void };
+
+/**
+ * The rendered doc. Memoised on the HTML so a comment change never resets the DOM (which would
+ * drop the reader's selection and the drawn diagrams). Diagrams are drawn after the HTML lands.
+ */
+export const DocBody = memo(function DocBody({ html, ref, onClick }: Props) {
   useEffect(() => {
-    if (ref.current) void renderMermaidIn(ref.current);
-  }, [html]);
-  return <article ref={ref} className="doc-body" data-testid="doc-body" dangerouslySetInnerHTML={{ __html: html }} />;
-}
+    const el = (ref as RefObject<HTMLElement | null>).current;
+    if (el) void renderMermaidIn(el);
+  }, [html, ref]);
+  return <article ref={ref} className="doc-body" data-testid="doc-body" onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} />;
+});

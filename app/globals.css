@@ -41,7 +41,40 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-si
 .sidebar a[aria-current="page"] { font-weight: 600; color: var(--fg); }
 .toc-depth-1 { font-weight: 600; }
 .toc-depth-3 { padding-left: 12px; }
-.doc-main { padding: 24px 40px 80px; min-width: 0; }
+.doc-main { position: relative; padding: 24px 40px 80px; min-width: 0; }
+
+/* Comments */
+::highlight(bb-comment) { background-color: rgba(255, 196, 0, 0.35); }
+::highlight(bb-comment-active) { background-color: rgba(255, 140, 0, 0.55); }
+button { font: inherit; font-size: 13px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.comment-button { position: absolute; z-index: 5; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.comment-panel { position: sticky; top: var(--nav-h); align-self: start; max-height: calc(100vh - var(--nav-h)); overflow: auto; padding: 16px; border-left: 1px solid var(--border); font-size: 14px; background: var(--bg); }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.panel-head h2 { font-size: 15px; margin: 0; }
+.panel-head h2 .muted { font-weight: 400; font-size: 13px; }
+.panel-meta { display: flex; justify-content: space-between; gap: 8px; margin: 8px 0 12px; font-size: 12px; color: var(--muted); }
+.author-input { width: 80px; font: inherit; border: none; border-bottom: 1px dashed var(--border); background: transparent; color: var(--fg); }
+.panel-error { color: #cf222e; font-size: 13px; }
+.panel-empty { font-size: 13px; }
+.composer { border: 1px solid var(--accent); border-radius: 8px; padding: 10px; margin-bottom: 12px; }
+.composer textarea { width: 100%; font: inherit; padding: 6px; border: 1px solid var(--border); border-radius: 6px; resize: vertical; }
+.composer-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+.comment-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.comment-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px; cursor: pointer; }
+.comment-item.is-active { border-color: #d48806; box-shadow: 0 0 0 1px #d48806; }
+.comment-item[data-status=resolved] { opacity: 0.65; }
+.comment-item[data-orphaned=true] { border-style: dashed; }
+.comment-quote { margin: 0 0 6px; padding: 0 0 0 8px; border-left: 3px solid #f0c000; color: var(--muted); font-size: 13px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.orphan-note { margin: 0 0 6px; font-size: 12px; color: #9a6700; }
+.comment-body { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.comment-meta { margin: 2px 0 0; font-size: 12px; }
+.reply-list { list-style: none; margin: 8px 0 0; padding: 0 0 0 10px; border-left: 2px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+.comment-actions { display: flex; gap: 6px; margin-top: 8px; }
+.reply-box { display: flex; gap: 6px; flex: 1; }
+.reply-box input { flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; }
 
 /* Doc body: GitHub-like markdown */
 .doc-body { max-width: 860px; }
