@@ -10,6 +10,11 @@ the browser shows the doc with where it lives (repo and path) and which git bran
 You select text and comment; an agent reads the file from disk and takes part through the
 same `blackboard` CLI (see [CLI for agents](#cli-for-agents)).
 
+<p>
+  <img src="docs/screenshots/doc.png" alt="A doc with its contents on the left and comments on the right" width="720">
+  <img src="docs/screenshots/phone.png" alt="The same doc on a phone, with the comments sheet open" width="170">
+</p>
+
 Requires [bun](https://bun.sh) 1.3+. macOS and Linux; browsers: Chrome/Edge and Safari 17.2+
 (CSS Custom Highlight API).
 
@@ -26,7 +31,7 @@ blackboard open docs/design.md       # registers the file and opens its tab
 |----------|---------|---------|
 | `BLACKBOARD_HOME` | `~/.blackboard` | Blackboard's own folder: the session list, each session's comments, the scratchpad. |
 | `PORT` | `38770` | Port for `bun dev` / `bun start`. |
-| `BLACKBOARD_URL` | `http://127.0.0.1:38770` | Where `blackboard open` points the browser. |
+| `BLACKBOARD_URL` | `http://127.0.0.1:38770` | Where `blackboard open` points the browser, and the base of the share-card URLs in each page. Set it to your public address if the app is reachable from outside. |
 
 The server binds `127.0.0.1` and answers only `localhost` / `127.0.0.1` / `[::1]` Host
 headers; writes from another site's Origin get a 403. It serves only files that were
@@ -37,26 +42,35 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
 
 ## What it does
 
-- **Home** — the scratchpad card on top, then a table of sessions: title (front matter
-  `title`, else the first `#` heading, else the file name) with its location (`repo/path` inside
-  git, the full path outside), the current branch, open comments, created and updated. Search
-  matches title, path, repo and branch; filter by repo (or "No repo"); sort by newest, created
-  or title. The choices stay in the URL, so they survive a reload.
-- **Tabs** — a strip across the top: back / forward, a pinned Home tab and one tab per opened
-  doc. Opening a doc from Home, the CLI or a typed URL adds its tab; × or a middle click closes
-  one, and closing the open doc moves to its neighbour. Tabs are kept in the browser's
-  local storage, so they survive a reload.
+- **Home** — the scratchpad card on top, then every session as a card grouped by **Today**,
+  **This week** and **Earlier**: title (front matter `title`, else the first `#` heading, else the
+  file name), its location (`repo/path` inside git, the full path outside; cut from the left so the
+  file name always shows), the current branch, how long ago it changed and its open comments.
+  Search matches title, path, repo and branch; filter by repo (or "No repo"); sort by newest,
+  created or title. The choices stay in the URL, so they survive a reload.
+- **One top bar** — **back to list**, a pinned Home tab and one tab per opened doc. Opening a doc
+  from Home, the CLI or a typed URL adds its tab; × or a middle click closes one, and closing the
+  open doc moves to its neighbour. **Drag a tab to reorder it.** On a doc the bar also holds the
+  **Contents** and **Comments** toggles (with the open-comment count) and a **⋯** menu: copy the
+  file path, show resolved comments, wrap code blocks, close this / other tabs, back / forward.
+  Tabs and panel choices are kept in the browser's local storage.
 - **Scratchpad** — one free-form doc at `$BLACKBOARD_HOME/scratchpad.md`, pinned on Home; its card
   counts sections and diagrams. You can comment on it like any doc.
-- **Doc view** — GitHub-style markdown (tables with sticky headers, heading anchors), a table of
-  contents, and a header with the location and a branch chip. YAML front matter shows as a
-  field / value table: lists as chips, maps as nested tables, empty values as blank cells; YAML
-  that does not parse is shown as source. Raw HTML in a doc is not rendered.
+- **Doc view** — GitHub-style markdown (tables with sticky headers, heading anchors), a
+  **Contents** list on the left that highlights the section you are reading, and chips above the
+  doc with its location and branch. Contents and Comments both **collapse**: Contents to nothing,
+  Comments to a thin rail with its count. YAML front matter shows as a field / value table: lists
+  as chips, maps as nested tables, empty values as blank cells; YAML that does not parse is shown
+  as source. Raw HTML in a doc is not rendered.
+- **On a phone** — the bar shows the current title across two lines, the other tabs move into the
+  **⋯** menu, and Contents and Comments open as bottom sheets.
 - **Diagrams** — fenced `mermaid` blocks render in the browser from the bundled library, so
   they work offline.
-- **Comments** — select text, click **Comment**, type a note. Replies are flat; comments can be
-  resolved and reopened. Your own comments and replies (same author name) show **Edit** and
-  **Delete** on hover; delete asks first and removes the comment with its replies.
+- **Comments** — select text, click **Comment**, type a note. Each card shows who and when, a
+  **check circle** at the top right (click to resolve, click the green one to reopen) and a reply
+  field. Replies are flat. Your own comments and replies (same author name) show **Edit** and
+  **Delete** on hover; delete asks first and removes the comment with its replies. The panel
+  header holds the author chip (click to change the name), a show-resolved eye and a copy button.
 - **Click a highlight** — the pointer changes over highlighted text; a click focuses that
   comment in the panel. Clicking a comment in the panel scrolls the doc to its passage.
 - **Live view** — the page refreshes when the file changes on disk. Highlights follow their
@@ -198,7 +212,10 @@ half-written; a file that does not parse is reported, never overwritten):
 
 ```text
 app/                      Home (/), a session (/s/<id>), /api/comments, /api/watch (SSE)
-components/               TabStrip, SessionTable, DocView (selection + highlights), CommentPanel, Toc, Mermaid
+components/               TopBar (tabs, toggles, menu), SessionTable, DocView (selection + highlights, collapsible panels),
+                          CommentPanel, Toc, Mermaid; ui/ holds the shadcn pieces; chrome.ts is the shared panel state
+app/themes.css            every colour as a token, one block per theme
+app/globals.css           Tailwind, the markdown styles for a rendered doc
 lib/sessions.ts           the session registry, comment-file paths, rows for Home and the CLI
 lib/doc-meta.ts           title, repo, branch and stats of a doc
 lib/tabs.ts               the tab strip's model (pure, tested)
@@ -211,9 +228,14 @@ lib/markdown.ts           unified pipeline: GFM, heading ids, legacy marks, merm
 proxy.ts                  localhost-only Host and Origin checks
 ```
 
-## License
+## Look and themes
 
-[MIT](LICENSE) © Jun Guo
+Built with Next.js 16, React 19, Tailwind 4 and [shadcn/ui](https://ui.shadcn.com) components.
+The look is the `warm` theme. All colours, radii and the two font stacks are tokens in
+`app/themes.css`, so another theme is one more block: copy the `warm` block, give it a new
+`data-theme` name and list it in `lib/theme.ts`. A `.dark` variant is sketched there but has not
+been reviewed on screen. The font stacks are system fonts; set `--font-ui` / `--font-code` to use
+your own.
 
 ## Titles, icons and share cards
 
@@ -224,3 +246,7 @@ proxy.ts                  localhost-only Host and Origin checks
 - Set `BLACKBOARD_URL` (for example `https://notes.example.com`) when the app is reachable from outside, so
   the card URLs in the page are absolute. In `bun dev` Next always uses `localhost`.
 - `docs/social-preview.png` is the same default card; upload it under GitHub's Settings → Social preview.
+
+## License
+
+[MIT](LICENSE) © Jun Guo
