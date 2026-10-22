@@ -10,10 +10,11 @@ let counter = 0;
 export async function renderMermaidIn(root: HTMLElement): Promise<void> {
   const blocks = [...root.querySelectorAll<HTMLElement>("[data-testid=mermaid]:not([data-rendered])")];
   if (blocks.length === 0) return;
+  // Claim the blocks before the first await, so a second run (React strict mode, a re-render) skips them.
+  for (const block of blocks) block.dataset.rendered = "true";
   const { default: mermaid } = await import("mermaid");
   mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "default" });
   for (const block of blocks) {
-    block.dataset.rendered = "true";
     const src = block.querySelector(".mermaid-src")?.textContent ?? "";
     try {
       const { svg } = await mermaid.render(`bb-mermaid-${++counter}`, src);

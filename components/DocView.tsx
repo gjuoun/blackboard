@@ -249,8 +249,8 @@ export function DocView({ session, title, path, html, initialComments, header, t
   return (
     <div className="grid min-h-[calc(100vh-var(--bar-h))] transition-[grid-template-columns] duration-200" style={{ gridTemplateColumns: cols }}>
       {desktop ? (
-        <aside className={cn("border-border sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] self-start overflow-y-auto border-r", chrome.tocOpen && toc ? "p-3" : "invisible border-0 p-0")} aria-hidden={!chrome.tocOpen}>
-          {toc}
+        <aside className={cn("border-border overflow-x-clip border-r", chrome.tocOpen && toc ? "" : "invisible border-0")} aria-hidden={!chrome.tocOpen}>
+          <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto p-3">{toc}</div>
         </aside>
       ) : null}
       <main className="relative min-w-0 px-4 pt-6 pb-24 md:px-10 md:pt-8" ref={mainRef}>
@@ -273,13 +273,17 @@ export function DocView({ session, title, path, html, initialComments, header, t
       </main>
       {desktop ? (
         chrome.cmOpen ? (
-          <aside className="border-border bg-background sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] self-start overflow-y-auto border-l p-3.5">{panel}</aside>
+          <aside className="border-border bg-background border-l">
+            <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto p-3.5">{panel}</div>
+          </aside>
         ) : (
-          <aside className="border-border sticky top-[var(--bar-h)] flex flex-col items-center gap-2 self-start border-l pt-3" data-testid="comment-rail">
-            <Button variant="ghost" size="icon-sm" aria-label="Expand comments" title="Expand comments" onClick={() => setChrome({ cmOpen: true })}>
-              <MessageSquare />
-            </Button>
-            {openCount > 0 ? <span className="bg-primary-soft text-primary rounded-full px-1.5 text-xs font-semibold">{openCount}</span> : null}
+          <aside className="border-border border-l" data-testid="comment-rail">
+            <div className="sticky top-[var(--bar-h)] flex flex-col items-center gap-2 pt-3">
+              <Button variant="ghost" size="icon-sm" aria-label="Expand comments" title="Expand comments" onClick={() => setChrome({ cmOpen: true })}>
+                <MessageSquare />
+              </Button>
+              {openCount > 0 ? <span className="bg-primary-soft text-primary rounded-full px-1.5 text-xs font-semibold">{openCount}</span> : null}
+            </div>
           </aside>
         )
       ) : (

@@ -73,7 +73,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   const doc = basename(file);
   return (
     <>
-      <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 0} />
+      <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 1} />
       <DocView
         key={session.id}
         session={session.id}
@@ -82,7 +82,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
         html={html}
         initialComments={readComments(sessionCommentsPath(home, session.id)).docs[doc] ?? []}
         header={header}
-        toc={toc.length > 0 ? <Toc toc={toc} /> : null}
+        toc={toc.length > 1 ? <Toc toc={toc} /> : null}
       />
     </>
   );

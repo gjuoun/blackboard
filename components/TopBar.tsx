@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Copy, Home, ListTree, MessageSquare, MoreHorizontal, X } from "lucide-react";
+import { ArrowLeft, Home, ListTree, MessageSquare, MoreHorizontal, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -107,17 +107,13 @@ export function TopBar() {
         Blackboard
       </Link>
 
-      <Button asChild={!onHome} variant="ghost" size="sm" disabled={onHome} className="shrink-0 px-2 md:hidden" data-testid="tab-back">
-        {onHome ? (
-          <span aria-label="Back to list">
-            <ArrowLeft />
-          </span>
-        ) : (
+      {onHome ? null : (
+        <Button asChild variant="ghost" size="sm" className="shrink-0 px-2 md:hidden" data-testid="tab-back">
           <Link href="/" aria-label="Back to list" title="Back to list">
             <ArrowLeft />
           </Link>
-        )}
-      </Button>
+        </Button>
+      )}
       {/* Desktop tabs: the pinned Home tab is the way back to the list */}
       <nav
         className="scrollbar-none hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex"
@@ -183,7 +179,7 @@ export function TopBar() {
       </nav>
 
       {/* Phone: just the current title, as wide as the bar allows */}
-      <div className="line-clamp-2 min-w-0 flex-1 px-1 text-sm leading-tight font-semibold md:hidden" data-testid="bar-title">
+      <div className={cn("line-clamp-2 min-w-0 flex-1 px-1 text-sm leading-tight font-semibold md:hidden", onHome && "pl-2")} data-testid="bar-title">
         {onHome ? "Blackboard" : (current?.title ?? "Document")}
       </div>
 
@@ -212,8 +208,8 @@ export function TopBar() {
           {doc ? (
             <>
               <DropdownMenuLabel>This document</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => copy(doc.path)}>
-                <Copy /> Copy file path
+              <DropdownMenuItem inset onSelect={() => copy(doc.path)}>
+                Copy file path
               </DropdownMenuItem>
               <DropdownMenuCheckboxItem checked={chrome.showResolved} onCheckedChange={(v) => setChrome({ showResolved: v })}>
                 Show resolved comments
@@ -228,9 +224,7 @@ export function TopBar() {
           <div className="md:hidden">
             <DropdownMenuLabel>Tabs</DropdownMenuLabel>
             <DropdownMenuItem asChild>
-              <Link href="/">
-                <Home /> Home
-              </Link>
+              <Link href="/">Home</Link>
             </DropdownMenuItem>
             {tabs.map((t) => (
               <DropdownMenuItem key={t.id} asChild>
