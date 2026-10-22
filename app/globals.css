@@ -9,7 +9,12 @@
   --tabs-h: 40px;
   --top: calc(var(--tabs-h) + var(--nav-h));
   --mark: #fff3b0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  /* Type: LiBianSans for prose, LiBianRecursive for code. Both come from the LiBian family
+     package installed in ~/Library/Fonts; the stacks fall back to the system faces when the
+     family is absent, so this stays safe on a machine without it. */
+  --font-body: "LiBianSans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "LiBianRecursive", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-body);
   color: var(--fg);
   background: var(--bg);
   line-height: 1.5;
@@ -19,7 +24,7 @@
 body { margin: 0; }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
-code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 85%; }
+code, pre { font-family: var(--font-mono); font-size: 85%; }
 .muted { color: var(--muted); }
 
 /* Tab strip: back / forward, pinned Home, one tab per open doc */
@@ -132,7 +137,7 @@ button.link.danger { color: #cf222e; }
 .reply-box input { flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; }
 
 /* Doc body: GitHub-like markdown */
-.doc-body { max-width: 860px; }
+.doc-body { max-width: 860px; line-height: 1.78; }
 .doc-body h1, .doc-body h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.3em; }
 .doc-body h1, .doc-body h2, .doc-body h3 { scroll-margin-top: calc(var(--top) + 8px); }
 .doc-body table { border-collapse: separate; border-spacing: 0; margin: 16px 0; }
