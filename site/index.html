@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blackboard — review markdown with your coding agent</title>
+<meta name="description" content="A local web app for reviewing markdown documents and commenting on the text, with a CLI so coding agents can join the review. MIT licensed.">
+<style>
+/* Tokens + component styles lifted from the app's globals.css */
+:root {
+  --fg: #1f2328; --muted: #59636e; --border: #d1d9e0;
+  --bg: #ffffff; --bg-subtle: #f6f8fa; --accent: #0969da;
+  --mark: #fff3b0;
+  --font-body: "JunHeiSans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "JunHeiMono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font-body); color: var(--fg); background: var(--bg); line-height: 1.5; font-size: 16px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre { font-family: var(--font-mono); font-size: 85%; }
+.muted { color: var(--muted); }
+button { font: inherit; font-size: 13px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+/* Tab strip (decorative, mirrors the app) */
+.tab-strip { position: sticky; top: 0; z-index: 20; height: 40px; display: flex; align-items: center; gap: 4px; padding: 0 12px; background: #eef1f4; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+.tab-nav { flex: none; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 16px; cursor: default; }
+.tab { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid transparent; border-radius: 7px; color: var(--muted); font-family: var(--font-mono); font-size: 13px; }
+.tab.is-active { background: var(--bg); border-color: var(--border); color: var(--fg); font-weight: 600; }
+
+/* Hero */
+.hero { padding: 64px 0 40px; text-align: center; }
+.hero h1 { margin: 0 0 8px; font-family: var(--font-mono); font-size: 44px; letter-spacing: -0.01em; }
+.hero p { max-width: 620px; margin: 0 auto; font-size: 18px; color: var(--muted); }
+.hero .who { margin-top: 4px; }
+.hero-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 24px; }
+.hero-actions .primary { font-size: 15px; padding: 8px 18px; }
+.hero-actions a.plain { display: inline-flex; align-items: center; font-size: 15px; padding: 8px 18px; border: 1px solid var(--border); border-radius: 6px; color: var(--fg); }
+.hero-actions a.plain:hover { border-color: var(--accent); text-decoration: none; }
+
+/* Install block */
+.install { max-width: 480px; margin: 28px auto 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; text-align: left; }
+.install .row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.install .row + .row { border-top: 1px solid var(--border); }
+.install code { flex: 1; font-size: 14px; }
+.install .row span.prompt { color: var(--muted); }
+.copy-btn { flex: none; font-size: 12px; padding: 2px 8px; }
+
+/* Demo panels: mini replicas of the app */
+.demo-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 24px 0 8px; }
+.demo { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13px; }
+.demo .demo-head { display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--bg-subtle); border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.demo .demo-head .dots { display: inline-flex; gap: 4px; }
+.demo .demo-head .dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--border); }
+.demo .demo-body { padding: 14px 16px; }
+
+/* Home replica */
+.session-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.session-table th { text-align: left; padding: 6px 10px; background: var(--bg-subtle); border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.session-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.session-table tbody tr:last-child td { border-bottom: 0; }
+.title-cell .t { font-family: Georgia, "Iowan Old Style", serif; font-size: 15px; }
+.title-cell .loc { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.branch-chip { font-family: var(--font-mono); font-size: 11px; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); white-space: nowrap; }
+
+/* Doc replica */
+.doc-demo { line-height: 1.7; }
+.doc-demo h3 { margin: 0 0 6px; font-size: 15px; }
+.doc-demo p { margin: 0 0 10px; font-size: 13px; }
+mark.hl { background: rgba(255, 196, 0, 0.35); color: inherit; padding: 1px 0; }
+
+/* Comment replica */
+.comment-item { border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+.comment-item.is-active { border-color: #d48806; box-shadow: 0 0 0 1px #d48806; }
+.comment-quote { margin: 0 0 6px; padding: 0 0 0 8px; border-left: 3px solid #f0c000; color: var(--muted); font-size: 12px; }
+.comment-body { margin: 0; white-space: pre-wrap; font-size: 13px; }
+.comment-meta { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: var(--muted); }
+.reply-list { list-style: none; margin: 8px 0 0; padding-left: 10px; border-left: 2px solid var(--border); font-size: 12px; }
+.reply-list .comment-meta { margin-top: 2px; }
+
+/* Sections */
+section { padding: 40px 0; }
+section.features { background: var(--bg-subtle); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+h2.sec { margin: 0 0 20px; font-family: var(--font-mono); font-size: 26px; letter-spacing: -0.01em; }
+ul.feat { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px 28px; padding: 0; margin: 0; list-style: none; }
+ul.feat li { padding-left: 22px; position: relative; }
+ul.feat li::before { content: "—"; position: absolute; left: 0; color: #f0c000; }
+ul.feat strong { font-family: Georgia, "Iowan Old Style", serif; font-weight: 600; }
+
+/* CLI block */
+pre.cli { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; overflow-x: auto; background: var(--bg-subtle); font-size: 13px; line-height: 1.7; }
+pre.cli .c { color: var(--muted); }
+pre.cli .b { font-weight: 700; }
+
+footer { padding: 32px 0 48px; color: var(--muted); font-size: 13px; }
+footer .cols { display: flex; flex-wrap: wrap; gap: 24px 48px; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<!-- Decorative tab strip, same look as the app -->
+<div class="tab-strip" aria-hidden="true">
+  <span class="tab-nav">‹</span><span class="tab-nav">›</span>
+  <span class="tab-sep" style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
+  <span class="tab is-active">⌂ Home</span>
+  <span class="tab">README.md ×</span>
+</div>
+
+<header class="hero wrap">
+  <h1>Blackboard</h1>
+  <p>A local web app for reviewing markdown documents — select text, leave a comment, and let your coding agent answer through the same CLI.</p>
+  <p class="who muted">You and the agent, going back and forth on a plan, in the document itself.</p>
+  <div class="hero-actions">
+    <a class="primary" style="display:inline-flex;align-items:center;border-radius:6px;" href="#install">Get started</a>
+    <a class="plain" href="https://github.com/gjuoun/blackboard">GitHub ↗</a>
+  </div>
+  <div class="install" id="install">
+    <div class="row"><span class="prompt">$</span><code id="cmd1">npm install -g blackboard</code><button class="copy-btn" data-copy="npm install -g blackboard">Copy</button></div>
+    <div class="row"><span class="prompt">$</span><code id="cmd2">blackboard open docs/plan.md</code><button class="copy-btn" data-copy="blackboard open docs/plan.md">Copy</button></div>
+  </div>
+  <p class="muted" style="font-size:13px;margin-top:10px;">or with bun: <code>bunx blackboard open docs/plan.md</code></p>
+</header>
+
+<section class="wrap">
+  <h2 class="sec">What it looks like</h2>
+  <div class="demo-grid">
+    <div class="demo">
+      <div class="demo-head"><span class="dots"><i></i><i></i><i></i></span> Home — sessions</div>
+      <div class="demo-body">
+        <table class="session-table">
+          <thead><tr><th>Title</th><th>Branch</th><th style="text-align:right">Open</th></tr></thead>
+          <tbody>
+            <tr><td class="title-cell"><div class="t">API design</div><div class="loc">myapp/docs/api.md</div></td><td><span class="branch-chip">main</span></td><td style="text-align:right">2</td></tr>
+            <tr><td class="title-cell"><div class="t">Q4 roadmap</div><div class="loc">notes/roadmap.md</div></td><td><span class="branch-chip">q4</span></td><td style="text-align:right">5</td></tr>
+            <tr><td class="title-cell"><div class="t">Scratchpad</div><div class="loc">~/.blackboard</div></td><td class="muted">—</td><td style="text-align:right">0</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="demo">
+      <div class="demo-head"><span class="dots"><i></i><i></i><i></i></span> Doc — with highlights</div>
+      <div class="demo-body doc-demo">
+        <h3>Migration plan</h3>
+        <p>We move reads first, then writes. The proxy layer stays until <mark class="hl">every service reads from the new cluster</mark>, so a rollback is a config flip.</p>
+        <p>Cutover window is Saturday 02:00–04:00 UTC. <span class="muted">Diagrams (mermaid) render offline.</span></p>
+      </div>
+    </div>
+    <div class="demo">
+      <div class="demo-head"><span class="dots"><i></i><i></i><i></i></span> Comments</div>
+      <div class="demo-body">
+        <div class="comment-item is-active">
+          <p class="comment-quote">every service reads from the new cluster</p>
+          <p class="comment-body">What about the analytics reader? It is not in this list.</p>
+          <div class="comment-meta"><span>jun</span><span>2 replies</span></div>
+          <ul class="reply-list">
+            <li>Good catch — added it to step 3. <div class="comment-meta"><span>agent</span></div></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="muted" style="font-size:13px;">Click a highlight in the real app to focus its comment; click a comment to scroll to the passage. The page refreshes live when the file changes on disk.</p>
+</section>
+
+<section class="features">
+  <div class="wrap">
+    <h2 class="sec">What it does</h2>
+    <ul class="feat">
+      <li><strong>Sessions</strong> — one markdown file anywhere on disk; the browser shows where it lives (repo, path, branch).</li>
+      <li><strong>Comments on text</strong> — select a passage, write a note; flat replies, resolve and reopen.</li>
+      <li><strong>Live view</strong> — the page refreshes when the file changes; highlights follow their passage.</li>
+      <li><strong>CLI for agents</strong> — pi, Claude Code, Codex or any shell user reads and answers comments under a shared lock.</li>
+      <li><strong>Markdown done right</strong> — GFM tables with sticky headers, heading anchors, TOC, front matter as a table.</li>
+      <li><strong>Offline mermaid</strong> — diagrams render in the browser from the bundled library.</li>
+      <li><strong>Local and safe</strong> — binds 127.0.0.1, serves only registered files, re-checks every request.</li>
+      <li><strong>Copy open</strong> — copy the open comments as markdown to paste anywhere.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2 class="sec">CLI for agents</h2>
+  <pre class="cli"><span class="b">blackboard</span> open     &lt;file&gt; [--no-browser]         <span class="c"># prints "&lt;id&gt;  &lt;url&gt;"</span>
+<span class="b">blackboard</span> sessions [--json]                      <span class="c"># id, title, location, branch, open comments</span>
+<span class="b">blackboard</span> comments &lt;session&gt; [--all] [--json]
+<span class="b">blackboard</span> reply    &lt;session&gt; &lt;comment-id&gt; "text"
+<span class="b">blackboard</span> resolve  &lt;session&gt; &lt;comment-id&gt;          <span class="c"># or: reopen</span>
+<span class="b">blackboard</span> comment  &lt;session&gt; --quote "passage" "note"
+<span class="b">blackboard</span> wait     &lt;session&gt; [--timeout 30m]      <span class="c"># blocks until a human comments</span></pre>
+  <p class="muted">The CLI edits files under <code>~/.blackboard</code> under a lock shared with the web app, so it works whether or not the app is running; an open page shows its changes live.</p>
+</section>
+
+<footer>
+  <div class="wrap cols">
+    <div>MIT License · <a href="https://github.com/gjuoun/blackboard">github.com/gjuoun/blackboard</a></div>
+    <div>Requires bun 1.3+ · macOS &amp; Linux · Chrome/Edge, Safari 17.2+</div>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll(".copy-btn").forEach(function (b) {
+  b.addEventListener("click", function () {
+    navigator.clipboard.writeText(b.dataset.copy).then(function () {
+      b.textContent = "Copied";
+      setTimeout(function () { b.textContent = "Copy"; }, 1200);
+    });
+  });
+});
+</script>
+</body>
+</html>
