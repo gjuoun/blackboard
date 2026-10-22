@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { closeTab, MAX_TABS, openTab, parseTabs, removeTab, serializeTabs, type Tab } from "./tabs";
+import { closeTab, MAX_TABS, moveTab, openTab, parseTabs, removeTab, serializeTabs, type Tab } from "./tabs";
 
 const t = (id: string, title = id.toUpperCase()): Tab => ({ id, title, path: `/docs/${id}.md` });
 
@@ -37,6 +37,26 @@ describe("closeTab", () => {
   test("closing a background tab keeps the active one", () => {
     expect(closeTab([t("a"), t("b")], "a", "b").next).toBe("b");
     expect(closeTab([t("a"), t("b")], "a", null).next).toBeNull();
+  });
+});
+
+describe("moveTab", () => {
+  const t = (id: string) => ({ id, title: id });
+  const abc = [t("a"), t("b"), t("c")];
+  const ids = (tabs: { id: string }[]) => tabs.map((x) => x.id).join("");
+  test("moves a tab before another, or to the end", () => {
+    expect(ids(moveTab(abc, "c", "a"))).toBe("cab");
+    expect(ids(moveTab(abc, "a", "c"))).toBe("bac");
+    expect(ids(moveTab(abc, "a", null))).toBe("bca");
+  });
+  test("a drop that changes nothing returns the same array", () => {
+    expect(moveTab(abc, "b", "b")).toBe(abc);
+    expect(moveTab(abc, "b", "c")).toBe(abc);
+    expect(moveTab(abc, "c", null)).toBe(abc);
+  });
+  test("unknown ids leave the order alone", () => {
+    expect(moveTab(abc, "x", "a")).toBe(abc);
+    expect(moveTab(abc, "a", "x")).toBe(abc);
   });
 });
 
