@@ -3,7 +3,7 @@
 import { ArrowLeft, Copy, Home, ListTree, MessageSquare, MoreHorizontal, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { closeTab, parseTabs, SCRATCHPAD_TAB, serializeTabs, TABS_KEY, type Tab } from "@/lib/tabs";
+import { closeTab, moveTab, parseTabs, SCRATCHPAD_TAB, serializeTabs, TABS_KEY, type Tab } from "@/lib/tabs";
 import { cn } from "@/lib/utils";
 import { setChrome, togglePanel, useChrome, useIsDesktop } from "./chrome";
 
@@ -80,6 +80,11 @@ export function TopBar() {
   const onHome = pathname === "/";
   const current = tabs.find((t) => t.id === active);
 
+  // Drag a tab to reorder: `drag.id` is the tab in hand, `mark` the edge it would land on.
+  const [drag, setDrag] = useState<{ id: string; mark: { id: string; side: "before" | "after" } | null } | null>(null);
+  const dropBefore = (mark: { id: string; side: "before" | "after" }) => (mark.side === "before" ? mark.id : (tabs[tabs.findIndex((t) => t.id === mark.id) + 1]?.id ?? null));
+  const endDrag = () => setDrag(null);
+
   const close = (id: string) => {
     const { tabs: rest, next } = closeTab(getTabs(), id, active);
     setTabs(rest);
@@ -114,7 +119,18 @@ export function TopBar() {
         )}
       </Button>
       {/* Desktop tabs: the pinned Home tab is the way back to the list */}
-      <nav className="scrollbar-none hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex" aria-label="Open documents">
+      <nav
+        className="scrollbar-none hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex"
+        aria-label="Open documents"
+        onDragOver={(e) => drag && e.preventDefault()}
+        onDrop={(e) => {
+          // A drop on the empty strip after the last tab sends the tab to the end.
+          if (e.target !== e.currentTarget || !drag) return;
+          e.preventDefault();
+          setTabs(moveTab(getTabs(), drag.id, null));
+          endDrag();
+        }}
+      >
         <Link
           href="/"
           data-testid="tab-home"
@@ -130,12 +146,31 @@ export function TopBar() {
             data-testid="tab"
             data-id={t.id}
             data-kind={t.id === SCRATCHPAD_TAB ? "scratchpad" : "doc"}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", t.id);
+              setDrag({ id: t.id, mark: null });
+            }}
+            onDragOver={(e) => {
+              if (!drag) return;
+              e.preventDefault();
+              const r = e.currentTarget.getBoundingClientRect();
+              const side = e.clientX < r.left + r.width / 2 ? "before" : "after";
+              if (drag.mark?.id !== t.id || drag.mark.side !== side) setDrag({ ...drag, mark: { id: t.id, side } });
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (drag?.mark) setTabs(moveTab(getTabs(), drag.id, dropBefore(drag.mark)));
+              endDrag();
+            }}
+            onDragEnd={endDrag}
             onAuxClick={(e) => {
               if (e.button !== 1) return;
               e.preventDefault();
               close(t.id);
             }}
-            className={cn("group text-muted-foreground hover:text-foreground flex h-8 max-w-56 shrink-0 items-center rounded-lg border border-transparent text-sm", t.id === active && "bg-card text-foreground border-border font-medium shadow-xs")}
+            className={cn("group text-muted-foreground hover:text-foreground relative flex h-8 max-w-56 shrink-0 items-center rounded-lg border border-transparent text-sm", t.id === active && "bg-card text-foreground border-border font-medium shadow-xs", drag?.id === t.id && "opacity-40", drag?.mark?.id === t.id && drag.id !== t.id && (drag.mark.side === "before" ? "before:bg-primary before:absolute before:-left-1 before:top-1 before:bottom-1 before:w-0.5 before:rounded-full" : "after:bg-primary after:absolute after:-right-1 after:top-1 after:bottom-1 after:w-0.5 after:rounded-full"))}
           >
             <Link href={`/s/${t.id}`} title={t.path ?? t.title} aria-current={t.id === active ? "page" : undefined} className="min-w-0 truncate py-1 pr-1 pl-3">
               {t.title}

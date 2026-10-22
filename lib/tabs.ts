@@ -37,6 +37,20 @@ export function closeTab(tabs: Tab[], id: string, active: string | null): { tabs
   return { tabs: rest, next: neighbour && neighbour.id !== id ? neighbour.id : null };
 }
 
+/**
+ * Move a tab so it sits before the tab `beforeId` (null = the end). Same array back when the order
+ * would not change, so a drop on the tab's own spot is a no-op.
+ */
+export function moveTab(tabs: Tab[], id: string, beforeId: string | null): Tab[] {
+  const from = tabs.findIndex((t) => t.id === id);
+  if (from < 0 || id === beforeId) return tabs;
+  const rest = tabs.filter((t) => t.id !== id);
+  const at = beforeId === null ? rest.length : rest.findIndex((t) => t.id === beforeId);
+  if (at < 0) return tabs;
+  const next = [...rest.slice(0, at), tabs[from], ...rest.slice(at)];
+  return next.every((t, i) => t === tabs[i]) ? tabs : next;
+}
+
 export function serializeTabs(tabs: Tab[]): string {
   return JSON.stringify(tabs);
 }
