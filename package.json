@@ -1,6 +1,6 @@
 {
   "name": "blackboard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local web app for reading planning docs and commenting on the text, with a CLI so coding agents can join the review",
   "license": "MIT",
   "repository": {
