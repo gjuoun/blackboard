@@ -1,5 +1,5 @@
 ---
-title: 字体样张 — JunHeiSans + JunHeiMono
+title: 字体样张：JunHeiSans + JunHeiMono
 repo: blackboard
 status: draft
 updated: 2026-10-21
@@ -24,8 +24,8 @@ updated: 2026-10-21
 
 | 你说的 | 实际情况 |
 |---|---|
-| 编译出来是打包好的 CSS、compiled JS、JSX，再加一个 HTML | 只对 `web-compat` 那条。没有 HTML，也没有 CSS 文件，只有 `app.js` 和 `app.pak` |
-| PocketJS 原生支持 `Compiled TypeScript with React` | TSX 先被 MicroTS 编成 JS，再由 QuickJS 执行，React 的渲染器是打包进去的那一份 |
+| 编译出来是打包好的 CSS、compiled JS、JSX，再加一个 HTML | 只对 `web-compat` 那条。没有 HTML，也没有 CSS 文件，只有两个文件：`app.js` 与 `app.pak` |
+| PocketJS 原生支持 `Compiled TypeScript with React` | TSX 先被 MicroTS 编成 JS，再由 QuickJS 执行；React 渲染器打包在内 |
 | 是个 meta framework | 不是。没有 SSR、没有文件路由，构建产物就是两个文件 |
 
 ## 3. 列表
@@ -73,4 +73,4 @@ pocket push --target 3ds # 推到宿主，失败时回落到本地预览
 这一段刻意写长，用来看行宽与断行：设备上的 surface 尺寸一旦小于设计稿，PocketJS 不会重排整棵树，
 而是按约束把 `column` 里的子节点重新量一遍，必要时把 `text` 的换行点前移一个标点，保证行首不出现
 逗号与句号——这也是为什么样式表里要带一份 CJK 的禁则表，而不是交给浏览器的 `line-break: strict`。
-数字与单位混排时（`320 px`、`1.78em`、`12 °C`）要留一个细空格，否则隶变的横画会顶到下一列。
+数字与单位混排时（`320 px`、`1.78 em`、`12 °C`）要留一个细空格，否则粗横画会顶到下一列。

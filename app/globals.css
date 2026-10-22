@@ -145,7 +145,8 @@ button.link.danger { color: #cf222e; }
 .doc-body tr > :first-child { border-left-width: 1px; }
 .doc-body thead th { position: sticky; top: var(--top); z-index: 1; background: var(--bg-subtle); border-top-width: 1px; }
 .doc-body tbody tr:nth-child(2n) { background: var(--bg-subtle); }
-.doc-body pre { background: var(--bg-subtle); padding: 12px 16px; border-radius: 6px; overflow: auto; }
+.doc-body pre { background: var(--bg-subtle); padding: 12px 16px; border-radius: 6px; overflow: auto; line-height: 1.6; }
+.doc-body blockquote code { background: var(--bg-subtle); box-shadow: 0 0 0 1px var(--border); }
 .doc-body blockquote { margin: 0; padding: 0 1em; color: var(--muted); border-left: 4px solid var(--border); }
 .doc-body img { max-width: 100%; }
 /* Front matter: field / value table */
