@@ -1,5 +1,7 @@
 # Blackboard
 
+![Blackboard](docs/social-preview.png)
+
 A local web app for reviewing markdown documents (with mermaid diagrams) and leaving comments
 on the text, so a person and a coding agent can go back and forth on a plan.
 
@@ -212,3 +214,13 @@ proxy.ts                  localhost-only Host and Origin checks
 ## License
 
 [MIT](LICENSE) © Jun Guo
+
+## Titles, icons and share cards
+
+- Each tab title is the doc's own title (`Doc title · Blackboard`); Home is `Sessions · Blackboard`.
+- The site icon is `app/icon.svg` (plus `favicon.ico` and `apple-icon.png`).
+- `/opengraph-image` and `/s/<id>/opengraph-image` draw the share cards that social apps show. The
+  card's built-in font draws Latin text only, so a title with other scripts falls back to the file name.
+- Set `BLACKBOARD_URL` (for example `https://notes.example.com`) when the app is reachable from outside, so
+  the card URLs in the page are absolute. In `bun dev` Next always uses `localhost`.
+- `docs/social-preview.png` is the same default card; upload it under GitHub's Settings → Social preview.

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,19 @@ import { readComments } from "@/lib/comments-store";
 import { getHome } from "@/lib/home";
 import { renderMarkdown } from "@/lib/markdown";
 import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath, sessionRow } from "@/lib/sessions";
+
+/** The tab title is the doc's own title; the description names the file, never its folder. */
+export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promise<Metadata> {
+  await connection();
+  const { id } = await params;
+  const home = getHome();
+  if (id === SCRATCHPAD_ID) scratchpadSession(home);
+  const session = getSession(home, id);
+  if (!session) return { title: "No such session" };
+  const row = sessionRow(home, session);
+  const description = `${basename(session.path)} on Blackboard: ${row.stats.sections} sections, ${row.open} open comments.`;
+  return { title: row.title, description, openGraph: { title: row.title, description }, twitter: { card: "summary_large_image", title: row.title, description } };
+}
 
 /** One session: a registered markdown file, its comments, where it lives and which branch. */
 export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
@@ -59,7 +73,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   const doc = basename(file);
   return (
     <>
-      <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 0} />
+      <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 1} />
       <DocView
         key={session.id}
         session={session.id}
@@ -68,7 +82,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
         html={html}
         initialComments={readComments(sessionCommentsPath(home, session.id)).docs[doc] ?? []}
         header={header}
-        toc={toc.length > 0 ? <Toc toc={toc} /> : null}
+        toc={toc.length > 1 ? <Toc toc={toc} /> : null}
       />
     </>
   );

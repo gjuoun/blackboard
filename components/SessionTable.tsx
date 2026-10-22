@@ -84,7 +84,7 @@ export function SessionTable({ rows, pad, initial }: { rows: HomeRow[]; pad: { h
       <span className="text-muted-foreground block truncate text-left font-mono text-xs [direction:rtl]" title={r.path}>
         <bdi>{r.location}</bdi>
       </span>
-      <span className="text-muted-foreground mt-1 flex items-center justify-between gap-2 font-mono text-xs">
+      <span className="text-muted-foreground mt-1 flex h-5 items-center justify-between gap-2 font-mono text-xs">
         <span className="truncate">
           {r.branch ? `⎇ ${r.branch} · ` : ""}
           <span title={r.updatedAt}>{r.updated}</span>
@@ -114,7 +114,7 @@ export function SessionTable({ rows, pad, initial }: { rows: HomeRow[]; pad: { h
         <span className="text-muted-foreground flex-1 basis-full font-mono text-sm sm:basis-auto" data-testid="session-count">
           {visible.length === rows.length ? `${rows.length} ${rows.length === 1 ? "session" : "sessions"}` : `${visible.length} of ${rows.length}`}
         </span>
-        <label className="relative min-w-0 flex-1 sm:flex-none">
+        <label className="relative min-w-0 basis-full sm:flex-none sm:basis-auto">
           <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
           <input
             className={cn(field, "w-full pl-8 sm:w-60")}
@@ -130,7 +130,7 @@ export function SessionTable({ rows, pad, initial }: { rows: HomeRow[]; pad: { h
         </label>
         <select
           aria-label="Filter by repo"
-          className={field}
+          className={cn(field, "min-w-0 flex-1 sm:flex-none")}
           data-testid="repo-filter"
           value={repo}
           onChange={(e) => {
@@ -148,7 +148,7 @@ export function SessionTable({ rows, pad, initial }: { rows: HomeRow[]; pad: { h
         </select>
         <select
           aria-label="Sort"
-          className={field}
+          className={cn(field, "min-w-0 flex-1 sm:flex-none")}
           data-testid="sort-select"
           value={sort}
           onChange={(e) => {
