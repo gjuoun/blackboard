@@ -29,18 +29,20 @@ code, pre { font-family: var(--font-mono); font-size: 85%; }
 
 /* Tab strip: back / forward, pinned Home, one tab per open doc */
 .tab-strip { position: sticky; top: 0; z-index: 20; height: var(--tabs-h); display: flex; align-items: center; gap: 4px; padding: 0 12px; background: #eef1f4; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
-.tab-nav { flex: none; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 16px; cursor: pointer; }
+.tab-nav { flex: none; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer; }
 .tab-nav:hover { background: rgba(0, 0, 0, 0.06); color: var(--fg); }
+.tab-svg { width: 15px; height: 15px; flex: none; }
 .tab-sep { flex: none; width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
 .tab { flex: none; display: inline-flex; align-items: center; gap: 2px; height: 30px; padding: 0 4px 0 10px; border: 1px solid transparent; border-radius: 7px; color: var(--muted); font-family: var(--font-mono); font-size: 13px; }
-.tab-home { padding-right: 12px; margin-left: 8px; }
+.tab-home { width: 30px; height: 30px; padding: 0; margin-left: 8px; justify-content: center; }
 .tab:hover { background: rgba(0, 0, 0, 0.04); text-decoration: none; }
 .tab.is-active { background: var(--bg); border-color: var(--border); color: var(--fg); font-weight: 600; }
 .tab-link { display: inline-flex; align-items: center; gap: 6px; color: inherit; min-width: 0; }
 .tab-link:hover { text-decoration: none; }
 .tab-icon { flex: none; opacity: 0.7; }
 .tab-title { max-width: 26ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tab-close { flex: none; width: 20px; height: 20px; margin-left: 2px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; visibility: hidden; }
+.tab-close { flex: none; width: 20px; height: 20px; margin-left: 2px; border: 0; border-radius: 4px; background: transparent; color: var(--muted); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; visibility: hidden; }
+.tab-close .tab-svg { width: 12px; height: 12px; }
 .tab:hover .tab-close, .tab.is-active .tab-close { visibility: visible; }
 .tab-close:hover { background: rgba(0, 0, 0, 0.08); color: var(--fg); }
 
@@ -131,7 +133,8 @@ button.link { border: none; background: none; padding: 0 4px; font-size: 12px; c
 button.link.danger { color: #cf222e; }
 .edit-box textarea { width: 100%; font: inherit; padding: 6px; border: 1px solid var(--accent); border-radius: 6px; resize: vertical; }
 .reply-list { list-style: none; margin: 8px 0 0; padding: 0 0 0 10px; border-left: 2px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
-.comment-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.comment-actions { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.comment-actions .reply-box { flex: 1; }
 .comment-buttons { display: flex; justify-content: flex-end; gap: 6px; }
 .reply-box { display: flex; gap: 6px; min-width: 0; }
 .reply-box input { flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 3px 6px; border: 1px solid var(--border); border-radius: 6px; }
@@ -160,7 +163,7 @@ button.link.danger { color: #cf222e; }
 .doc-body table.fm-nested tr:last-child > * { border-bottom-width: 0; }
 .doc-body table.fm-nested th { color: var(--muted); font-weight: 500; white-space: nowrap; }
 .fm-list { display: flex; flex-wrap: wrap; gap: 4px; list-style: none; margin: 0; padding: 0; }
-.fm-chip { padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-subtle); font-size: 12px; line-height: 20px; }
+.fm-chip { display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-subtle); font-size: 12px; }
 .fm-items { margin: 0; padding-left: 18px; }
 .fm-items > li + li { margin-top: 4px; }
 .fm-text { white-space: pre-wrap; }

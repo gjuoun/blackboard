@@ -15,7 +15,7 @@ export async function renderMermaidIn(root: HTMLElement): Promise<void> {
   // the diagram twice into the same block.
   for (const block of blocks) block.dataset.rendered = "true";
   const { default: mermaid } = await import("mermaid");
-  mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "default" });
+  mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "default", flowchart: { nodeSpacing: 60, rankSpacing: 70 } });
   for (const block of blocks) {
     const src = block.querySelector(".mermaid-src")?.textContent ?? "";
     try {
