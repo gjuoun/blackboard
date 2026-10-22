@@ -2,7 +2,6 @@
 
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { anchor, makeSelector, type QuoteSelector, type TextRange } from "@/lib/anchor";
 import type { Comment } from "@/lib/comments-store";
@@ -245,7 +244,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
 
   // Desktop: Contents | doc | Comments, each side column collapsing (Comments to a thin rail).
   // Phone: the doc alone, with Contents and Comments as bottom sheets opened from the top bar.
-  const cols = desktop ? `${chrome.tocOpen && toc ? "240px" : "0px"} minmax(0,1fr) ${chrome.cmOpen ? "340px" : "48px"}` : "minmax(0,1fr)";
+  const cols = desktop ? `${chrome.tocOpen && toc ? "240px" : "0px"} minmax(0,1fr) ${chrome.cmOpen ? "340px" : "0px"}` : "minmax(0,1fr)";
   return (
     <div className="grid min-h-[calc(100vh-var(--bar-h))] transition-[grid-template-columns] duration-200" style={{ gridTemplateColumns: cols }}>
       {desktop ? (
@@ -277,14 +276,8 @@ export function DocView({ session, title, path, html, initialComments, header, t
             <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto p-3.5">{panel}</div>
           </aside>
         ) : (
-          <aside className="border-border border-l" data-testid="comment-rail">
-            <div className="sticky top-[var(--bar-h)] flex flex-col items-center gap-2 pt-3">
-              <Button variant="ghost" size="icon-sm" aria-label="Expand comments" title="Expand comments" onClick={() => setChrome({ cmOpen: true })}>
-                <MessageSquare />
-              </Button>
-              {openCount > 0 ? <span className="bg-primary-soft text-primary rounded-full px-1.5 text-xs font-semibold">{openCount}</span> : null}
-            </div>
-          </aside>
+          // Collapsed means gone: the Comments button in the top bar brings it back.
+          <aside aria-hidden className="invisible" />
         )
       ) : (
         <>
