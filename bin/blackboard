@@ -1,0 +1,20 @@
+#!/bin/sh
+# Launcher for the `blackboard` command: runs the built CLI with Node, or with Bun when there is
+# no Node (so a Bun-only machine needs nothing else). In a clone without a build it runs the
+# TypeScript source with Bun.
+self="$0"
+while [ -h "$self" ]; do
+  dir=$(dirname "$self")
+  self=$(readlink "$self")
+  case "$self" in /*) ;; *) self="$dir/$self" ;; esac
+done
+here=$(cd "$(dirname "$self")" && pwd)
+built="$here/../dist/blackboard.mjs"
+
+if [ -f "$built" ]; then
+  if command -v node >/dev/null 2>&1; then exec node "$built" "$@"; fi
+  if command -v bun >/dev/null 2>&1; then exec bun "$built" "$@"; fi
+  echo "blackboard: needs Node 20.9+ or Bun 1.3+ on PATH" >&2
+  exit 127
+fi
+exec bun "$here/blackboard.ts" "$@"

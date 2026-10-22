@@ -15,10 +15,32 @@ same `blackboard` CLI (see [CLI for agents](#cli-for-agents)).
   <img src="docs/screenshots/phone.png" alt="The same doc on a phone, with the comments sheet open" width="170">
 </p>
 
-Requires [bun](https://bun.sh) 1.3+. macOS and Linux; browsers: Chrome/Edge and Safari 17.2+
-(CSS Custom Highlight API).
+## Install
 
-## Run it
+```sh
+npm install -g @gjuoun/blackboard        # or: bun add -g @gjuoun/blackboard
+blackboard open docs/design.md           # starts the web app the first time, then opens the doc
+```
+
+Runs on **Node 20.9+ or Bun 1.3+** (the `blackboard` command uses Node when it is on `PATH`, else
+Bun). macOS and Linux; browsers: Chrome/Edge and Safari 17.2+ (CSS Custom Highlight API). It is a
+Next.js app, so with its dependencies it takes about 600 MB on disk.
+
+The web app runs in the background on `http://127.0.0.1:38770`:
+
+```sh
+blackboard serve start [--port 4000]     # start it (open does this for you on first use)
+blackboard serve status                  # url, pid and log file; exit code 3 when not running
+blackboard serve restart
+blackboard serve stop
+blackboard serve start --foreground      # run in this terminal until Ctrl-C (containers, services)
+```
+
+`serve stop` only stops an app that `serve start` / `open` started (its pid is in
+`$BLACKBOARD_HOME/server.json`, its output in `server.log`). If something else already answers
+at the address, for example `bun dev` in a clone, `open` uses it and leaves it alone.
+
+## Run it from a clone
 
 ```sh
 bun install
@@ -27,10 +49,14 @@ bun link                             # once: puts `blackboard` on PATH (~/.bun/b
 blackboard open docs/design.md       # registers the file and opens its tab
 ```
 
+`bun run build` makes the production build that `blackboard serve start` runs; `bun run build:cli`
+bundles the command for Node (`dist/`). Both run on `npm pack` / `npm publish`.
+
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `BLACKBOARD_HOME` | `~/.blackboard` | Blackboard's own folder: the session list, each session's comments, the scratchpad. |
-| `PORT` | `38770` | Port for `bun dev` / `bun start`. |
+| `PORT` | `38770` | Port for `bun dev` / `bun start` (`serve start` takes `--port` or the port in `BLACKBOARD_URL`). |
+| `BLACKBOARD_NO_SERVER` | off | `1`: `blackboard open` never starts the web app. |
 | `BLACKBOARD_URL` | `http://127.0.0.1:38770` | Where `blackboard open` points the browser, and the base of the share-card URLs in each page. Set it to your public address if the app is reachable from outside. |
 
 The server binds `127.0.0.1` and answers only `localhost` / `127.0.0.1` / `[::1]` Host
@@ -90,7 +116,8 @@ under a lock shared with the web app, so it works whether or not the app is runn
 page shows its changes live.
 
 ```sh
-blackboard open     <file> [--no-browser]         # prints "<id>  <url>"; again is fine
+blackboard open     <file> [--no-browser]         # prints "<id>  <url>"; starts the web app if needed; again is fine
+blackboard serve    start|stop|restart|status     # the web app, in the background
 blackboard sessions [--json]                      # id, title, location, branch, open comments
 blackboard close    <session>                     # forget it; its comments are kept
 blackboard comments <session> [--all] [--json]    # open comments by default
@@ -147,6 +174,7 @@ so it is safe to run twice, and it never changes the old files. Try `--dry-run` 
 ```text
 $BLACKBOARD_HOME/
   sessions.json                 the registered files
+  server.json, server.log       the web app `serve start` launched: pid and url; its output
   sessions/<id>/comments.json   one session's comments
   scratchpad.md                 the scratchpad
 ```
@@ -223,7 +251,8 @@ lib/anchor.ts             find a quoted passage again (pure, tested)
 lib/comments-store.ts     comment file read / locked atomic write (lib/lock.ts)
 lib/activity.ts           what others did since a time (for `wait`)
 lib/import.ts             comments from the old folder-of-boards layout
-lib/cli.ts, bin/          the `blackboard` command
+lib/cli.ts, bin/          the `blackboard` command (bin/blackboard is the launcher, scripts/build-cli.ts bundles it)
+lib/server-ctl.ts         `serve start|stop|restart|status` and the start-on-first-use
 lib/markdown.ts           unified pipeline: GFM, heading ids, legacy marks, mermaid placeholders
 proxy.ts                  localhost-only Host and Origin checks
 ```
