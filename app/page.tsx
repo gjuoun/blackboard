@@ -5,6 +5,9 @@ import { groupOf } from "@/lib/home-groups";
 import { relativeTime, shortDateTime } from "@/lib/relative-time";
 import { SCRATCHPAD_ID, scratchpadSession, sessionRow, sessionRows } from "@/lib/sessions";
 
+// The title template covers child routes only, so Home spells its own.
+export const metadata = { title: { absolute: "Sessions · Blackboard" } };
+
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
