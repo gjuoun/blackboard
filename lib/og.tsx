@@ -14,9 +14,7 @@ export function ogCard({ title, line }: { title: string; line: string }) {
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 80, background: "#faf8f5", color: "#2b2622" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <svg width="64" height="64" viewBox="0 0 64 64">
-            <rect width="64" height="64" rx="14" fill="#c4603f" />
-            <path d="M32 11 53 32 32 53 11 32Z" fill="#faf8f5" />
-            <path d="M32 23 41 32 32 41 23 32Z" fill="#c4603f" />
+            <rect x="13" y="13" width="38" height="38" rx="7" transform="rotate(45 32 32)" fill="#c4603f" />
           </svg>
           <div style={{ fontSize: 36, fontWeight: 700 }}>Blackboard</div>
         </div>
