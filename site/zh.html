@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Blackboard — 和你的编程 agent 一起评审 markdown</title>
-<meta name="description" content="一个跑在本地的 markdown 评审工具：打开磁盘上的任意文档，划选正文就能写批注，编程 agent 通过同一个 CLI 参与讨论。MIT 开源。">
+<meta name="description" content="把方案评审搬回文档里：划选正文写批注，编程 agent 用同一条 CLI 接话，改到定稿。本地运行，MIT 开源。">
 <style>
 /* QuBlack Sans / Mono (SIL OFL 1.1) — subsets covering this page's characters only.
    Full family: github.com/gjuoun/qublack — license: fonts/OFL.txt */
@@ -35,6 +35,7 @@ button:hover:not(:disabled) { border-color: var(--accent); }
 .hero h1 { margin: 0 0 8px; font-size: 44px; font-weight: 700; letter-spacing: -0.01em; }
 .hero p { max-width: 620px; margin: 0 auto; font-size: 18px; color: var(--muted); text-wrap: balance; }
 .hero .who { margin-top: 4px; }
+.hero p.tagline { font-size: 28px; font-weight: 700; color: var(--fg); margin-top: 16px; }
 a.btn { display: inline-flex; align-items: center; font-size: 15px; padding: 8px 18px; border: 1px solid var(--border); border-radius: 6px; color: var(--fg); }
 a.btn:hover { border-color: var(--accent); text-decoration: none; }
 a.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -78,8 +79,8 @@ footer .cols { display: flex; flex-wrap: wrap; gap: 24px 48px; justify-content: 
 
 <header class="hero wrap">
   <h1>Blackboard</h1>
-  <p>一个跑在本地的 markdown 评审工具——划选一段正文就能写批注，你的编程 agent 用同一个 CLI 跟你一问一答。</p>
-  <p class="who muted">方案不用搬出文档。你一句、agent 一句，就在文档里把它磨明白。</p>
+  <p class="tagline">把方案评审，搬回文档里。</p>
+  <p class="who muted">划一句，批一句；你的 agent 用同一条 CLI 接话，改到定稿。</p>
   <div class="hero-actions">
     <a class="btn primary" href="#install">开始使用</a>
     <a class="btn" href="https://github.com/gjuoun/blackboard">GitHub ↗</a>
