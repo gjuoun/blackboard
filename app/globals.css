@@ -9,11 +9,11 @@
   --tabs-h: 40px;
   --top: calc(var(--tabs-h) + var(--nav-h));
   --mark: #fff3b0;
-  /* Type: JunHeiSans for prose, JunHeiMono for code — the fully-open family
-     (Source Han via Sarasa + Recursive Linear, SIL OFL 1.1), installed from
-     JunHei-family-2026-10-21.zip. Fallbacks keep it safe without the family. */
-  --font-body: "JunHeiSans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  --font-mono: "JunHeiMono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Type: QuBlackSans for prose, QuBlackMono for code — our own family
+     (gjuoun/qublack, SIL OFL 1.1), with the previous JunHei family and system
+     stacks as fallbacks so the app stays safe without the family installed. */
+  --font-body: "QuBlack Sans", "JunHeiSans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "QuBlack Mono", "JunHeiMono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-family: var(--font-body);
   color: var(--fg);
   background: var(--bg);
@@ -32,7 +32,7 @@ code, pre { font-family: var(--font-mono); font-size: 85%; }
 .tab-nav { flex: none; width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 16px; cursor: pointer; }
 .tab-nav:hover { background: rgba(0, 0, 0, 0.06); color: var(--fg); }
 .tab-sep { flex: none; width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
-.tab { flex: none; display: inline-flex; align-items: center; gap: 2px; height: 30px; padding: 0 4px 0 10px; border: 1px solid transparent; border-radius: 7px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.tab { flex: none; display: inline-flex; align-items: center; gap: 2px; height: 30px; padding: 0 4px 0 10px; border: 1px solid transparent; border-radius: 7px; color: var(--muted); font-family: var(--font-mono); font-size: 13px; }
 .tab-home { padding-right: 12px; margin-left: 8px; }
 .tab:hover { background: rgba(0, 0, 0, 0.04); text-decoration: none; }
 .tab.is-active { background: var(--bg); border-color: var(--border); color: var(--fg); font-weight: 600; }
@@ -48,27 +48,27 @@ code, pre { font-family: var(--font-mono); font-size: 85%; }
 .home { max-width: 960px; margin: 0 auto; padding: 32px 24px; }
 .home-header h1 { margin-bottom: 4px; }
 .home { max-width: 1120px; }
-.home-header h1 { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 34px; letter-spacing: -0.01em; }
+.home-header h1 { font-family: var(--font-mono); font-size: 34px; letter-spacing: -0.01em; }
 .scratchpad-card { display: flex; flex-direction: column; gap: 6px; width: min(100%, 420px); min-height: 96px; padding: 16px 18px; margin: 8px 0 28px; border: 1px solid var(--border); border-radius: 10px; color: var(--fg); }
 .scratchpad-card:hover { border-color: var(--accent); text-decoration: none; }
-.scratchpad-card strong { font-family: Georgia, "Iowan Old Style", serif; font-size: 18px; font-weight: 500; }
-.scratchpad-card .muted, .sessions .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.scratchpad-card strong { font-family: var(--font-body); font-size: 18px; font-weight: 700; }
+.scratchpad-card .muted, .sessions .mono { font-family: var(--font-mono); font-size: 13px; }
 .sessions-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
-.sessions-count { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); font-size: 15px; }
+.sessions-count { flex: 1; font-family: var(--font-mono); color: var(--muted); font-size: 15px; }
 .session-search { font: inherit; font-size: 14px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; min-width: 220px; }
-.ctl { display: inline-flex; align-items: center; gap: 6px; padding: 4px 4px 4px 10px; border: 1px solid var(--border); border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--muted); }
+.ctl { display: inline-flex; align-items: center; gap: 6px; padding: 4px 4px 4px 10px; border: 1px solid var(--border); border-radius: 6px; font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
 .ctl select { font: inherit; font-weight: 600; color: var(--fg); border: 0; background: transparent; padding: 2px 4px; }
 .session-table-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .session-table { width: 100%; border-collapse: collapse; }
-.session-table th { text-align: left; padding: 10px 16px; background: var(--bg-subtle); border-bottom: 1px solid var(--border); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.session-table th { text-align: left; padding: 10px 16px; background: var(--bg-subtle); border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .session-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
 .session-table tbody tr:last-child td { border-bottom: 0; }
 .session-table tbody tr { cursor: pointer; }
 .session-table tbody tr:hover { background: var(--bg-subtle); }
 .session-table .num { text-align: right; }
 .title-cell { max-width: 460px; }
-.title-cell a { font-family: Georgia, "Iowan Old Style", serif; font-size: 17px; color: var(--fg); }
-.title-cell .location { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.title-cell a { font-family: var(--font-body); font-size: 17px; font-weight: 600; color: var(--fg); }
+.title-cell .location { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .title-cell .missing-badge { margin-left: 8px; }
 .sessions-empty { padding: 16px; }
 
@@ -79,8 +79,8 @@ code, pre { font-family: var(--font-mono); font-size: 85%; }
 .crumb { color: var(--muted); }
 .doc-head { min-width: 0; }
 .doc-head .doc-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40ch; }
-.doc-location { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.branch-chip { flex: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); }
+.doc-location { font-family: var(--font-mono); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.branch-chip { flex: none; font-family: var(--font-mono); font-size: 12px; padding: 1px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); }
 .missing-badge { flex: none; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: #fdecea; color: #b42318; }
 .doc-missing { grid-column: 1 / -1; max-width: 720px; margin: 0 auto; padding: 32px 24px; }
 .sidebar { position: sticky; top: var(--top); align-self: start; max-height: calc(100vh - var(--top)); overflow: auto; padding: 16px; border-right: 1px solid var(--border); font-size: 14px; }
@@ -154,7 +154,7 @@ button.link.danger { color: #cf222e; }
 .doc-body table.frontmatter th, .doc-body table.frontmatter td { border-width: 0 0 1px 0; padding: 5px 12px; vertical-align: top; }
 .doc-body table.frontmatter tr:last-child > * { border-bottom-width: 0; }
 .doc-body table.frontmatter tbody tr:nth-child(2n) { background: none; }
-.doc-body table.frontmatter > tbody > tr > th { width: 1%; white-space: nowrap; background: var(--bg-subtle); color: var(--muted); font-weight: 500; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; border-right-width: 1px; }
+.doc-body table.frontmatter > tbody > tr > th { width: 1%; white-space: nowrap; background: var(--bg-subtle); color: var(--muted); font-weight: 500; font-family: var(--font-mono); border-right-width: 1px; }
 .doc-body table.fm-nested { margin: 0; font-size: 12px; border: 1px solid var(--border); border-radius: 6px; }
 .doc-body table.fm-nested th, .doc-body table.fm-nested td { border-width: 0 0 1px 0; padding: 2px 8px; }
 .doc-body table.fm-nested tr:last-child > * { border-bottom-width: 0; }
