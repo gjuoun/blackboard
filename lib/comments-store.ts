@@ -3,11 +3,10 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { dirname } from "node:path";
 import type { QuoteSelector } from "./anchor";
 import { withFileLock } from "./lock";
-import { resolveSafe } from "./paths";
 
 /**
- * On-disk format of <board>/.blackboard/comments.json. Plain JSON on purpose: an agent reads
- * it straight from disk. Keys of `docs` are board-relative doc paths ("research/notes.md").
+ * On-disk format of a comment file. Plain JSON on purpose: an agent reads it straight from
+ * disk. Keys of `docs` name the doc the comments belong to.
  */
 export type Reply = { id: string; body: string; author: string; createdAt: string; editedAt?: string };
 export type CommentStatus = "open" | "resolved";
@@ -30,15 +29,8 @@ export type CommentFile = { version: 1; docs: Record<string, Comment[]> };
 const now = () => new Date().toISOString();
 const newId = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
 
-export function commentsPath(boardDir: string): string {
-  const p = resolveSafe(boardDir, ".blackboard/comments.json");
-  if (!p) throw new Error("comment file path leaves the board");
-  return p;
-}
-
-/** The board's comments; empty when the file does not exist. A file that does not parse is an error, never silently replaced. */
-export function readComments(boardDir: string): CommentFile {
-  const p = commentsPath(boardDir);
+/** The comments in a comment file; empty when the file does not exist. A file that does not parse is an error, never silently replaced. */
+export function readComments(p: string): CommentFile {
   if (!existsSync(p)) return { version: 1, docs: {} };
   const data = JSON.parse(readFileSync(p, "utf8"));
   if (data?.version !== 1 || typeof data.docs !== "object") throw new Error(`unsupported comment file: ${p}`);
@@ -55,16 +47,15 @@ function writeAtomic(p: string, data: CommentFile) {
 const queues = new Map<string, Promise<unknown>>();
 
 /**
- * Read, change and write the board's comment file. Calls in this process are queued, and every
+ * Read, change and write a comment file. Calls in this process are queued, and every
  * process (web app, CLI) holds the file lock for the read-change-write, so no writer loses another's
  * change. The write goes to a temp file renamed over the old one.
  */
-export function mutate<T>(boardDir: string, change: (file: CommentFile) => T): Promise<T> {
-  const p = commentsPath(boardDir);
+export function mutate<T>(p: string, change: (file: CommentFile) => T): Promise<T> {
   const run = (queues.get(p) ?? Promise.resolve()).catch(() => {}).then(() => {
     mkdirSync(dirname(p), { recursive: true });
     return withFileLock(p, () => {
-      const file = readComments(boardDir);
+      const file = readComments(p);
       const result = change(file);
       writeAtomic(p, file);
       return result;

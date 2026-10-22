@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { TopBar } from "@/components/TopBar";
+import { DEFAULT_THEME } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,8 +10,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" data-theme={DEFAULT_THEME}>
+      <body>
+        <TopBar />
+        {children}
+      </body>
     </html>
   );
 }

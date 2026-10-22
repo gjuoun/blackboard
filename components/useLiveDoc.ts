@@ -4,18 +4,18 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 /**
- * Refresh the page when a file in the board changes on disk: a doc change re-renders the
- * server page (doc, TOC, file tree); a comment-file change reloads the comments.
+ * Refresh the page when the session's doc changes on disk (re-render the server page: doc, TOC,
+ * header) and reload the comments when its comment file changes.
  */
-export function useLiveDoc(board: string, onCommentsChanged: () => void) {
+export function useLiveDoc(session: string, onCommentsChanged: () => void) {
   const router = useRouter();
   useEffect(() => {
-    const es = new EventSource(`/api/watch?board=${encodeURIComponent(board)}`);
+    const es = new EventSource(`/api/watch?session=${encodeURIComponent(session)}`);
     es.addEventListener("changed", (e) => {
-      const { paths } = JSON.parse((e as MessageEvent).data) as { paths: string[] };
-      if (paths.some((p) => p.startsWith(".blackboard"))) onCommentsChanged();
-      if (paths.some((p) => !p.startsWith(".blackboard"))) router.refresh();
+      const { doc, comments } = JSON.parse((e as MessageEvent).data) as { doc: boolean; comments: boolean };
+      if (comments) onCommentsChanged();
+      if (doc) router.refresh();
     });
     return () => es.close();
-  }, [board, router, onCommentsChanged]);
+  }, [session, router, onCommentsChanged]);
 }

@@ -13,7 +13,7 @@ async function call(method: string, payload: unknown): Promise<Answer> {
 }
 
 /** Comments for one doc, kept in sync with the server after each change. */
-export function useComments(board: string, doc: string, initial: Comment[], author: string) {
+export function useComments(session: string, initial: Comment[], author: string) {
   const [comments, setComments] = useState(initial);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,18 +36,18 @@ export function useComments(board: string, doc: string, initial: Comment[], auth
   );
 
   const reload = useCallback(async () => {
-    const res = await fetch(`/api/comments?board=${encodeURIComponent(board)}&doc=${encodeURIComponent(doc)}`);
+    const res = await fetch(`/api/comments?session=${encodeURIComponent(session)}`);
     if (res.ok) setComments((await res.json()).comments);
-  }, [board, doc]);
+  }, [session]);
 
   const patch = (id: string, action: string, extra: Record<string, string> = {}) =>
-    run(call("PATCH", { board, doc, id, action, author, ...extra }));
+    run(call("PATCH", { session, id, action, author, ...extra }));
 
   return {
     comments,
     error,
     reload,
-    add: (quote: QuoteSelector, body: string) => run(call("POST", { board, doc, quote, body, author })),
+    add: (quote: QuoteSelector, body: string) => run(call("POST", { session, quote, body, author })),
     reply: (id: string, body: string) => patch(id, "reply", { body }),
     setResolved: (id: string, resolved: boolean) => patch(id, resolved ? "resolve" : "reopen"),
     edit: (id: string, body: string) => patch(id, "edit", { body }),

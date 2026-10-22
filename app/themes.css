@@ -1,0 +1,71 @@
+/*
+ * Themes. Every colour in the UI comes from these tokens (shadcn's names plus a few of ours), so a
+ * theme is one block. The page picks one with <html data-theme="…"> and, for dark variants, the
+ * `dark` class; `warm` is the only theme wired up today. To add one, copy the `warm` block, give
+ * it a new data-theme name and list it in lib/theme.ts.
+ */
+:root,
+[data-theme="warm"] {
+  --background: #faf8f5;
+  --foreground: #2b2622;
+  --card: #ffffff;
+  --card-foreground: #2b2622;
+  --popover: #ffffff;
+  --popover-foreground: #2b2622;
+  --primary: #c4603f;
+  --primary-foreground: #ffffff;
+  --secondary: #f1ebe4;
+  --secondary-foreground: #2b2622;
+  --muted: #f1ebe4;
+  --muted-foreground: #8a8178;
+  --accent: #efe9e2;
+  --accent-foreground: #2b2622;
+  --destructive: #cf222e;
+  --border: #ebe5de;
+  --input: #ebe5de;
+  --ring: #c4603f;
+  --radius: 0.75rem;
+  /* ours */
+  --primary-soft: #f8e6df;
+  --code: #f6f2ed;
+  --mark: #fbe9a6;
+  --mark-line: #d4a72c;
+  --hl: rgba(255, 196, 0, 0.35);
+  --hl-hover: rgba(255, 170, 0, 0.5);
+  --hl-active: rgba(255, 140, 0, 0.55);
+  --warn: #9a6700;
+  --success: #2f7d4f;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", Helvetica, Arial, sans-serif;
+  --font-code: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Dark variant of warm: a starting palette, not yet reviewed on screen. */
+[data-theme="warm"].dark,
+.dark {
+  --background: #1d1a17;
+  --foreground: #efe8e0;
+  --card: #26221e;
+  --card-foreground: #efe8e0;
+  --popover: #26221e;
+  --popover-foreground: #efe8e0;
+  --primary: #e0785a;
+  --primary-foreground: #1d1a17;
+  --secondary: #332e29;
+  --secondary-foreground: #efe8e0;
+  --muted: #332e29;
+  --muted-foreground: #a39a90;
+  --accent: #332e29;
+  --accent-foreground: #efe8e0;
+  --border: #3a342e;
+  --input: #3a342e;
+  --ring: #e0785a;
+  --primary-soft: #3b2a24;
+  --code: #2d2823;
+  --mark: #5a4a14;
+  --mark-line: #b8921f;
+  --hl: rgba(255, 196, 0, 0.28);
+  --hl-hover: rgba(255, 170, 0, 0.4);
+  --hl-active: rgba(255, 140, 0, 0.5);
+  --warn: #e3b341;
+  --success: #5fb37f;
+}
