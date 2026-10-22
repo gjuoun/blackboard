@@ -24,7 +24,8 @@ blackboard open docs/design.md           # starts the web app the first time, th
 
 Runs on **Node 20.9+ or Bun 1.3+** (the `blackboard` command uses Node when it is on `PATH`, else
 Bun). macOS and Linux; browsers: Chrome/Edge and Safari 17.2+ (CSS Custom Highlight API). It is a
-Next.js app, so with its dependencies it takes about 600 MB on disk.
+Next.js app, shipped as a pre-built standalone server: about 8 MB to download, 37 MB on disk, and
+no dependencies to install.
 
 The web app runs in the background on `http://127.0.0.1:38770`:
 
@@ -49,8 +50,9 @@ bun link                             # once: puts `blackboard` on PATH (~/.bun/b
 blackboard open docs/design.md       # registers the file and opens its tab
 ```
 
-`bun run build` makes the production build that `blackboard serve start` runs; `bun run build:cli`
-bundles the command for Node (`dist/`). Both run on `npm pack` / `npm publish`.
+`bun run build && bun run build:server` makes the production app that `blackboard serve start`
+runs (`server/`); `bun run build:cli` bundles the command for Node (`dist/`). All three run on
+`npm pack` / `npm publish`.
 
 | Variable | Default | Meaning |
 |----------|---------|---------|

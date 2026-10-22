@@ -1,13 +1,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { createRequire } from "node:module";
+import { closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
  * Running the web app from the `blackboard` command: `serve start | stop | restart | status`, and
- * `open` starting it on first use. The app is the production build shipped with the package
- * (`next start`), run by Node, or by Bun when there is no Node. What this module started is
+ * `open` starting it on first use. The app is the standalone production build shipped in the
+ * package's `server/` folder, run by Node, or by Bun when there is no Node. What this module started is
  * remembered in `<home>/server.json`; anything else answering at the same address (a `bun dev`
  * in a clone, say) is treated as running but not ours to stop.
  */
@@ -97,14 +96,51 @@ export function runtimeFor(opts: { execPath: string; pathDirs: string[]; exists:
 const currentRuntime = () =>
   runtimeFor({ execPath: process.execPath, pathDirs: (process.env.PATH ?? "").split(delimiter).filter(Boolean), exists: existsSync });
 
-/** The command line that starts the production app on `url`. */
-export function startCommand(root: string, url: string) {
-  if (!existsSync(join(root, ".next", "BUILD_ID"))) {
-    throw new ServerError("this copy has no production build; run `bun run build` first (or use `bun dev`)");
+/**
+ * The folder to run the app from. npm drops any folder named node_modules from a package, so the
+ * build ships its dependencies as `modules`; the first start renames it back. When the package
+ * folder is read-only (a root-owned global install) the app is copied under `<home>/runtime`.
+ */
+export function prepareServer(serverDir: string, home: string, version: string, rename: (from: string, to: string) => void = renameSync): string {
+  const modules = join(serverDir, "modules");
+  const nodeModules = join(serverDir, "node_modules");
+  if (existsSync(nodeModules)) return serverDir;
+  try {
+    rename(modules, nodeModules);
+    return serverDir;
+  } catch {
+    const copy = join(home, "runtime", version);
+    if (!existsSync(join(copy, "node_modules"))) {
+      rmSync(copy, { recursive: true, force: true });
+      mkdirSync(dirname(copy), { recursive: true });
+      cpSync(serverDir, copy, { recursive: true });
+      renameSync(join(copy, "modules"), join(copy, "node_modules"));
+    }
+    return copy;
   }
-  const next = createRequire(join(root, "package.json")).resolve("next/dist/bin/next");
+}
+
+const packageVersion = (root: string): string => {
+  try {
+    return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
+  } catch {
+    return "unknown";
+  }
+};
+
+/** The command line that starts the production app on `url`, and the folder to run it in. */
+export function startCommand(root: string, home: string) {
+  const serverDir = join(root, "server");
+  if (!existsSync(join(serverDir, "server.js"))) {
+    throw new ServerError("this copy has no production build; run `bun run build && bun run build:server` first (or use `bun dev`)");
+  }
+  const dir = prepareServer(serverDir, home, packageVersion(root));
   const rt = currentRuntime();
-  return { cmd: rt.cmd, args: [...rt.args, next, "start", "-H", "127.0.0.1", "-p", String(portOf(url))] };
+  return { cmd: rt.cmd, args: [...rt.args, join(dir, "server.js")], cwd: dir };
+}
+
+function appEnv(home: string, url: string): NodeJS.ProcessEnv {
+  return { ...process.env, NODE_ENV: "production", BLACKBOARD_HOME: home, BLACKBOARD_URL: url, PORT: String(portOf(url)), HOSTNAME: "127.0.0.1" };
 }
 
 export async function status(home: string, url = resolveUrl()): Promise<ServerStatus> {
@@ -133,17 +169,12 @@ export async function start(home: string, opts: { port?: number | string } = {})
   if (cur.running) return { ...cur, started: false };
 
   const root = appRoot();
-  const { cmd, args } = startCommand(root, url);
   mkdirSync(home, { recursive: true });
+  const { cmd, args, cwd } = startCommand(root, home);
   const log = openSync(logPath(home), "a");
   let child: ChildProcess;
   try {
-    child = spawn(cmd, args, {
-      cwd: root,
-      detached: true,
-      stdio: ["ignore", log, log],
-      env: { ...process.env, NODE_ENV: "production", BLACKBOARD_HOME: home, BLACKBOARD_URL: url, PORT: String(portOf(url)) },
-    });
+    child = spawn(cmd, args, { cwd, detached: true, stdio: ["ignore", log, log], env: appEnv(home, url) });
   } finally {
     closeSync(log);
   }
@@ -178,12 +209,8 @@ export async function start(home: string, opts: { port?: number | string } = {})
 export async function runForeground(home: string, opts: { port?: number | string } = {}): Promise<number> {
   const url = resolveUrl({ port: opts.port });
   const root = appRoot();
-  const { cmd, args } = startCommand(root, url);
-  const child = spawn(cmd, args, {
-    cwd: root,
-    stdio: "inherit",
-    env: { ...process.env, NODE_ENV: "production", BLACKBOARD_HOME: home, BLACKBOARD_URL: url, PORT: String(portOf(url)) },
-  });
+  const { cmd, args, cwd } = startCommand(root, home);
+  const child = spawn(cmd, args, { cwd, stdio: "inherit", env: appEnv(home, url) });
   const forward = (sig: NodeJS.Signals) => () => child.kill(sig);
   process.on("SIGINT", forward("SIGINT"));
   process.on("SIGTERM", forward("SIGTERM"));

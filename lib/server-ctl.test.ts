@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { clearState, DEFAULT_URL, formatStatus, pidAlive, portOf, probe, readState, resolveUrl, runtimeFor, ServerError, status, writeState } from "./server-ctl";
+import { clearState, DEFAULT_URL, formatStatus, pidAlive, portOf, prepareServer, probe, readState, resolveUrl, runtimeFor, ServerError, status, writeState } from "./server-ctl";
 
 const dirs: string[] = [];
 const tmp = () => {
@@ -87,5 +87,34 @@ describe("status with a live server", () => {
     const s = await status(tmp(), "http://127.0.0.1:1");
     expect(s.running).toBe(false);
     expect(formatStatus(s)).toBe("not running (http://127.0.0.1:1)");
+  });
+});
+
+describe("prepareServer", () => {
+  const fixture = () => {
+    const root = tmp();
+    const server = join(root, "server");
+    mkdirSync(join(server, "modules", "next"), { recursive: true });
+    writeFileSync(join(server, "server.js"), "// app");
+    writeFileSync(join(server, "modules", "next", "index.js"), "// next");
+    return { server, home: join(root, "home") };
+  };
+  test("renames modules to node_modules in place, once", () => {
+    const { server, home } = fixture();
+    expect(prepareServer(server, home, "1.0.0")).toBe(server);
+    expect(existsSync(join(server, "node_modules", "next", "index.js"))).toBe(true);
+    expect(existsSync(join(server, "modules"))).toBe(false);
+    expect(prepareServer(server, home, "1.0.0")).toBe(server);
+  });
+  test("a read-only package folder runs from a copy under the home folder", () => {
+    const { server, home } = fixture();
+    const readOnly = (from: string) => {
+      if (from.startsWith(server)) throw new Error("EACCES");
+    };
+    const dir = prepareServer(server, home, "1.0.0", readOnly);
+    expect(dir).toBe(join(home, "runtime", "1.0.0"));
+    expect(readFileSync(join(dir, "node_modules", "next", "index.js"), "utf8")).toBe("// next");
+    expect(existsSync(join(server, "modules", "next"))).toBe(true);
+    expect(prepareServer(server, home, "1.0.0", readOnly)).toBe(dir);
   });
 });
