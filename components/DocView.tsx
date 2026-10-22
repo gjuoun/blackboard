@@ -1,9 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { MessageSquare } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { anchor, makeSelector, type QuoteSelector, type TextRange } from "@/lib/anchor";
 import type { Comment } from "@/lib/comments-store";
+import { cn } from "@/lib/utils";
 import { buildTextMap, offsetOf, rangeOf } from "@/lib/text-map";
+import { patchDoc, setChrome, useChrome, useIsDesktop } from "./chrome";
 import { CommentPanel, type PanelComment } from "./CommentPanel";
 import { DocBody } from "./DocBody";
 import { useComments } from "./useComments";
@@ -20,7 +25,7 @@ const highlights = () => (typeof CSS !== "undefined" && "highlights" in CSS ? CS
  * stored selector is anchored back to text offsets and drawn with the CSS Custom Highlight API,
  * which leaves the page DOM untouched.
  */
-export function DocView({ session, title, path, html, initialComments }: { session: string; title: string; path: string; html: string; initialComments: Comment[] }) {
+export function DocView({ session, title, path, html, initialComments, header, toc }: { session: string; title: string; path: string; html: string; initialComments: Comment[]; header: ReactNode; toc: ReactNode }) {
   const bodyRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [author, setAuthor] = useState("jun");
@@ -35,13 +40,18 @@ export function DocView({ session, title, path, html, initialComments }: { sessi
   };
 
   const { comments, error, add, reply, setResolved, reload, edit, remove, editReply, removeReply } = useComments(session, initialComments, author.trim() || "jun");
+  const chrome = useChrome();
+  const desktop = useIsDesktop();
   useLiveDoc(session, reload);
+  const openCount = comments.filter((c) => c.status === "open").length;
+  useEffect(() => patchDoc({ open: openCount }), [openCount, chrome.doc?.id]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [composing, setComposing] = useState<QuoteSelector | null>(null);
   const [note, setNote] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
-  const [showResolved, setShowResolved] = useState(false);
+  const showResolved = chrome.showResolved;
+  const setShowResolved = (v: boolean) => setChrome({ showResolved: v });
   const [anchors, setAnchors] = useState<Record<string, TextRange | null>>({});
 
   // Anchor every comment against the current text and draw the highlights.
@@ -97,6 +107,7 @@ export function DocView({ session, title, path, html, initialComments }: { sessi
     if (!draft) return;
     setComposing(draft.selector);
     setDraft(null);
+    setChrome(desktop ? { cmOpen: true } : { sheet: "cm" });
   };
 
   const save = async () => {
@@ -183,9 +194,10 @@ export function DocView({ session, title, path, html, initialComments }: { sessi
   }, [comments, anchors]);
 
   const composer = composing ? (
-    <div className="composer">
-      <blockquote className="comment-quote">{composing.exact.replace(/\s+/g, " ").trim()}</blockquote>
+    <div className="border-primary mb-3 rounded-xl border p-2.5">
+      <blockquote className="bg-background text-muted-foreground m-0 mb-2 line-clamp-3 rounded-lg px-2.5 py-1 text-[12.5px]">{composing.exact.replace(/\s+/g, " ").trim()}</blockquote>
       <textarea
+        className="border-input bg-background focus-visible:ring-ring/40 w-full resize-y rounded-lg border p-2 text-[13.5px] outline-none focus-visible:ring-[3px]"
         data-testid="comment-input"
         autoFocus
         rows={3}
@@ -197,51 +209,99 @@ export function DocView({ session, title, path, html, initialComments }: { sessi
           if (e.key === "Escape") setComposing(null);
         }}
       />
-      <div className="composer-actions">
-        <button onClick={() => setComposing(null)}>Cancel</button>
-        <button data-testid="comment-save" className="primary" onClick={save} disabled={!note.trim()}>
+      <div className="mt-1.5 flex justify-end gap-1.5">
+        <Button size="xs" variant="outline" onClick={() => setComposing(null)}>
+          Cancel
+        </Button>
+        <Button size="xs" data-testid="comment-save" onClick={save} disabled={!note.trim()}>
           Comment
-        </button>
+        </Button>
       </div>
     </div>
   ) : null;
 
+  const panel = (
+    <CommentPanel
+      title={title}
+      path={path}
+      comments={panelComments}
+      activeId={activeId}
+      flashId={flashId}
+      onActivate={activate}
+      onReply={reply}
+      onResolve={setResolved}
+      onEdit={edit}
+      onDelete={remove}
+      onEditReply={editReply}
+      onDeleteReply={removeReply}
+      showResolved={showResolved}
+      onShowResolved={setShowResolved}
+      author={author}
+      onAuthor={changeAuthor}
+      composer={composer}
+      error={error}
+    />
+  );
+
+  // Desktop: Contents | doc | Comments, each side column collapsing (Comments to a thin rail).
+  // Phone: the doc alone, with Contents and Comments as bottom sheets opened from the top bar.
+  const cols = desktop ? `${chrome.tocOpen && toc ? "240px" : "0px"} minmax(0,1fr) ${chrome.cmOpen ? "340px" : "48px"}` : "minmax(0,1fr)";
   return (
-    <>
-      <main className="doc-main" ref={mainRef}>
-        <DocBody html={html} ref={bodyRef} onClick={onDocClick} onMouseMove={onDocMove} onMouseLeave={onDocLeave} />
+    <div className="grid min-h-[calc(100vh-var(--bar-h))] transition-[grid-template-columns] duration-200" style={{ gridTemplateColumns: cols }}>
+      {desktop ? (
+        <aside className={cn("border-border sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] self-start overflow-y-auto border-r", chrome.tocOpen && toc ? "p-3" : "invisible border-0 p-0")} aria-hidden={!chrome.tocOpen}>
+          {toc}
+        </aside>
+      ) : null}
+      <main className="relative min-w-0 px-4 pt-6 pb-24 md:px-10 md:pt-8" ref={mainRef}>
+        <div className="mx-auto min-w-0 max-w-[760px]">
+          {header}
+          <DocBody html={html} ref={bodyRef} onClick={onDocClick} onMouseMove={onDocMove} onMouseLeave={onDocLeave} />
+        </div>
         {draft ? (
-          <button
+          <Button
+            size="sm"
             data-testid="comment-button"
-            className="comment-button primary"
+            className="absolute z-5 shadow-md"
             style={{ top: draft.top, left: draft.left }}
             onMouseDown={(e) => e.preventDefault()}
             onClick={startComment}
           >
             Comment
-          </button>
+          </Button>
         ) : null}
       </main>
-      <CommentPanel
-        title={title}
-        path={path}
-        comments={panelComments}
-        activeId={activeId}
-        flashId={flashId}
-        onActivate={activate}
-        onReply={reply}
-        onResolve={setResolved}
-        onEdit={edit}
-        onDelete={remove}
-        onEditReply={editReply}
-        onDeleteReply={removeReply}
-        showResolved={showResolved}
-        onShowResolved={setShowResolved}
-        author={author}
-        onAuthor={changeAuthor}
-        composer={composer}
-        error={error}
-      />
-    </>
+      {desktop ? (
+        chrome.cmOpen ? (
+          <aside className="border-border bg-background sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] self-start overflow-y-auto border-l p-3.5">{panel}</aside>
+        ) : (
+          <aside className="border-border sticky top-[var(--bar-h)] flex flex-col items-center gap-2 self-start border-l pt-3" data-testid="comment-rail">
+            <Button variant="ghost" size="icon-sm" aria-label="Expand comments" title="Expand comments" onClick={() => setChrome({ cmOpen: true })}>
+              <MessageSquare />
+            </Button>
+            {openCount > 0 ? <span className="bg-primary-soft text-primary rounded-full px-1.5 text-xs font-semibold">{openCount}</span> : null}
+          </aside>
+        )
+      ) : (
+        <>
+          <Sheet open={chrome.sheet === "toc"} onOpenChange={(o) => setChrome({ sheet: o ? "toc" : null })}>
+            <SheetContent side="bottom" showCloseButton={false} className="bg-background max-h-[75vh] overflow-y-auto rounded-t-2xl px-4 pt-2 pb-8">
+              <div className="bg-border mx-auto mb-3 h-1 w-10 shrink-0 rounded-full" aria-hidden />
+              <SheetTitle className="sr-only">Contents</SheetTitle>
+              <SheetDescription className="sr-only">Jump to a section</SheetDescription>
+              <div onClick={(e) => (e.target as HTMLElement).closest("a") && setChrome({ sheet: null })}>{toc}</div>
+            </SheetContent>
+          </Sheet>
+          <Sheet open={chrome.sheet === "cm"} onOpenChange={(o) => setChrome({ sheet: o ? "cm" : null })}>
+            <SheetContent side="bottom" showCloseButton={false} className="bg-background max-h-[80vh] overflow-y-auto rounded-t-2xl px-4 pt-2 pb-8">
+              <div className="bg-border mx-auto mb-3 h-1 w-10 shrink-0 rounded-full" aria-hidden />
+              <SheetTitle className="sr-only">Comments</SheetTitle>
+              <SheetDescription className="sr-only">Comments on this document</SheetDescription>
+              {panel}
+            </SheetContent>
+          </Sheet>
+        </>
+      )}
+    </div>
   );
 }

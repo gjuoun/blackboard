@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { connection } from "next/server";
 import { SessionTable, type HomeRow, type HomeSort } from "@/components/SessionTable";
 import { getHome } from "@/lib/home";
+import { groupOf } from "@/lib/home-groups";
 import { relativeTime, shortDateTime } from "@/lib/relative-time";
 import { SCRATCHPAD_ID, scratchpadSession, sessionRow, sessionRows } from "@/lib/sessions";
 
@@ -27,6 +27,7 @@ function homeData(now = Date.now()) {
       created: shortDateTime(r.createdAt),
       updatedAt: r.updatedAt,
       updated: relativeTime(r.updatedAt, now),
+      group: groupOf(r.updatedAt, now),
     }));
   const padSummary = `${plural(pad.stats.sections, "section")} · ${plural(pad.stats.diagrams, "diagram")} · updated ${relativeTime(pad.updatedAt, now)}`;
   return { rows, padSummary };
@@ -39,16 +40,14 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const q = await searchParams;
   const sort = one(q.sort);
   return (
-    <main className="home">
-      <header className="home-header">
-        <h1>Sessions</h1>
+    <main className="mx-auto max-w-5xl px-4 pt-6 pb-16 md:px-6 md:pt-10">
+      <header className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Sessions</h1>
+        <p className="text-muted-foreground text-sm">Local markdown review</p>
       </header>
-      <Link className="scratchpad-card" data-testid="scratchpad-card" href={`/s/${SCRATCHPAD_ID}`}>
-        <strong>✎ Scratchpad</strong>
-        <span className="muted">{padSummary}</span>
-      </Link>
       <SessionTable
         rows={rows}
+        pad={{ href: `/s/${SCRATCHPAD_ID}`, summary: padSummary }}
         initial={{ q: one(q.q), repo: one(q.repo), sort: (["updated", "created", "title"].includes(sort) ? sort : "updated") as HomeSort }}
       />
     </main>

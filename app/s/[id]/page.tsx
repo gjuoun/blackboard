@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { basename } from "node:path";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { DocHeader } from "@/components/DocHeader";
+import { Badge } from "@/components/ui/badge";
 import { DocView } from "@/components/DocView";
 import { RegisterTab } from "@/components/RegisterTab";
 import { Toc } from "@/components/Toc";
@@ -22,33 +22,44 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   const row = sessionRow(home, session);
   const file = servablePath(session);
 
+  // Where the file lives and its branch, as chips above the doc.
+  const header = (
+    <div className="mb-4 flex min-w-0 flex-wrap items-center gap-1.5 text-xs" data-testid="doc-head">
+      <Badge variant="outline" className="bg-card block max-w-full min-w-0 truncate font-mono font-normal" data-testid="doc-location" title={row.path}>
+        {row.location}
+      </Badge>
+      {row.branch ? (
+        <Badge variant="outline" className="bg-card font-mono font-normal" data-testid="doc-branch" title="git branch">
+          ⎇ {row.branch}
+        </Badge>
+      ) : null}
+      {row.missing ? <Badge variant="destructive">missing</Badge> : null}
+    </div>
+  );
+
   if (!file) {
     return (
-      <div className="doc-layout">
-        <RegisterTab id={session.id} title={row.title} path={session.path} />
-        <DocHeader row={row} />
-        <main className="doc-missing" data-testid="doc-missing">
-          <h1>{row.title}</h1>
-          <p className="muted">
-            This file is missing or no longer a markdown file: <code>{session.path}</code>
+      <>
+        <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} />
+        <main className="mx-auto max-w-2xl px-4 py-10 md:px-6" data-testid="doc-missing">
+          {header}
+          <h1 className="text-2xl font-bold">{row.title}</h1>
+          <p className="text-muted-foreground mt-3">
+            This file is missing or no longer a markdown file: <code className="bg-code rounded px-1.5">{session.path}</code>
           </p>
-          <p className="muted">
-            Open its new location with <code>blackboard open &lt;file&gt;</code>.
+          <p className="text-muted-foreground mt-2">
+            Open its new location with <code className="bg-code rounded px-1.5">blackboard open &lt;file&gt;</code>.
           </p>
         </main>
-      </div>
+      </>
     );
   }
 
   const { html, toc } = await renderMarkdown(readFileSync(file, "utf8"));
   const doc = basename(file);
   return (
-    <div className="doc-layout">
-      <RegisterTab id={session.id} title={row.title} path={session.path} />
-      <DocHeader row={row} />
-      <aside className="sidebar">
-        <Toc toc={toc} />
-      </aside>
+    <>
+      <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 0} />
       <DocView
         key={session.id}
         session={session.id}
@@ -56,7 +67,9 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
         path={session.path}
         html={html}
         initialComments={readComments(sessionCommentsPath(home, session.id)).docs[doc] ?? []}
+        header={header}
+        toc={toc.length > 0 ? <Toc toc={toc} /> : null}
       />
-    </div>
+    </>
   );
 }

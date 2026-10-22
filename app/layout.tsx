@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { TabStrip } from "@/components/TabStrip";
+import { TopBar } from "@/components/TopBar";
+import { DEFAULT_THEME } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,9 +10,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme={DEFAULT_THEME}>
       <body>
-        <TabStrip />
+        <TopBar />
         {children}
       </body>
     </html>
