@@ -9,11 +9,11 @@
   --tabs-h: 40px;
   --top: calc(var(--tabs-h) + var(--nav-h));
   --mark: #fff3b0;
-  /* Type: LiBianSans for prose, LiBianRecursive for code. Both come from the LiBian family
-     package installed in ~/Library/Fonts; the stacks fall back to the system faces when the
-     family is absent, so this stays safe on a machine without it. */
-  --font-body: "LiBianSans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  --font-mono: "LiBianRecursive", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Type: JunHeiSans for prose, JunHeiMono for code — the fully-open family
+     (Source Han via Sarasa + Recursive Linear, SIL OFL 1.1), installed from
+     JunHei-family-2026-10-21.zip. Fallbacks keep it safe without the family. */
+  --font-body: "JunHeiSans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "JunHeiMono", ui-monospace, SFMono-Regular, Menlo, monospace;
   font-family: var(--font-body);
   color: var(--fg);
   background: var(--bg);
