@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Blackboard — review markdown with your coding agent</title>
-<meta name="description" content="A local web app for reviewing markdown documents and commenting on the text, with a CLI so coding agents can join the review. MIT licensed.">
+<meta name="description" content="Plan review, back in the document: highlight a passage, leave a comment, and your coding agent answers over the same CLI. Local, MIT licensed.">
 <style>
 /* QuBlack Sans / Mono (SIL OFL 1.1) — subsets covering this page's characters only.
    Full family: github.com/gjuoun/qublack — license: fonts/OFL.txt */
@@ -35,6 +35,7 @@ button:hover:not(:disabled) { border-color: var(--accent); }
 .hero h1 { margin: 0 0 8px; font-size: 44px; font-weight: 700; letter-spacing: -0.01em; }
 .hero p { max-width: 620px; margin: 0 auto; font-size: 18px; color: var(--muted); text-wrap: balance; }
 .hero .who { margin-top: 4px; }
+.hero p.tagline { font-size: 28px; font-weight: 700; color: var(--fg); margin-top: 16px; }
 a.btn { display: inline-flex; align-items: center; font-size: 15px; padding: 8px 18px; border: 1px solid var(--border); border-radius: 6px; color: var(--fg); }
 a.btn:hover { border-color: var(--accent); text-decoration: none; }
 a.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -66,6 +67,7 @@ ul.feat li::before { content: "—"; position: absolute; left: 0; color: #9a6700
 ul.feat strong { font-weight: 700; }
 
 /* CLI block */
+section.cli { padding-top: 64px; }
 pre.cli { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; overflow-x: auto; background: var(--bg-subtle); font-size: 13px; line-height: 1.7; }
 pre.cli .c { color: var(--muted); }
 pre.cli .b { font-weight: 700; }
@@ -78,8 +80,8 @@ footer .cols { display: flex; flex-wrap: wrap; gap: 24px 48px; justify-content: 
 
 <header class="hero wrap">
   <h1>Blackboard</h1>
-  <p>A local web app for reviewing markdown documents — select text, leave a comment, and let your coding agent answer through the same CLI.</p>
-  <p class="who muted">You and the agent, going back and forth on a plan, in the document itself.</p>
+  <p class="tagline">Plan review, back in the document.</p>
+  <p class="who muted">Highlight a passage, leave a comment; your agent answers over the same CLI — back and forth until it ships.</p>
   <div class="hero-actions">
     <a class="btn primary" href="#install">Get started</a>
     <a class="btn" href="https://github.com/gjuoun/blackboard">GitHub ↗</a>
@@ -120,7 +122,7 @@ footer .cols { display: flex; flex-wrap: wrap; gap: 24px 48px; justify-content: 
   </div>
 </section>
 
-<section class="wrap">
+<section class="wrap cli">
   <h2 class="sec">CLI for agents</h2>
   <pre class="cli"><span class="b">blackboard</span> open     &lt;file&gt; [--no-browser]                <span class="c"># prints "&lt;id&gt;  &lt;url&gt;"</span>
 <span class="b">blackboard</span> sessions [--json]                             <span class="c"># id, title, location, branch, open comments</span>

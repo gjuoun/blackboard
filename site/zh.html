@@ -67,6 +67,7 @@ ul.feat li::before { content: "—"; position: absolute; left: 0; color: #9a6700
 ul.feat strong { font-weight: 700; }
 
 /* CLI block */
+section.cli { padding-top: 64px; }
 pre.cli { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; overflow-x: auto; background: var(--bg-subtle); font-size: 13px; line-height: 1.7; }
 pre.cli .c { color: var(--muted); }
 pre.cli .b { font-weight: 700; }
@@ -121,7 +122,7 @@ footer .cols { display: flex; flex-wrap: wrap; gap: 24px 48px; justify-content: 
   </div>
 </section>
 
-<section class="wrap">
+<section class="wrap cli">
   <h2 class="sec">给 agent 的 CLI</h2>
   <pre class="cli"><span class="b">blackboard</span> open     &lt;file&gt; [--no-browser]                <span class="c"># 打印 "&lt;id&gt;  &lt;url&gt;"</span>
 <span class="b">blackboard</span> sessions [--json]                             <span class="c"># id、标题、位置、分支、未解决评论</span>
