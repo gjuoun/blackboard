@@ -35,8 +35,8 @@
   --hl-active: rgba(255, 140, 0, 0.55);
   --warn: #9a6700;
   --success: #2f7d4f;
-  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", Helvetica, Arial, sans-serif;
-  --font-code: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-ui: "QuBlack Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", Helvetica, Arial, sans-serif;
+  --font-code: "QuBlack Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 /* Dark variant of warm: a starting palette, not yet reviewed on screen. */

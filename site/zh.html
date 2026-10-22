@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blackboard — 和你的编程 agent 一起评审 markdown</title>
+<meta name="description" content="把方案评审搬回文档里：划选正文写批注，编程 agent 用同一条 CLI 接话，改到定稿。本地运行，MIT 开源。">
+<style>
+/* QuBlack Sans / Mono (SIL OFL 1.1) — subsets covering this page's characters only.
+   Full family: github.com/gjuoun/qublack — license: fonts/OFL.txt */
+@font-face { font-family: "QuBlack Sans"; src: url(fonts/qb-sans-zh.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "QuBlack Sans"; src: url(fonts/qb-sans-bold-zh.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "QuBlack Mono"; src: url(fonts/qb-mono-zh.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "QuBlack Mono"; src: url(fonts/qb-mono-bold-zh.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+
+/* Tokens + component styles lifted from the app's globals.css */
+:root {
+  --fg: #1f2328; --muted: #59636e; --border: #d1d9e0;
+  --bg: #ffffff; --bg-subtle: #f6f8fa; --accent: #0969da;
+  --font-body: "QuBlack Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, "PingFang SC", sans-serif;
+  --font-mono: "QuBlack Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font-body); color: var(--fg); background: var(--bg); line-height: 1.5; font-size: 16px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre { font-family: var(--font-mono); font-size: 85%; }
+.muted { color: var(--muted); }
+button { font: inherit; font-size: 13px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+.wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+/* Hero */
+.hero { padding: 64px 24px 40px; text-align: center; }
+.hero h1 { margin: 0 0 8px; font-size: 44px; font-weight: 700; letter-spacing: -0.01em; }
+.hero p { max-width: 620px; margin: 0 auto; font-size: 18px; color: var(--muted); text-wrap: balance; }
+.hero .who { margin-top: 4px; }
+.hero p.tagline { font-size: 28px; font-weight: 700; color: var(--fg); margin-top: 16px; }
+a.btn { display: inline-flex; align-items: center; font-size: 15px; padding: 8px 18px; border: 1px solid var(--border); border-radius: 6px; color: var(--fg); }
+a.btn:hover { border-color: var(--accent); text-decoration: none; }
+a.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+a.btn.primary:hover { opacity: 0.9; }
+.hero-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; margin-top: 24px; }
+.hero-actions a.lang { font-size: 14px; color: var(--muted); padding: 0 4px; }
+
+/* Install block */
+.install { max-width: 480px; margin: 28px auto 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; text-align: left; }
+.install .row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.install .row + .row { border-top: 1px solid var(--border); }
+.install code { flex: 1; font-size: 14px; }
+.install .row span.prompt { color: var(--muted); font-family: var(--font-mono); }
+.copy-btn { flex: none; font-size: 12px; padding: 2px 8px; }
+
+/* Screenshots */
+.shot { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08); }
+.shot img { display: block; width: 100%; height: auto; }
+.cap { margin: 16px auto 0; max-width: 640px; text-align: center; font-size: 14px; color: var(--muted); text-wrap: pretty; }
+.hero .shot { max-width: 100%; margin: 40px auto 0; }
+.hero p.cap { font-size: 14px; max-width: 640px; }
+
+/* Sections */
+section { padding: 40px 0; }
+section.features { background: var(--bg-subtle); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+h2.sec { margin: 0 0 20px; font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+ul.feat { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px 28px; padding: 0; margin: 0; list-style: none; }
+ul.feat li { padding-left: 22px; position: relative; text-wrap: pretty; }
+ul.feat li::before { content: "—"; position: absolute; left: 0; color: #9a6700; }
+ul.feat strong { font-weight: 700; }
+
+/* CLI block */
+section.cli { padding-top: 64px; }
+pre.cli { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; overflow-x: auto; background: var(--bg-subtle); font-size: 13px; line-height: 1.7; }
+pre.cli .c { color: var(--muted); }
+pre.cli .b { font-weight: 700; }
+
+footer { padding: 32px 0 48px; color: var(--muted); font-size: 13px; }
+footer .cols { display: flex; flex-wrap: wrap; gap: 24px 48px; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<header class="hero wrap">
+  <h1>Blackboard</h1>
+  <p class="tagline">把方案评审，搬回文档里。</p>
+  <p class="who muted">划一句，批一句；你的 agent 用同一条 CLI 接话，改到定稿。</p>
+  <div class="hero-actions">
+    <a class="btn primary" href="#install">开始使用</a>
+    <a class="btn" href="https://github.com/gjuoun/blackboard">GitHub ↗</a>
+    <a class="lang" href="index.html" lang="en">English</a>
+  </div>
+  <div class="install" id="install">
+    <div class="row"><span class="prompt">$</span><code id="cmd1">npm install -g blackboard</code><button class="copy-btn" data-copy="npm install -g blackboard">复制</button></div>
+    <div class="row"><span class="prompt">$</span><code id="cmd2">blackboard open docs/plan.md</code><button class="copy-btn" data-copy="blackboard open docs/plan.md">复制</button></div>
+  </div>
+  <p class="muted" style="font-size:13px;margin-top:10px;">也可以用 bun：<code>bunx blackboard open docs/plan.md</code></p>
+  <div class="shot">
+    <img src="assets/doc-zh.png" alt="Blackboard 文档页：一份中文方案，正文有高亮段落，左侧目录，mermaid 示意图，右侧评论面板里 agent 提问、人回复" width="1440" height="1160">
+  </div>
+  <p class="cap">文档页：划一段文字、写一句批注；agent 在 shell 里回话，改动实时上屏。</p>
+</header>
+
+<section class="wrap">
+  <h2 class="sec">首页</h2>
+  <div class="shot">
+    <img src="assets/home-zh.png" alt="Blackboard 首页：顶部是 Scratchpad 卡片，下面是会话表格，列出标题、仓库路径、分支和未解决评论数" width="1440" height="582" loading="lazy">
+  </div>
+  <p class="cap">每个会话就是磁盘上的一个 markdown 文件，在哪个仓库、哪条分支一目了然。点高亮定位评论，点评论跳回正文。</p>
+</section>
+
+<section class="features">
+  <div class="wrap">
+    <h2 class="sec">它能做什么</h2>
+    <ul class="feat">
+      <li><strong>会话</strong> — 磁盘上任意 markdown 文件都能开，浏览器里直接看到它在哪个仓库、哪条分支。</li>
+      <li><strong>正文批注</strong> — 划选一段话写批注，回复平铺展示，可标记解决、也可重新打开。</li>
+      <li><strong>实时视图</strong> — 文件一改页面就刷新，高亮始终跟着它标注的段落。</li>
+      <li><strong>给 agent 的 CLI</strong> — pi、Claude Code、Codex，任何会用 shell 的 agent 都能读评论、回评论。</li>
+      <li><strong>地道的 markdown</strong> — GFM 表格（表头吸顶）、标题锚点、目录，front matter 渲染成表格。</li>
+      <li><strong>离线 mermaid</strong> — 图表用内置库在浏览器里渲染，断网也能看。</li>
+      <li><strong>本地且安全</strong> — 只绑 127.0.0.1，只服务注册过的文件，每次请求都重新校验。</li>
+      <li><strong>一键复制</strong> — 未解决的评论复制成 markdown，粘到哪儿都能接着聊。</li>
+    </ul>
+  </div>
+</section>
+
+<section class="wrap cli">
+  <h2 class="sec">给 agent 的 CLI</h2>
+  <pre class="cli"><span class="b">blackboard</span> open     &lt;file&gt; [--no-browser]                <span class="c"># 打印 "&lt;id&gt;  &lt;url&gt;"</span>
+<span class="b">blackboard</span> sessions [--json]                             <span class="c"># id、标题、位置、分支、未解决评论</span>
+<span class="b">blackboard</span> comments &lt;session&gt; [--all] [--json]
+<span class="b">blackboard</span> reply    &lt;session&gt; &lt;comment-id&gt; "text"
+<span class="b">blackboard</span> resolve  &lt;session&gt; &lt;comment-id&gt;               <span class="c"># 或者：reopen</span>
+<span class="b">blackboard</span> comment  &lt;session&gt; --quote "passage" "note"
+<span class="b">blackboard</span> wait     &lt;session&gt; [--timeout 30m]            <span class="c"># 阻塞等待人的新评论</span></pre>
+  <p class="muted">CLI 直接读写 <code>~/.blackboard</code> 下的文件，和 web 应用共用一把锁——应用开着关着都能用，开着的页面会实时跟着变。</p>
+</section>
+
+<footer>
+  <div class="wrap cols">
+    <div>MIT 许可证 · <a href="https://github.com/gjuoun/blackboard">github.com/gjuoun/blackboard</a></div>
+    <div><a href="index.html" lang="en">English</a> · 中文</div>
+    <div>需要 bun 1.3+ · macOS 和 Linux · Chrome/Edge、Safari 17.2+</div>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll(".copy-btn").forEach(function (b) {
+  b.addEventListener("click", function () {
+    navigator.clipboard.writeText(b.dataset.copy).then(function () {
+      b.textContent = "已复制";
+      setTimeout(function () { b.textContent = "复制"; }, 1200);
+    });
+  });
+});
+</script>
+</body>
+</html>
