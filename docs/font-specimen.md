@@ -1,14 +1,15 @@
 ---
-title: 字体样张 — LiBianSans + LiBianRecursive
+title: 字体样张 — JunHeiSans + JunHeiMono
 repo: blackboard
 status: draft
 updated: 2026-10-21
 ---
 
-# 字体样张：LiBianSans + LiBianRecursive
+# 字体样张：JunHeiSans + JunHeiMono
 
-这一页是给 Blackboard 用的字体测试页：正文走比例家族 `LiBianSans`，代码块和行内代码走等宽家族
-`LiBianRecursive`。两套字共用同一副 CJK 面（方正隶变），所以终端里和文档里的汉字是同一个笔意。
+这一页是给 Blackboard 用的字体测试页：正文走比例家族 `JunHeiSans`，代码块和行内代码走等宽家族
+`JunHeiMono`。两套字共用同一副 CJK 面（思源黑体，经 Sarasa），拉丁都是 Recursive Linear，
+所以终端里和文档里的汉字、英文是同一个笔意。整套授权是 SIL OFL 1.1，可再分发。
 
 ## 1. 正文：中英混排、行内代码与强调
 
@@ -16,7 +17,7 @@ updated: 2026-10-21
 运行时都在里面）加一个二进制的 `app.pak`（样式、字体图集、图片）。TSX 走 **MicroTS** 编到 JS，
 交给 **QuickJS** 执行；Tailwind 的类名在构建期换成二进制样式表，运行时只查表。
 
-排版上要注意的地方：中文的行高不能套拉丁的 1.5，隶变的横画外拓，1.78 才不粘；中英混排时
+排版上要注意的地方：中文的行高不能直接套拉丁的 1.5，1.78 阅读更舒服；中英混排时
 `className`、`web-compat`、`app.pak` 这类标识符必须留在等宽家族里，比例字体会把 `i` 和 `l` 挤到一起。
 
 ## 2. 表格
