@@ -186,7 +186,11 @@ async function main(argv: string[]): Promise<number> {
     }
     case "wait": {
       need(1, "wait <session> [--since <iso>] [--timeout 30m]");
-      const r = await cli.waitForActivity(home, args[0], { since: o.since, timeoutMs: cli.parseDuration(o.timeout ?? "30m"), me: author });
+      // Default to when THIS PROCESS started, not when waitForActivity runs: the CLI needs a few
+      // hundred ms to boot, and anything written during that window is still "the next comment".
+      // Taking the timestamp after boot made a comment written in that window invisible (exit 3).
+      const since = (o.since as string | undefined) ?? new Date(performance.timeOrigin).toISOString();
+      const r = await cli.waitForActivity(home, args[0], { since, timeoutMs: cli.parseDuration(o.timeout ?? "30m"), me: author });
       print({ events: r.events, next: r.next }, r.timedOut ? `nothing new\n\nnext: ${r.next}` : cli.formatActivity(r));
       return r.timedOut ? 3 : 0;
     }

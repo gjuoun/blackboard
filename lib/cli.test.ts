@@ -116,6 +116,29 @@ describe("blackboard wait", () => {
     expect(await p.exited).toBe(3);
     expect(await new Response(p.stdout).text()).toContain(`next: ${since}`);
   });
+
+  // The regression that made CI red, measured instead of raced: `wait` with no --since reports its
+  // window in `next`, and that window must open when the PROCESS STARTED, not when the CLI finished
+  // booting into waitForActivity. Taking it after boot made any comment written during startup
+  // invisible until the child's own timeout (CI: a 400 ms sleep lost to a ~400 ms boot, the child
+  // was SIGTERMed at the 5 s test limit, exit 143).
+  //
+  // Offsets from spawn to the reported window, measured on this machine: 5-10 ms with the fix,
+  // 77-90 ms without it, ~400 ms on the GitHub runner. 50 ms separates them with headroom for a
+  // normal machine, and three attempts (best wins) keep a thrashing runner from deciding the result.
+  test("wait opens its window at process start, not after boot", async () => {
+    const { home, design } = setup();
+    open(home, design);
+    const offsets: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const spawnedAt = Date.now();
+      const p = Bun.spawn(["bun", BIN, "--home", home, "wait", design, "--json", "--timeout", "200ms"], { stdout: "pipe" });
+      expect(await p.exited).toBe(3); // nothing to report: it timed out
+      const out = JSON.parse(await new Response(p.stdout).text());
+      offsets.push(Date.parse(out.next) - spawnedAt);
+    }
+    expect(Math.min(...offsets)).toBeLessThanOrEqual(50);
+  });
 });
 
 describe("blackboard binary", () => {
