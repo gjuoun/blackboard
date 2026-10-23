@@ -278,6 +278,12 @@ your own.
   the card URLs in the page are absolute. In `bun dev` Next always uses `localhost`.
 - `docs/social-preview.png` is the same default card; upload it under GitHub's Settings → Social preview.
 
+## Credits
+
+The idea of reviewing planning docs side-by-side with a coding agent was learned from
+[Whiteboard](https://github.com/devdotfast/whiteboard) — an open-source canvas where humans and
+agents architect software together. Go check it out.
+
 ## License
 
 [MIT](LICENSE) © Jun Guo
