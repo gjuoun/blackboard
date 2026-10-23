@@ -272,9 +272,36 @@ mark.hl { background: var(--hl); color: inherit; border-radius: 3px; padding: 0 
 .theme-name { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 500; line-height: 1.2; }
 .theme-mode { font-size: 10.5px; color: var(--muted-foreground); }
 .pickers { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-.picker { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+/* One fixed label column, so Latin / 中文 / 等宽 line up and all three selects start at the same x. */
+.picker { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 8px; font-size: 13px; }
 .picker > span { color: var(--muted-foreground); white-space: nowrap; }
-.picker select { flex: 1; min-width: 0; height: 32px; border-radius: 8px; border: 1px solid var(--input); background: var(--background); color: var(--foreground); font: inherit; font-size: 13px; padding: 0 6px; }
+.select-wrap { position: relative; min-width: 0; }
+.picker select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--input);
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 13px;
+  /* Right padding reserves the chevron's lane inside the control, so no glyph can spill out. */
+  padding: 0 28px 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.select-wrap .chev {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  transform: translateY(-50%);
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
 .specimen { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
 .specimen-box { background: var(--background); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13.5px; line-height: 1.55; }
 .specimen-box code { font-family: var(--font-code); font-size: .85em; background: var(--code); border: 1px solid var(--border); border-radius: 6px; padding: .05em .35em; }
