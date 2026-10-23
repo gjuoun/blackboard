@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="paper" data-font-latin="qublack" data-font-cjk="qublack" data-font-mono="qublack-mono">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Reading config mock · Blackboard</title>
+<link rel="stylesheet" href="mock.css" />
+</head>
+<body>
+<header class="bar">
+  <span class="brand"><span class="brand-mark"></span>Blackboard</span>
+  <span class="mock-chip">mock</span>
+  <nav class="tabs">
+    <a class="tab tab-home" href="#" aria-label="Home"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></a>
+    <a class="tab" href="#" aria-current="page">API 迁移方案 <span class="x">×</span></a>
+  </nav>
+  <div class="bar-actions">
+    <button class="icon-btn" title="Contents" aria-label="Contents"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12h-8"/><path d="M21 6H8"/><path d="M21 18h-8"/><path d="M3 6v4c0 1.1.9 2 2 2h3"/><path d="M3 10v6c0 1.1.9 2 2 2h3"/></svg></button>
+    <button class="icon-btn" title="Comments" aria-pressed="true" aria-label="Comments"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="count">2</span></button>
+    <button class="icon-btn" id="open-settings" title="Reading settings" aria-label="Reading settings" aria-pressed="false"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></button>
+    <span class="bar-sep"></span>
+    <button class="icon-btn" title="More" aria-label="More"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+  </div>
+</header>
+
+<main class="grid">
+  <aside class="toc">
+    <h2>Contents</h2>
+    <ul>
+      <li><a class="active" href="#top">API 迁移方案</a></li>
+      <li><a class="sub" href="#steps">步骤</a></li>
+      <li><a class="sub" href="#window">切换窗口</a></li>
+      <li><a class="sub" href="#english">English sample</a></li>
+      <li><a class="sub" href="#code">代码</a></li>
+      <li><a class="sub" href="#list">注意事项</a></li>
+    </ul>
+  </aside>
+
+  <article class="doc">
+    <div class="doc-inner">
+      <div class="chips">
+        <span class="chip">repo/docs/api-migration.md</span>
+        <span class="chip">⎇ feat/api-migration</span>
+        <span class="chip">2.4 KB</span>
+      </div>
+
+      <table class="fm">
+        <tr><th>title</th><td>API 迁移方案</td></tr>
+        <tr><th>status</th><td>评审中</td></tr>
+        <tr><th>reviewers</th><td><span class="pill">jun</span><span class="pill">agent</span></td></tr>
+      </table>
+
+      <div class="doc-body" id="top">
+        <h1>API 迁移方案</h1>
+        <p>先迁读，再迁写。在<strong>所有服务都从新集群读取</strong>之前，代理层保留，任何时刻回滚都只是改一次配置。</p>
+        <p>这一步的目标不是"更快"，而是让「<mark class="hl">旧集群 → 代理 → 新集群</mark>」这条链路在 <code>p99 &lt; 120ms</code> 下稳定一周；做不到就回滚，<code>rollback.sh</code> 只需要 40 秒。</p>
+
+        <h2 id="steps">步骤</h2>
+        <table>
+          <thead><tr><th>步骤</th><th>改动</th><th>负责</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>先切 5% 读流量到新集群</td><td>基础设施</td></tr>
+            <tr><td>2</td><td>提到 50%，观察一周 p99</td><td>基础设施</td></tr>
+            <tr><td>3</td><td>逐个服务迁移剩余读方</td><td>各团队</td></tr>
+            <tr><td>4</td><td>功能开关后面切写</td><td>基础设施</td></tr>
+            <tr><td>5</td><td>下线代理层</td><td>基础设施</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="window">切换窗口</h2>
+        <blockquote>
+          <p>周六 02:00–04:00 UTC。分析服务的读库在第 3 步迁移，早于任何写流量切换。</p>
+        </blockquote>
+
+        <h2 id="english">English sample</h2>
+        <p>We move reads first, then writes. The proxy layer stays until <strong>every service reads from the new cluster</strong>, so a rollback at any point is a config flip. The same paragraph in Latin is here to judge the reading face next to Chinese: quotation marks “like this”, an em dash — and a little <code>inline_code(42)</code>.</p>
+
+        <h2 id="code">代码</h2>
+        <pre><code># migrate.ts — 只切读流量，写流量留在旧集群
+export async function shiftReads(percent: number) {
+  const pool = await connect("new-cluster");      // 新集群连接池
+  const weight = percent / 100;                   // 0.05 → 0.5 → 1
+  log.info(`reading ${percent}% from new cluster`);
+  return pool.route({ weight, fallback: "old" }); // 失败自动回旧集群
+}</code></pre>
+
+        <h2 id="list">注意事项</h2>
+        <ul>
+          <li><strong>先读后写</strong> — 读流量可以在 5% / 50% / 100% 三档停留，写只切一次。</li>
+          <li><strong>观察指标</strong> — <code>p99</code>、错误率、复制延迟，三张图放在同一个面板。</li>
+          <li><strong>回滚演练</strong> — 切换前一天在预发环境完整跑一次。</li>
+        </ul>
+        <hr />
+        <p>文档由 <code>blackboard</code> 打开；评论留在文件旁边，代理可以直接读取。</p>
+      </div>
+    </div>
+  </article>
+
+  <aside class="comments">
+    <div class="comments-head">
+      <h2>Comments <span class="count">2</span></h2>
+      <span class="avatar">j</span>
+      <button class="icon-btn" title="Copy open comments"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+    </div>
+
+    <div class="card active">
+      <div class="card-meta"><span><b>jun</b> · Oct 23, 3:45 PM</span><span class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span></div>
+      <p class="quote">旧集群 → 代理 → 新集群</p>
+      <p>这条链路画得对，但 p99 的门槛要写清楚是<strong>读</strong>的 p99，不含写。</p>
+      <div class="reply"><span class="avatar">a</span><div><div class="card-meta"><span><b>agent</b> · 3:47 PM</span></div><p style="margin:0">收到，改成「读 p99」并补一条写的 p99 参考值。</p></div></div>
+      <div class="reply-row" style="margin-top:8px"><input class="reply-input" placeholder="Reply…" /><span class="send"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-meta"><span><b>agent</b> · Oct 23, 3:41 PM</span><span class="check done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span></div>
+      <p class="quote">周六 02:00–04:00 UTC。分析服务的读库在第 3 步迁移</p>
+      <p>窗口和值班表对得上。已解决。</p>
+    </div>
+  </aside>
+</main>
+
+<section class="settings" id="settings" aria-label="Reading settings">
+  <h3>Theme</h3>
+  <div class="theme-grid" role="radiogroup" aria-label="Theme">
+    <button class="theme-card" role="radio" data-theme-pick="paper" data-active="true" aria-checked="true">
+      <span class="swatch" data-theme="paper"><span class="dot" style="background: var(--foreground)"></span><span class="dot" style="background: var(--primary)"></span><span class="dot" style="background: var(--muted-foreground); opacity:.6"></span></span>
+      <span class="theme-name">Paper</span><span class="theme-mode">light</span>
+    </button>
+    <button class="theme-card" role="radio" data-theme-pick="plain" data-active="false" aria-checked="false">
+      <span class="swatch" data-theme="plain"><span class="dot" style="background: var(--foreground)"></span><span class="dot" style="background: var(--primary)"></span><span class="dot" style="background: var(--muted-foreground); opacity:.6"></span></span>
+      <span class="theme-name">Plain</span><span class="theme-mode">light</span>
+    </button>
+    <button class="theme-card" role="radio" data-theme-pick="night" data-active="false" aria-checked="false">
+      <span class="swatch" data-theme="night"><span class="dot" style="background: var(--foreground)"></span><span class="dot" style="background: var(--primary)"></span><span class="dot" style="background: var(--muted-foreground); opacity:.6"></span></span>
+      <span class="theme-name">Night</span><span class="theme-mode">dark</span>
+    </button>
+  </div>
+
+  <div class="pickers">
+    <label class="picker"><span>Latin</span>
+      <select id="font-latin">
+        <option value="qublack">QuBlack Sans</option>
+        <option value="inter">Inter</option>
+        <option value="charter">Charter（衬线）</option>
+        <option value="georgia">Georgia（衬线）</option>
+        <option value="system">System sans</option>
+      </select>
+    </label>
+    <label class="picker"><span>中文</span>
+      <select id="font-cjk">
+        <option value="qublack">QuBlack Sans</option>
+        <option value="pingfang">苹方 PingFang SC</option>
+        <option value="songti">宋体 Songti SC</option>
+        <option value="wenkai">霞鹜文楷（需安装）</option>
+      </select>
+    </label>
+    <label class="picker"><span>等宽</span>
+      <select id="font-mono">
+        <option value="qublack-mono">QuBlack Mono（2:1）</option>
+        <option value="sarasa-mono">Sarasa Mono SC（需安装）</option>
+        <option value="jetbrains">JetBrains Mono（CJK 会错位）</option>
+        <option value="sf-mono">SF Mono（CJK 会错位）</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="specimen">
+    <h3>Specimen</h3>
+    <div class="specimen-box">The quick brown fox 0123456789 · 中文阅读体验，标点“引号”与《书名》 · <code>const 常量 = 1;</code></div>
+  </div>
+
+  <div class="settings-foot">
+    <span>Mock：只验证配色与字体；面板宽度、持久化在 build 轮</span>
+    <button class="btn" id="reset">Reset</button>
+  </div>
+</section>
+
+<script src="mock.js"></script>
+</body>
+</html>
