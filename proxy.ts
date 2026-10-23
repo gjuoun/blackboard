@@ -4,13 +4,17 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /**
  * Extra hosts the app answers, from $BLACKBOARD_ALLOWED_HOSTS (comma-separated,
- * e.g. "192.168.2.80,mypc.tail123.ts.net"). Default: none — localhost only.
+ * e.g. "192.168.2.80,mypc.tail123.ts.net"). The production domain is always
+ * allowed; the env var only opts extra (LAN/tailnet) hosts in.
  */
 const ALLOWED_HOSTS = new Set(
-  (process.env.BLACKBOARD_ALLOWED_HOSTS ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean),
+  [
+    "blackboard.qqntt.com",
+    ...(process.env.BLACKBOARD_ALLOWED_HOSTS ?? "")
+      .split(",")
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
+  ],
 );
 
 /** \"localhost:38770\" -> \"localhost\", \"[::1]:38770\" -> \"[::1]\". */
