@@ -9,6 +9,7 @@ import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
+import type { PluggableList } from "unified";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
 import { parse as parseYaml } from "yaml";
@@ -21,6 +22,29 @@ export type Rendered = { html: string; toc: TocEntry[]; frontmatter: Frontmatter
 type HNode = { type: string; data: { hName: string; hProperties?: Record<string, unknown>; hChildren?: unknown[] }; children?: PhrasingContent[] };
 
 const MARK = /==([^=\n]+)==/g;
+
+/**
+ * Doc-relative image references (`./x.png`, `sub/y.png`, `../z.png`) resolve against the app root
+ * in the browser, not the file's folder, so they 404. When an assetBase is given (the local app
+ * passes `/api/asset/<sessionId>`), rewrite every non-remote img src to that route. The relative
+ * path rides as a query param: the browser never path-normalises a query string, so `../` refs
+ * keep their doc-relative meaning (and 404 at the route if they escape the doc's folder).
+ * Absolute http(s), data: and fragment srcs are left alone, so remote pictures and inlined
+ * diagrams keep working and the cloud Worker (which passes no assetBase) renders as before.
+ */
+const EXTERNAL_SRC = /^(?:[a-z][a-z0-9+.-]*:|#)/i;
+
+function rehypeAssetImages(assetBase: string) {
+  return () => (tree: HastRoot) => {
+    visit(tree, "element", (el: Element) => {
+      if (el.tagName !== "img") return;
+      const raw = el.properties?.src;
+      if (typeof raw !== "string" || raw === "" || EXTERNAL_SRC.test(raw)) return;
+      const rel = raw.replace(/^\/+/, "").replace(/^\.\//, "");
+      el.properties.src = `${assetBase}?p=${encodeURIComponent(rel)}`;
+    });
+  };
+}
 
 /**
  * Jun's existing review habit is `==passage==[^n]`. Show those as read-only highlights with the
@@ -143,9 +167,10 @@ function rehypeCollectToc(toc: TocEntry[]) {
 }
 
 /** Markdown to HTML on the server, so the text a comment anchors against is the same on every load. */
-export async function renderMarkdown(src: string): Promise<Rendered> {
+export async function renderMarkdown(src: string, opts?: { assetBase?: string }): Promise<Rendered> {
   const toc: TocEntry[] = [];
   const fm: { data: Frontmatter | null } = { data: null };
+  const asset: PluggableList = opts?.assetBase ? [rehypeAssetImages(opts.assetBase)] : [];
   const file = await unified()
     .use(remarkParse)
     .use(remarkFrontmatter, ["yaml"])
@@ -156,6 +181,7 @@ export async function renderMarkdown(src: string): Promise<Rendered> {
     .use(remarkRehype)
     .use(rehypeSlug)
     .use(rehypeCollectToc(toc))
+    .use(asset)
     .use(rehypeStringify)
     .process(src);
   return { html: String(file), toc, frontmatter: fm.data };
