@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { applyPrefs, DEFAULT_CHROME, PANEL_LIMITS, parsePrefs, PREFS_KEY, serializePrefs, type StoredChrome } from "@/lib/prefs";
+import { applyPrefs, DEFAULT_CHROME, parsePrefs, PREFS_KEY, serializePrefs, type StoredChrome } from "@/lib/prefs";
 
 /**
  * Page chrome shared between the top bar (in the root layout) and the doc page: which side panels
@@ -87,15 +87,3 @@ export function resetReading() {
   setChrome({ theme: DEFAULTS.theme, fontLatin: DEFAULTS.fontLatin, fontCjk: DEFAULTS.fontCjk, fontMono: DEFAULTS.fontMono });
 }
 
-/** A relative step for the resize handles, so a keyboard user gets the same bounds as a drag. */
-export function nudgePanel(which: "toc" | "cm", delta: number, viewport: number) {
-  const c = read();
-  const key = which === "toc" ? "tocW" : "cmW";
-  const { min, max } = PANEL_LIMITS[which];
-  const next = Math.min(max, Math.max(min, c[key] + delta));
-  if (next === c[key]) return;
-  // Keep the doc's 480px floor: never let the two panels plus the floor overflow the viewport.
-  const other = which === "toc" ? c.cmW : c.tocW;
-  if (next + other + 480 > viewport) return;
-  setChrome({ [key]: next } as Partial<Chrome>);
-}
