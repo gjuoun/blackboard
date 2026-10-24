@@ -1,0 +1,85 @@
+/*
+ * The font layer. Stacks live here and nowhere else: a picker writes `data-font-*` on <html> and
+ * these rules swap the variables. The chrome keeps its own brand stack (--font-ui); only the doc
+ * body follows the reading picks (--font-read), and code follows the mono pair (--font-code).
+ *
+ * QuBlack ships as two families per role: a Latin subset in the repo (~45 KB per face) and a CJK
+ * face resolved from the installed font with local(). PostScript names are mandatory — Chromium
+ * does not match a local() family name — and the installed 1.2.0 family is a VARIABLE font
+ * (QuBlackSansVF-Regular), so the VF name comes first and the older static name second; one face
+ * covers 100–900 and the browser instances the weight. The CJK face's unicode-range excludes Latin
+ * so a CJK pick can still win for Chinese while the shipped subset keeps the Latin identity.
+ */
+@font-face {
+  font-family: "QB Sans Latin";
+  src: url("/fonts/qb-sans-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F;
+}
+@font-face {
+  font-family: "QB Sans Latin";
+  src: url("/fonts/qb-sans-bold-latin.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F;
+}
+@font-face {
+  font-family: "QB Mono Latin";
+  src: url("/fonts/qb-mono-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F;
+}
+@font-face {
+  font-family: "QB Mono Latin";
+  src: url("/fonts/qb-mono-bold-latin.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F;
+}
+/* The CJK halves: installed QuBlack only, PostScript names (VF first), no Latin in range. */
+@font-face {
+  font-family: "QB Sans CJK";
+  src: local("QuBlackSansVF-Regular"), local("QuBlackSans-Regular");
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+2E80-2EFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF;
+}
+@font-face {
+  font-family: "QB Mono CJK";
+  src: local("QuBlackMonoVF-Regular"), local("QuBlackMono-Regular"), local("QuBlackMonoStatic-Regular");
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+2E80-2EFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF;
+}
+
+:root {
+  --font-ui: "QB Sans Latin", "QuBlack Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", Helvetica, Arial, sans-serif;
+  --font-latin: "QB Sans Latin";
+  --font-cjk: "QB Sans CJK", "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-read: var(--font-latin), var(--font-cjk);
+  --font-mono-latin: "QB Mono Latin";
+  --font-mono-cjk: "QB Mono CJK", "Sarasa Mono SC", monospace;
+  --font-code: var(--font-mono-latin), var(--font-mono-cjk);
+}
+
+html[data-font-latin="qublack"] { --font-latin: "QB Sans Latin"; }
+html[data-font-latin="inter"] { --font-latin: Inter, "Inter var", -apple-system, "Segoe UI", Roboto, sans-serif; }
+html[data-font-latin="charter"] { --font-latin: Charter, "Bitstream Charter", "Sitka Text", Cambria, serif; }
+html[data-font-latin="georgia"] { --font-latin: Georgia, "Iowan Old Style", "Times New Roman", serif; }
+html[data-font-latin="system"] { --font-latin: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+html[data-font-cjk="qublack"] { --font-cjk: "QB Sans CJK", "PingFang SC", "Noto Sans SC", sans-serif; }
+html[data-font-cjk="pingfang"] { --font-cjk: "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+html[data-font-cjk="songti"] { --font-cjk: "Songti SC", "Noto Serif SC", SimSun, serif; }
+html[data-font-cjk="wenkai"] { --font-cjk: "LXGW WenKai", "Kaiti SC", "PingFang SC", sans-serif; }
+
+html[data-font-mono="qublack-mono"] { --font-mono-latin: "QB Mono Latin"; --font-mono-cjk: "QB Mono CJK", "Sarasa Mono SC", monospace; }
+html[data-font-mono="sarasa-mono"] { --font-mono-latin: "Sarasa Mono SC", ui-monospace, monospace; --font-mono-cjk: "Sarasa Mono SC", "QB Mono CJK", monospace; }
+html[data-font-mono="jetbrains"] { --font-mono-latin: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace; --font-mono-cjk: "Sarasa Mono SC", "QB Mono CJK", monospace; }
+html[data-font-mono="sf-mono"] { --font-mono-latin: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace; --font-mono-cjk: "Sarasa Mono SC", "QB Mono CJK", monospace; }

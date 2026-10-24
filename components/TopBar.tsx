@@ -17,6 +17,7 @@ import {
 import { closeTab, moveTab, parseTabs, SCRATCHPAD_TAB, serializeTabs, TABS_KEY, type Tab } from "@/lib/tabs";
 import { cn } from "@/lib/utils";
 import { setChrome, togglePanel, useChrome, useIsDesktop } from "./chrome";
+import { ReadingSettings } from "./ReadingSettings";
 
 // Open tabs live in localStorage, read through one cached snapshot so every subscriber sees the
 // same array (useSyncExternalStore needs a stable value between changes).
@@ -197,6 +198,10 @@ export function TopBar() {
           </Button>
         </>
       ) : null}
+
+      {/* Reading settings live in the bar at every width: one icon keeps the palette and font
+          controls one click away on a phone without a duplicate entry in the ⋯ menu. */}
+      <ReadingSettings />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
