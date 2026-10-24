@@ -59,7 +59,7 @@ export function ReadingSettings() {
   };
 
   const picker = (slot: "latin" | "cjk" | "mono", label: string, list: { id: string; label: string }[], value: string, onChange: (v: string) => void) => (
-    <label className="flex items-center justify-between gap-2 text-[13px]">
+    <label className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-2 text-[13px]">
       <span className="text-muted-foreground">{label}</span>
       <select
         data-testid={"font-" + slot}
