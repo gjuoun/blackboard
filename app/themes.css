@@ -1,31 +1,37 @@
 /*
- * Themes. Every colour in the UI comes from these tokens (shadcn's names plus a few of ours), so a
- * theme is one block. The page picks one with <html data-theme="…"> and, for dark variants, the
- * `dark` class; `warm` is the only theme wired up today. To add one, copy the `warm` block, give
- * it a new data-theme name and list it in lib/theme.ts.
+ * Palettes. Every colour in the UI comes from these tokens, so a palette is one complete block:
+ * swap `data-theme` on <html> and the whole set is replaced — nothing is inherited from another
+ * theme, and no token is declared only for a dark variant.
+ *
+ * The shape follows shadcn/ui's token vocabulary (semantic roles, each surface paired with a
+ * -foreground, plus the --radius scale and the @theme inline mapping in globals.css) and Radix
+ * Themes' dark-theme guidance: a theme declares its own color-scheme and its own complete set
+ * instead of patching a shared one. Values are sRGB hex on purpose — the one deliberate deviation
+ * from shadcn's oklch defaults — so the contrast gate in lib/theme.test.ts can parse every token.
+ *
+ * To add a palette: copy a block, give it a new data-theme name, list it in lib/prefs.ts THEME_IDS
+ * with its mode in THEME_MODE, and run `bun test lib/theme.test.ts`.
  */
-:root,
-[data-theme="warm"] {
+[data-theme="paper"] {
+  color-scheme: light;
   --background: #faf8f5;
   --foreground: #2b2622;
   --card: #ffffff;
   --card-foreground: #2b2622;
   --popover: #ffffff;
   --popover-foreground: #2b2622;
-  --primary: #c4603f;
+  --primary: #b3532f;
   --primary-foreground: #ffffff;
   --secondary: #f1ebe4;
   --secondary-foreground: #2b2622;
   --muted: #f1ebe4;
-  --muted-foreground: #8a8178;
+  --muted-foreground: #6f675e;
   --accent: #efe9e2;
   --accent-foreground: #2b2622;
   --destructive: #cf222e;
   --border: #ebe5de;
   --input: #ebe5de;
-  --ring: #c4603f;
-  --radius: 0.75rem;
-  /* ours */
+  --ring: #b3532f;
   --primary-soft: #f8e6df;
   --code: #f6f2ed;
   --mark: #fbe9a6;
@@ -35,37 +41,69 @@
   --hl-active: rgba(255, 140, 0, 0.55);
   --warn: #9a6700;
   --success: #2f7d4f;
-  --font-ui: "QuBlack Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", Helvetica, Arial, sans-serif;
-  --font-code: "QuBlack Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --radius: 0.75rem;
 }
 
-/* Dark variant of warm: a starting palette, not yet reviewed on screen. */
-[data-theme="warm"].dark,
-.dark {
-  --background: #1d1a17;
-  --foreground: #efe8e0;
-  --card: #26221e;
-  --card-foreground: #efe8e0;
-  --popover: #26221e;
-  --popover-foreground: #efe8e0;
-  --primary: #e0785a;
-  --primary-foreground: #1d1a17;
-  --secondary: #332e29;
-  --secondary-foreground: #efe8e0;
-  --muted: #332e29;
-  --muted-foreground: #a39a90;
-  --accent: #332e29;
-  --accent-foreground: #efe8e0;
-  --border: #3a342e;
-  --input: #3a342e;
-  --ring: #e0785a;
-  --primary-soft: #3b2a24;
-  --code: #2d2823;
-  --mark: #5a4a14;
-  --mark-line: #b8921f;
-  --hl: rgba(255, 196, 0, 0.28);
-  --hl-hover: rgba(255, 170, 0, 0.4);
-  --hl-active: rgba(255, 140, 0, 0.5);
-  --warn: #e3b341;
-  --success: #5fb37f;
+[data-theme="plain"] {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+  --primary: #1f6feb;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #5f6368;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #d1242f;
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #1f6feb;
+  --primary-soft: #e8f0fe;
+  --code: #f6f7f9;
+  --mark: #fff3a3;
+  --mark-line: #b58f00;
+  --hl: rgba(255, 214, 0, 0.32);
+  --hl-hover: rgba(255, 200, 0, 0.46);
+  --hl-active: rgba(255, 180, 0, 0.55);
+  --warn: #8a5a00;
+  --success: #1a7f37;
+  --radius: 0.75rem;
+}
+
+[data-theme="night"] {
+  color-scheme: dark;
+  --background: #0f1115;
+  --foreground: #e6e6e6;
+  --card: #151920;
+  --card-foreground: #e6e6e6;
+  --popover: #151920;
+  --popover-foreground: #e6e6e6;
+  --primary: #7aa2f7;
+  --primary-foreground: #0b0e13;
+  --secondary: #1b2028;
+  --secondary-foreground: #e6e6e6;
+  --muted: #1b2028;
+  --muted-foreground: #9aa0a6;
+  --accent: #1f2530;
+  --accent-foreground: #e6e6e6;
+  --destructive: #f85149;
+  --border: #262a31;
+  --input: #262a31;
+  --ring: #7aa2f7;
+  --primary-soft: #16233a;
+  --code: #171b22;
+  --mark: #4a3c0d;
+  --mark-line: #c8a02a;
+  --hl: rgba(255, 196, 0, 0.25);
+  --hl-hover: rgba(255, 170, 0, 0.38);
+  --hl-active: rgba(255, 140, 0, 0.48);
+  --warn: #d29922;
+  --success: #3fb950;
+  --radius: 0.75rem;
 }

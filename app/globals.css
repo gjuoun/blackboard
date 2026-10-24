@@ -34,7 +34,13 @@
   --font-mono: var(--font-code);
 }
 
-:root { --bar-h: 52px; }
+/* Not palette tokens: the chrome's own type stack and the bar height. Step 5 replaces the two
+   font variables with the shipped/subset stacks; a palette never overrides them. */
+:root {
+  --bar-h: 52px;
+  --font-ui: "QuBlack Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", Helvetica, Arial, sans-serif;
+  --font-code: "QuBlack Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
 
 @layer base {
   * { @apply border-border outline-ring/50; }
