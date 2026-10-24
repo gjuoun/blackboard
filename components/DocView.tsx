@@ -8,7 +8,7 @@ import type { Comment } from "@/lib/comments-store";
 import { cn } from "@/lib/utils";
 import { buildTextMap, offsetOf, rangeOf } from "@/lib/text-map";
 import { clampPanels, type PanelKey } from "@/lib/prefs";
-import { patchDoc, setChrome, useChrome, useIsDesktop } from "./chrome";
+import { DESKTOP, patchDoc, setChrome, useChrome, useIsDesktop } from "./chrome";
 import { PanelResizer } from "./PanelResizer";
 import { CommentPanel, type PanelComment } from "./CommentPanel";
 import { DocBody } from "./DocBody";
@@ -58,9 +58,12 @@ export function DocView({ session, title, path, html, initialComments, header, t
   // column can follow the grip frame by frame without a localStorage write per pixel.
   const [resizing, setResizing] = useState<{ which: PanelKey; width: number } | null>(null);
 
-  // A narrower window must not leave the doc behind two wide panels: re-clamp both widths.
+  // A narrower window must not leave the doc behind two wide panels: re-clamp both widths. Only a
+  // desktop viewport gets this: a phone shows no side panels, and clamping there would overwrite the
+  // widths the reader chose on desktop.
   useEffect(() => {
     const onResize = () => {
+      if (!matchMedia(DESKTOP).matches) return;
       const next = clampPanels({ tocW: chrome.tocW, cmW: chrome.cmW }, innerWidth);
       if (next.tocW !== chrome.tocW || next.cmW !== chrome.cmW) setChrome(next);
     };
