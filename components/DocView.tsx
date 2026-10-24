@@ -244,11 +244,19 @@ export function DocView({ session, title, path, html, initialComments, header, t
 
   // Desktop: Contents | doc | Comments, each side column collapsing (Comments to a thin rail).
   // Phone: the doc alone, with Contents and Comments as bottom sheets opened from the top bar.
-  const cols = desktop ? `${chrome.tocOpen && toc ? "240px" : "0px"} minmax(0,1fr) ${chrome.cmOpen ? "340px" : "0px"}` : "minmax(0,1fr)";
+  // The columns read the variables the boot script put on <html>, so stored widths paint on the
+  // first frame; an inline override is only needed when a panel is closed.
+  const vars: Record<string, string> = desktop
+    ? { gridTemplateColumns: "var(--toc-w, 240px) minmax(0, 1fr) var(--cm-w, 340px)" }
+    : { gridTemplateColumns: "minmax(0,1fr)" };
+  if (desktop) {
+    if (!(chrome.tocOpen && toc)) vars["--toc-w"] = "0px";
+    if (!chrome.cmOpen) vars["--cm-w"] = "0px";
+  }
   return (
-    <div className="grid min-h-[calc(100vh-var(--bar-h))] transition-[grid-template-columns] duration-200" style={{ gridTemplateColumns: cols }}>
+    <div className="grid min-h-[calc(100vh-var(--bar-h))] transition-[grid-template-columns] duration-200" style={vars as React.CSSProperties}>
       {desktop ? (
-        <aside className={cn("border-border overflow-x-clip border-r", chrome.tocOpen && toc ? "" : "invisible border-0")} aria-hidden={!chrome.tocOpen}>
+        <aside className={cn("border-border overflow-x-clip border-r", chrome.tocOpen && toc ? "" : "invisible border-0")} aria-hidden={!chrome.tocOpen} data-testid="toc-panel">
           <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto p-3">{toc}</div>
         </aside>
       ) : null}
@@ -272,7 +280,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
       </main>
       {desktop ? (
         chrome.cmOpen ? (
-          <aside className="border-border bg-background border-l">
+          <aside className="border-border bg-background border-l" data-testid="comments-panel">
             <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto p-3.5">{panel}</div>
           </aside>
         ) : (

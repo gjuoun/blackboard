@@ -1,46 +1,51 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { applyPrefs, DEFAULT_CHROME, PANEL_LIMITS, parsePrefs, PREFS_KEY, serializePrefs, type StoredChrome } from "@/lib/prefs";
 
 /**
  * Page chrome shared between the top bar (in the root layout) and the doc page: which side panels
- * are open, what the open doc is, and two reading options. Panel and option choices persist in
- * localStorage. On a phone the panels are bottom sheets, so `sheet` says which one is showing.
+ * are open, what the open doc is, and the reading preferences. Everything except `sheet` and `doc`
+ * persists under `bb-chrome` — the same key the previous version wrote, so an upgrade keeps its
+ * four booleans. On a phone the panels are bottom sheets, so `sheet` says which one is showing.
  */
 export type DocInfo = { id: string; path: string; readable: boolean; hasToc: boolean; open: number };
-export type Chrome = { tocOpen: boolean; cmOpen: boolean; sheet: "toc" | "cm" | null; showResolved: boolean; wrapCode: boolean; doc: DocInfo | null };
+export type Chrome = StoredChrome & { sheet: "toc" | "cm" | null; doc: DocInfo | null };
 
-const KEY = "bb-chrome";
-const DEFAULTS: Chrome = { tocOpen: true, cmOpen: true, sheet: null, showResolved: false, wrapCode: false, doc: null };
-const PERSISTED = ["tocOpen", "cmOpen", "showResolved", "wrapCode"] as const;
+const DEFAULTS: Chrome = { ...DEFAULT_CHROME, sheet: null, doc: null };
 
 let state: Chrome | null = null;
 const listeners = new Set<() => void>();
 
 function read(): Chrome {
   if (state === null) {
-    let saved: Partial<Chrome> = {};
+    let raw: string | null = null;
     try {
-      saved = JSON.parse(localStorage.getItem(KEY) ?? "{}");
+      raw = localStorage.getItem(PREFS_KEY);
     } catch {
-      // ignore a corrupt value
+      // storage blocked: fall through to the defaults
     }
-    state = { ...DEFAULTS };
-    for (const k of PERSISTED) if (typeof saved[k] === "boolean") (state[k] as boolean) = saved[k] as boolean;
+    state = { ...parsePrefs(raw), sheet: null, doc: null };
   }
   return state;
+}
+
+/** Write the record and paint it on <html>. Cheap enough to run on every change: 7 attributes. */
+function commit(next: Chrome) {
+  state = next;
+  try {
+    localStorage.setItem(PREFS_KEY, serializePrefs(next));
+  } catch {
+    // storage blocked: the choice lasts for this page
+  }
+  if (typeof document !== "undefined") applyPrefs(document.documentElement, next);
 }
 
 export function setChrome(patch: Partial<Chrome>) {
   const cur = read();
   const next = { ...cur, ...patch };
-  if (PERSISTED.every((k) => next[k] === cur[k]) && next.sheet === cur.sheet && next.doc === cur.doc) return;
-  state = next;
-  try {
-    localStorage.setItem(KEY, JSON.stringify(Object.fromEntries(PERSISTED.map((k) => [k, next[k]]))));
-  } catch {
-    // storage blocked: the choice lasts for this page
-  }
+  if (!(Object.keys(patch) as (keyof Chrome)[]).some((k) => next[k] !== cur[k])) return;
+  commit(next);
   for (const l of listeners) l();
 }
 
@@ -75,4 +80,22 @@ export function togglePanel(which: "toc" | "cm", desktop: boolean) {
   const c = read();
   if (desktop) setChrome(which === "toc" ? { tocOpen: !c.tocOpen } : { cmOpen: !c.cmOpen });
   else setChrome({ sheet: c.sheet === which ? null : which });
+}
+
+/** Reset the reading picks (palette, the three faces) without touching how the panels are laid out. */
+export function resetReading() {
+  setChrome({ theme: DEFAULTS.theme, fontLatin: DEFAULTS.fontLatin, fontCjk: DEFAULTS.fontCjk, fontMono: DEFAULTS.fontMono });
+}
+
+/** A relative step for the resize handles, so a keyboard user gets the same bounds as a drag. */
+export function nudgePanel(which: "toc" | "cm", delta: number, viewport: number) {
+  const c = read();
+  const key = which === "toc" ? "tocW" : "cmW";
+  const { min, max } = PANEL_LIMITS[which];
+  const next = Math.min(max, Math.max(min, c[key] + delta));
+  if (next === c[key]) return;
+  // Keep the doc's 480px floor: never let the two panels plus the floor overflow the viewport.
+  const other = which === "toc" ? c.cmW : c.tocW;
+  if (next + other + 480 > viewport) return;
+  setChrome({ [key]: next } as Partial<Chrome>);
 }
