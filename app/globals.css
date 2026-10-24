@@ -38,6 +38,13 @@
 /* Height only: the font stacks live in fonts.css so a palette can never override them. */
 :root { --bar-h: 52px; }
 
+/* The doc's column template: one column on a phone, Contents | doc | Comments from 768px (the same
+   breakpoint as the side panels' `md:` classes). CSS owns the switch so the first paint lays out right. */
+.doc-grid { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 768px) {
+  .doc-grid { grid-template-columns: var(--toc-w, 240px) minmax(0, 1fr) var(--cm-w, 340px); }
+}
+
 @layer base {
   * { @apply border-border outline-ring/50; }
   html { -webkit-text-size-adjust: 100%; }
