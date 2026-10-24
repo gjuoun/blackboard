@@ -54,6 +54,9 @@
 /* ---- Doc body: the rendered markdown (raw HTML, so it is styled here, not with utility classes) ---- */
 /* The document follows the reading picks; the chrome keeps --font-ui. */
 .doc-body { font-family: var(--font-read); max-width: 760px; line-height: 1.85; overflow-wrap: break-word; }
+/* The settings panel's live specimen: prose in the reading stack, code in the mono pair. */
+.reading-specimen { font-family: var(--font-read); }
+.reading-specimen code { font-family: var(--font-code); font-size: 0.85em; background: var(--code); border: 1px solid var(--border); padding: 0.05em 0.35em; border-radius: 6px; }
 .doc-body > :first-child { margin-top: 0; }
 .doc-body h1, .doc-body h2, .doc-body h3, .doc-body h4 { line-height: 1.3; font-weight: 700; scroll-margin-top: calc(var(--bar-h) + 12px); }
 .doc-body h1 { font-size: 1.85rem; margin: 0.4em 0 0.6em; }
