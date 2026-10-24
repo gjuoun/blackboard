@@ -87,3 +87,23 @@ describe("renderMarkdown", () => {
     expect(html).not.toContain("<script>");
   });
 });
+
+describe("renderMarkdown assetBase", () => {
+  const DOC = "![shot](./shot.png) ![up](../assets/up.png) ![web](https://x.test/a.png) ![inline](data:image/png;base64,xx) ![sub](sub/dir/b.jpg)";
+
+  test("rewrites doc-relative img srcs onto the asset route", async () => {
+    const { html } = await renderMarkdown(DOC, { assetBase: "/api/asset/abc123" });
+    expect(html).toContain('src="/api/asset/abc123?p=shot.png"');
+    expect(html).toContain('src="/api/asset/abc123?p=..%2Fassets%2Fup.png"');
+    expect(html).toContain('src="/api/asset/abc123?p=sub%2Fdir%2Fb.jpg"');
+    expect(html).toContain('src="https://x.test/a.png"');
+    expect(html).toContain('src="data:image/png;base64,xx"');
+  });
+
+  test("without assetBase every src is left untouched", async () => {
+    const { html } = await renderMarkdown(DOC);
+    expect(html).toContain('src="./shot.png"');
+    expect(html).toContain('src="../assets/up.png"');
+    expect(html).not.toContain("/api/asset/");
+  });
+});

@@ -69,7 +69,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
     );
   }
 
-  const { html, toc } = await renderMarkdown(readFileSync(file, "utf8"));
+  const { html, toc } = await renderMarkdown(readFileSync(file, "utf8"), { assetBase: `/api/asset/${id}` });
   const doc = basename(file);
   return (
     <>
