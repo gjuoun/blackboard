@@ -79,19 +79,21 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
 - **One top bar** — **back to list**, a pinned Home tab and one tab per opened doc. Opening a doc
   from Home, the CLI or a typed URL adds its tab; × or a middle click closes one, and closing the
   open doc moves to its neighbour. **Drag a tab to reorder it.** On a doc the bar also holds the
-  **Contents** and **Comments** toggles (with the open-comment count) and a **⋯** menu: copy the
-  file path, show resolved comments, wrap code blocks, close this / other tabs, back / forward.
-  Tabs and panel choices are kept in the browser's local storage.
+  **Contents** and **Comments** toggles (with the open-comment count), a **palette** button for the
+  reading settings, and a **⋯** menu: copy the file path, show resolved comments, wrap code blocks,
+  close this / other tabs, back / forward. Tabs, panel choices, the palette, the three font picks
+  and both panel widths are kept in the browser's local storage.
 - **Scratchpad** — one free-form doc at `$BLACKBOARD_HOME/scratchpad.md`, pinned on Home; its card
   counts sections and diagrams. You can comment on it like any doc.
 - **Doc view** — GitHub-style markdown (tables with sticky headers, heading anchors), a
   **Contents** list on the left that highlights the section you are reading, and chips above the
-  doc with its location and branch. Contents and Comments both **collapse**: Contents to nothing,
-  Comments to a thin rail with its count. YAML front matter shows as a field / value table: lists
+  doc with its location and branch. On a desktop both side panels **resize** by dragging the 6px
+  grip on their inner edge (arrows step 16px, Shift 64, double-click resets), and each one
+  **collapses** independently from the top bar. YAML front matter shows as a field / value table: lists
   as chips, maps as nested tables, empty values as blank cells; YAML that does not parse is shown
   as source. Raw HTML in a doc is not rendered.
 - **On a phone** — the bar shows the current title across two lines, the other tabs move into the
-  **⋯** menu, and Contents and Comments open as bottom sheets.
+  **⋯** menu, and Contents and Comments open as bottom sheets. The resize grips are desktop-only.
 - **Diagrams** — fenced `mermaid` blocks render in the browser from the bundled library, so
   they work offline.
 - **Comments** — select text, click **Comment**, type a note. Each card shows who and when, a
@@ -244,8 +246,13 @@ half-written; a file that does not parse is reported, never overwritten):
 app/                      Home (/), a session (/s/<id>), /api/comments, /api/watch (SSE)
 components/               TopBar (tabs, toggles, menu), SessionTable, DocView (selection + highlights, collapsible panels),
                           CommentPanel, Toc, Mermaid; ui/ holds the shadcn pieces; chrome.ts is the shared panel state
-app/themes.css            every colour as a token, one block per theme
+app/themes.css            one complete palette per [data-theme] block
+app/fonts.css             @font-face rules and the font stacks keyed by data-font-*
 app/globals.css           Tailwind, the markdown styles for a rendered doc
+lib/prefs.ts              the persisted reading record (theme, three fonts, both widths), parser + boot script
+lib/theme.ts, lib/fonts.ts  the palettes and the picker vocabularies
+public/fonts/             QuBlack Latin subsets (.woff2) + OFL licence
+scripts/subset-fonts.py   regenerates those subsets from a QuBlack release
 lib/sessions.ts           the session registry, comment-file paths, rows for Home and the CLI
 lib/doc-meta.ts           title, repo, branch and stats of a doc
 lib/tabs.ts               the tab strip's model (pure, tested)
@@ -262,11 +269,36 @@ proxy.ts                  localhost-only Host and Origin checks
 ## Look and themes
 
 Built with Next.js 16, React 19, Tailwind 4 and [shadcn/ui](https://ui.shadcn.com) components.
-The look is the `warm` theme. All colours, radii and the two font stacks are tokens in
-`app/themes.css`, so another theme is one more block: copy the `warm` block, give it a new
-`data-theme` name and list it in `lib/theme.ts`. A `.dark` variant is sketched there but has not
-been reviewed on screen. The font stacks are system fonts; set `--font-ui` / `--font-code` to use
-your own.
+
+**Three palettes.** `paper` is the warm theme the app had, with two tokens moved to reach AA
+(`--muted-foreground` `#8a8178` → `#6f675e` at 5.24:1, `--primary` `#c4603f` → `#b3532f` at
+4.72:1); every other value is unchanged. `plain` is a neutral white/graphite light theme with a
+blue accent, `night` is a near-black dark theme. Pick one from the palette button in the top bar;
+the default is `paper`.
+
+**The conventions it follows.** The token set is shadcn/ui's vocabulary — semantic roles with a
+`-foreground` partner for every surface, the `@theme inline` mapping in `globals.css`, the
+`--radius` scale, and `@custom-variant dark` keyed on the `.dark` class so Tailwind's `dark:`
+utilities keep working. From Radix Themes it takes the dark-theme rules: each palette declares its
+own `color-scheme` and its own **complete** set, so switching `data-theme` replaces every token
+instead of patching a shared one. One deliberate deviation: values are sRGB hex, not shadcn's
+`oklch` defaults, so the contrast gate can parse every guarded token. The gate
+(`lib/theme.test.ts`) fails a palette whose body text is under 7:1 or whose quiet text, accent,
+button text, warning or success is under 4.5:1.
+
+To add a palette: copy a block in `app/themes.css`, give it a new `data-theme` name, add the id
+and its mode to `THEME_IDS` / `THEME_MODE` in `lib/prefs.ts`, then run `bun test lib/theme.test.ts`.
+
+**Fonts.** The document body follows three independent picks — Latin, 中文 and 等宽 — while the
+chrome keeps its own brand stack. The default is QuBlack Sans / QuBlack Mono. The app ships only
+QuBlack's **Latin** side as four woff2 subsets in `public/fonts/` (~182 KB); Chinese comes from the
+installed QuBlack through `local()` with PostScript names — the variable face
+`QuBlackSansVF-Regular` first, the older static name second, because Chromium matches nothing but
+PostScript names — and a CJK-only `unicode-range`, so choosing 宋体 still wins for Chinese. Without
+QuBlack installed the CJK falls back to PingFang / Noto. The monospace picker is a **pair**, not
+one font: a Latin mono next to a CJK face breaks the 2:1 grid that keeps mixed code in columns, so
+the list says which choices stay aligned. Regenerate the shipped subsets with
+`python3 scripts/subset-fonts.py` (needs fonttools; one-off, not part of the build).
 
 ## Titles, icons and share cards
 
