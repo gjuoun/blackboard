@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ChevronDown, Home, ListTree, MessageSquare, MoreHorizontal, X } from "lucide-react";
+import { ChevronDown, Home, ListTree, MessageSquare, MoreHorizontal, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -114,19 +114,12 @@ export function TopBar() {
   );
 
   return (
-    <header className="bg-background/90 border-border sticky top-0 z-30 flex h-[var(--bar-h)] items-center gap-1.5 border-b px-2 max-md:h-[calc(var(--bar-h)+env(safe-area-inset-top))] max-md:pt-[env(safe-area-inset-top)] md:px-3 md:backdrop-blur" data-testid="tab-strip">
+    <header className="bg-background/90 border-border sticky top-0 z-30 flex h-[var(--bar-h)] items-center gap-1.5 border-b px-2 max-md:contents md:px-3 md:backdrop-blur" data-testid="tab-strip">
       <Link href="/" className="hidden items-center gap-2 px-1.5 text-[15px] font-bold md:flex" aria-label="Blackboard home">
         <span className="bg-primary size-2.5 rotate-45 rounded-[2px]" />
         Blackboard
       </Link>
 
-      {onHome ? null : (
-        <Button asChild variant="ghost" size="sm" className="shrink-0 px-2 md:hidden" data-testid="tab-back">
-          <Link href="/" aria-label="Back to list" title="Back to list">
-            <ArrowLeft />
-          </Link>
-        </Button>
-      )}
       {/* Desktop tabs: the pinned Home tab is the way back to the list */}
       <nav
         className="scrollbar-none hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex"
@@ -190,11 +183,6 @@ export function TopBar() {
           </div>
         ))}
       </nav>
-
-      {/* Phone: just the current title, as wide as the bar allows */}
-      <div className={cn("line-clamp-2 min-w-0 flex-1 px-1 text-sm leading-tight font-semibold md:hidden", onHome && "pl-2")} data-testid="bar-title">
-        {onHome ? "Blackboard" : (current?.title ?? "Document")}
-      </div>
 
       {/* Phone: the actions leave the top bar for a fixed bottom box. It is a pill while collapsed and a full-width
           row once expanded (the expanded state is user interaction; the collapsed look is CSS keyed on data-expanded).
