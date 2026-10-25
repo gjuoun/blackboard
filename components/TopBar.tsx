@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Home, ListTree, MessageSquare, MoreHorizontal, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, Home, ListTree, MessageSquare, MoreHorizontal, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -82,6 +82,8 @@ export function TopBar() {
   const current = tabs.find((t) => t.id === active);
 
   // Drag a tab to reorder: `drag.id` is the tab in hand, `mark` the edge it would land on.
+  // Phone bottom bar: collapsed (a pill) or expanded (the icon row). The default look is CSS; this is only the tap state.
+  const [expanded, setExpanded] = useState(false);
   const [drag, setDrag] = useState<{ id: string; mark: { id: string; side: "before" | "after" } | null } | null>(null);
   const dropBefore = (mark: { id: string; side: "before" | "after" }) => (mark.side === "before" ? mark.id : (tabs[tabs.findIndex((t) => t.id === mark.id) + 1]?.id ?? null));
   const endDrag = () => setDrag(null);
@@ -184,13 +186,16 @@ export function TopBar() {
         {onHome ? "Blackboard" : (current?.title ?? "Document")}
       </div>
 
-      {/* Phone: the actions leave the top bar for a fixed bottom row (the fixed box is not contained by
-          the header, which is why the header drops its backdrop filter below 768px). From 768px the
-          wrapper is `display: contents`, so the desktop bar lays out exactly as before. */}
+      {/* Phone: the actions leave the top bar for a fixed bottom box. It is a pill while collapsed and a full-width
+          row once expanded (the expanded state is user interaction; the collapsed look is CSS keyed on data-expanded).
+          The box is fixed, so it is not contained by the header, which is why the header drops its backdrop filter
+          below 768px. From 768px the wrapper and its row are `display: contents` and the desktop bar lays out as before. */}
       <div
         data-testid="bar-actions"
-        className="md:contents max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:flex max-md:items-center max-md:justify-around max-md:gap-1 max-md:border-border max-md:border-t max-md:bg-background/95 max-md:px-2 max-md:pt-1.5 max-md:pb-[calc(0.375rem+env(safe-area-inset-bottom))]"
+        data-expanded={expanded}
+        className="md:contents max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:flex max-md:items-center max-md:gap-1 max-md:bg-background/95 max-md:border-border max-md:data-[expanded=true]:border-t max-md:px-2 max-md:pt-1.5 max-md:pb-[calc(0.375rem+env(safe-area-inset-bottom))] max-md:data-[expanded=false]:right-auto max-md:data-[expanded=false]:left-1/2 max-md:data-[expanded=false]:-translate-x-1/2 max-md:data-[expanded=false]:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:data-[expanded=false]:rounded-full max-md:data-[expanded=false]:border max-md:data-[expanded=false]:px-1 max-md:data-[expanded=false]:pt-0 max-md:data-[expanded=false]:pb-0 max-md:data-[expanded=false]:shadow-md"
       >
+        <div data-testid="bar-tools" data-expanded={expanded} className="md:contents max-md:flex max-md:flex-1 max-md:items-center max-md:justify-around max-md:gap-1 max-md:data-[expanded=false]:hidden">
         {doc?.readable ? (
           <>
             <span className="bg-border hidden h-5 w-px shrink-0 md:block" aria-hidden />
@@ -259,6 +264,19 @@ export function TopBar() {
             <DropdownMenuItem onSelect={() => history.forward()}>Forward</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          data-testid="bar-handle"
+          aria-expanded={expanded}
+          aria-label={expanded ? "Hide reading tools" : "Show reading tools"}
+          title={expanded ? "Hide reading tools" : "Show reading tools"}
+          onClick={() => setExpanded((v) => !v)}
+          className={cn("md:hidden shrink-0", !expanded && "h-8 w-14 rounded-full")}
+        >
+          {expanded ? <ChevronDown /> : <span className="bg-muted-foreground/50 h-1 w-8 rounded-full" aria-hidden />}
+        </Button>
       </div>
     </header>
   );
