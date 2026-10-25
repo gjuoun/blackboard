@@ -1,10 +1,11 @@
 /**
  * Browser helpers that map between the DOM of a rendered doc and its plain text, so comments
- * can be stored as text offsets and drawn back as DOM Ranges. Diagram blocks are skipped: their
- * SVG text is generated in the browser and would shift every offset after it.
+ * can be stored as text offsets and drawn back as DOM Ranges. Diagram blocks and formulas are
+ * skipped: their SVG text is generated in the browser, or KaTeX's glyphs repeat the TeX, and either
+ * would shift every offset after it. A formula is one opaque unit with no text in the map.
  */
 
-const SKIP_SELECTOR = "[data-testid=mermaid]";
+const SKIP_SELECTOR = "[data-testid=mermaid], [data-testid=math]";
 
 export type TextMap = { text: string; nodes: { node: Text; start: number }[] };
 

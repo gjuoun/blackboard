@@ -1,18 +1,20 @@
 import type { Element, ElementContent, Root as HastRoot } from "hast";
-import { toString as hastToString } from "hast-util-to-string";
 import type { FootnoteDefinition, PhrasingContent, Root as MdastRoot } from "mdast";
 import { toString as mdToString } from "mdast-util-to-string";
+import rehypeKatex from "rehype-katex";
 import rehypeParse from "rehype-parse";
 import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import type { PluggableList } from "unified";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
 import { parse as parseYaml } from "yaml";
+import { remarkSingleDollarMath } from "./math";
 
 export type TocEntry = { depth: number; id: string; text: string };
 export type Frontmatter = Record<string, unknown>;
@@ -157,11 +159,66 @@ function remarkMermaidBlocks() {
   };
 }
 
+const hasClass = (node: Element, name: string) => Array.isArray(node.properties.className) && node.properties.className.includes(name);
+
+/** `$$…$$` alone in a paragraph is display math (Typora and Pandoc agree); remark-math reads it as inline. */
+function remarkDisplayMath() {
+  return (tree: MdastRoot, file: { value: unknown }) => {
+    const src = String(file.value);
+    visit(tree, "paragraph", (node, index, parent) => {
+      const only = node.children.length === 1 ? node.children[0] : undefined;
+      if (!parent || index === undefined || only?.type !== "inlineMath" || !only.position) return;
+      if (!src.startsWith("$$", only.position.start.offset ?? -1)) return;
+      const code = el("code", { className: ["language-math", "math-display"] }, [txt(only.value)]);
+      const block: HNode = { type: "math", value: only.value, position: node.position, data: { hName: "pre", hChildren: [code] } } as unknown as HNode;
+      parent.children.splice(index, 1, block as never);
+    });
+  };
+}
+
+/** Heading text with the formulas dropped, so the TOC carries neither TeX source nor glyphs. */
+function textWithoutMath(node: HastRoot | ElementContent): string {
+  if (node.type === "text") return node.value;
+  if (node.type === "root" || (node.type === "element" && !hasClass(node, "language-math"))) return (node.children as ElementContent[]).map((c) => textWithoutMath(c)).join("");
+  return "";
+}
+
+/**
+ * rehype-slug reads the heading text, which still holds the TeX source of its formulas when it
+ * runs. Blank those formulas for the slug pass only, then put them back for KaTeX to render.
+ */
+function rehypeSlugOutsideMath() {
+  const slug = rehypeSlug();
+  return (tree: HastRoot) => {
+    const held: { parent: Element; index: number; node: ElementContent }[] = [];
+    visit(tree, "element", (heading: Element) => {
+      if (!/^h[1-6]$/.test(heading.tagName)) return;
+      visit(heading, "element", (node: Element, index, parent) => {
+        if (!parent || index === undefined || !hasClass(node, "language-math")) return;
+        const holder = parent as Element;
+        held.push({ parent: holder, index, node: holder.children[index] });
+        holder.children[index] = { type: "text", value: "" };
+      });
+    });
+    slug(tree);
+    for (const h of held) h.parent.children[h.index] = h.node;
+  };
+}
+
+/** KaTeX's `.katex` root is the one element a formula contributes; it is opaque to the text map. */
+function rehypeMathOpaque() {
+  return (tree: HastRoot) => {
+    visit(tree, "element", (el: Element) => {
+      if (hasClass(el, "katex")) el.properties.dataTestid = "math";
+    });
+  };
+}
+
 function rehypeCollectToc(toc: TocEntry[]) {
   return () => (tree: HastRoot) => {
     visit(tree, "element", (el: Element) => {
       const m = /^h([1-3])$/.exec(el.tagName);
-      if (m && typeof el.properties.id === "string") toc.push({ depth: Number(m[1]), id: el.properties.id, text: hastToString(el) });
+      if (m && typeof el.properties.id === "string") toc.push({ depth: Number(m[1]), id: el.properties.id, text: textWithoutMath(el).replace(/\s+/g, " ").trim() });
     });
   };
 }
@@ -176,21 +233,29 @@ export async function renderMarkdown(src: string, opts?: { assetBase?: string })
     .use(remarkFrontmatter, ["yaml"])
     .use(remarkFrontmatterTable(fm))
     .use(remarkGfm)
+    .use(remarkMath, { singleDollarTextMath: false })
+    .use(remarkSingleDollarMath)
+    .use(remarkDisplayMath)
     .use(remarkLegacyMarks)
     .use(remarkMermaidBlocks)
     .use(remarkRehype)
-    .use(rehypeSlug)
+    .use(rehypeSlugOutsideMath)
     .use(rehypeCollectToc(toc))
     .use(asset)
+    .use(rehypeKatex, { output: "html" })
+    .use(rehypeMathOpaque)
     .use(rehypeStringify)
     .process(src);
   return { html: String(file), toc, frontmatter: fm.data };
 }
 
-/** Text of a HAST tree in document order, skipping diagram blocks (as buildTextMap does in the browser). */
+/** Blocks the browser draws from their source; their text is not in the comment coordinate system. */
+const OPAQUE = new Set(["mermaid", "math"]);
+
+/** Text of a HAST tree in document order, skipping diagram and formula blocks (as buildTextMap does in the browser). */
 function hastText(node: HastRoot | ElementContent): string {
   if (node.type === "text") return node.value;
-  if (node.type === "element" && node.properties.dataTestid === "mermaid") return "";
+  if (node.type === "element" && OPAQUE.has(String(node.properties.dataTestid))) return "";
   if (node.type === "root" || node.type === "element") return node.children.map((c) => hastText(c as ElementContent)).join("");
   return "";
 }

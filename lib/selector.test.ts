@@ -22,6 +22,13 @@ describe("selectorFor", () => {
     expect(r.ok ? "" : r.error).toBe("quote occurs 2 time(s); --occurrence must be 1..2");
   });
 
+  test("a quote that spans a formula anchors across it", async () => {
+    const text = await renderPlainText("Energy $E=mc^2$ and ok.\n");
+    const r = selectorFor(text, "Energy and ok.");
+    if (!r.ok) throw new Error(r.error);
+    expect(anchor(text, r.selector)).toEqual({ start: 0, end: text.length });
+  });
+
   test("a quote typed on one line matches text split by a line break", async () => {
     expect(selectorFor(await renderPlainText("alpha\nbeta"), "alpha beta").ok).toBe(true);
   });
