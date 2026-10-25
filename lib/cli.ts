@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { basename } from "node:path";
-import { importBoards, type ImportResult } from "./import";
 import { addComment, addReply, mutate, readComments, setStatus, type Comment, type CommentFile } from "./comments-store";
 import { renderPlainText } from "./markdown";
 import { selectorFor } from "./selector";
@@ -41,16 +40,6 @@ export function open(home: string, file: string, cwd = process.cwd()): { session
     return { session, url: sessionUrl(session.id) };
   } catch (err) {
     if (err instanceof SessionError) throw new CliError(err.message);
-    throw err;
-  }
-}
-
-/** Bring comments over from an old folder of boards (see importBoards). */
-export async function importRoot(home: string, root: string, dryRun = false): Promise<ImportResult> {
-  try {
-    return await importBoards(home, root, { dryRun });
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT" || (err as NodeJS.ErrnoException).code === "ENOTDIR") throw new CliError(`not a folder: ${root}`);
     throw err;
   }
 }

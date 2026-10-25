@@ -7,7 +7,6 @@ import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
 import * as cli from "../lib/cli";
 import { getHome } from "../lib/home";
-import { formatImport } from "../lib/import";
 import pkg from "../package.json";
 import * as server from "../lib/server-ctl";
 
@@ -24,8 +23,6 @@ Usage:
   blackboard resolve  <session> <comment-id>
   blackboard reopen   <session> <comment-id>
   blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>
-  blackboard import   <root> [--dry-run]         copy comments from an old folder of boards
-                                                 (<root>/<board>/.blackboard/comments.json) into sessions
 
 <session> is a session id or a path to the registered file.
 
@@ -82,7 +79,6 @@ async function main(argv: string[]): Promise<number> {
       port: { type: "string" },
       foreground: { type: "boolean" },
       version: { type: "boolean", short: "v" },
-      "dry-run": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -177,12 +173,6 @@ async function main(argv: string[]): Promise<number> {
       if (!Number.isInteger(n)) throw new cli.CliError("--occurrence must be a whole number", 2);
       const c = await cli.comment(home, args[0], o.quote, args.slice(1).join(" "), author, n);
       print(c, `commented ${c.id} on ${c.doc}`);
-      return 0;
-    }
-    case "import": {
-      need(1, "import <root> [--dry-run]");
-      const r = await cli.importRoot(home, args[0], o["dry-run"]);
-      print(r, formatImport(r, o["dry-run"]));
       return 0;
     }
     default:
