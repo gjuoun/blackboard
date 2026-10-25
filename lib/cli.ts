@@ -26,6 +26,15 @@ function find(home: string, ref: string, cwd = process.cwd()): { session: Sessio
   return { session, file: sessionCommentsPath(home, session.id), doc: basename(session.path) };
 }
 
+/** The top-level comment that `id` is, or that holds `id` as one of its replies. Ids are unique within a session. */
+function threadOf(file: CommentFile, id: string): { doc: string; commentId: string } {
+  for (const [doc, list] of Object.entries(file.docs)) {
+    const c = list.find((x) => x.id === id || x.replies.some((r) => r.id === id));
+    if (c) return { doc, commentId: c.id };
+  }
+  throw new CliError(`no comment ${id} on this session`);
+}
+
 /** Comment ids are unique within a session, so a command can name a comment by id alone. */
 function docOf(file: CommentFile, id: string): string {
   const doc = Object.keys(file.docs).find((d) => file.docs[d].some((c) => c.id === id));
@@ -58,11 +67,15 @@ export function comments(home: string, ref: string, cwd = process.cwd()): DocCom
   return Object.entries(readComments(file).docs).flatMap(([doc, list]) => list.map((c) => ({ ...c, doc })));
 }
 
+/**
+ * Reply to a comment, or to one of its replies: `id` names either, and the text joins that comment's
+ * thread (replies are one flat list per comment). Returns the comment the reply went under.
+ */
 export async function reply(home: string, ref: string, id: string, body: string, author: string, cwd = process.cwd()): Promise<DocComment> {
   if (!body.trim()) throw new CliError("reply text is empty", 2);
   const { file } = find(home, ref, cwd);
-  const doc = docOf(readComments(file), id);
-  return { ...(await mutate(file, (f) => addReply(f, doc, id, { body: body.trim(), author }))), doc };
+  const { doc, commentId } = threadOf(readComments(file), id);
+  return { ...(await mutate(file, (f) => addReply(f, doc, commentId, { body: body.trim(), author }))), doc };
 }
 
 export async function status(home: string, ref: string, id: string, to: "resolved" | "open", author: string, cwd = process.cwd()): Promise<DocComment> {

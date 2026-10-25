@@ -76,6 +76,17 @@ describe("cli commands", () => {
     expect(text).toMatch(/↳ r_\w+  agent: done/);
   });
 
+  test("reply accepts a reply id and joins that comment's thread", async () => {
+    const { home, design } = setup();
+    open(home, design);
+    const c = await comment(home, design, "Later text.", "q", "jun");
+    await reply(home, design, c.id, "first", "agent");
+    const [{ replies: [first] }] = comments(home, design);
+    const parent = await reply(home, design, first.id, "reply to the reply", "jun");
+    expect(parent.id).toBe(c.id);
+    expect(comments(home, design)[0].replies.map((r) => `${r.author}:${r.body}`)).toEqual(["agent:first", "jun:reply to the reply"]);
+  });
+
   test("unknown session, id and quote fail with a clear message", async () => {
     const { home, design, docs } = setup();
     open(home, design);
@@ -83,6 +94,7 @@ describe("cli commands", () => {
     await expect(comment(home, join(docs, "other.md"), "x", "n", "a")).rejects.toThrow("no session");
     await expect(comment(home, design, "absent", "n", "a")).rejects.toThrow("quote not found");
     await expect(reply(home, design, "c_nope", "t", "a")).rejects.toThrow("no comment c_nope");
+    await expect(reply(home, design, "r_nope", "t", "a")).rejects.toThrow("no comment r_nope");
   });
 
   test("close forgets the session but keeps its comments for a later open", async () => {
