@@ -3,6 +3,7 @@ import { TopBar } from "@/components/TopBar";
 import { bootScript } from "@/lib/prefs";
 import { DEFAULT_THEME } from "@/lib/theme";
 import "./globals.css";
+import "./katex.css";
 
 const DESCRIPTION = "Read markdown plans in the browser and comment on the text, so you and a coding agent can go back and forth on them.";
 
