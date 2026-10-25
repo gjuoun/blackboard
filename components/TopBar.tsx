@@ -102,6 +102,16 @@ export function TopBar() {
     document.documentElement.toggleAttribute("data-wrap-code", chrome.wrapCode);
   }, [chrome.wrapCode]);
   const copy = (text: string) => void navigator.clipboard?.writeText(text);
+  const docToggles = (
+    <>
+      <DropdownMenuCheckboxItem checked={chrome.showResolved} onCheckedChange={(v) => setChrome({ showResolved: v })}>
+        Show resolved comments
+      </DropdownMenuCheckboxItem>
+      <DropdownMenuCheckboxItem checked={chrome.wrapCode} onCheckedChange={(v) => setChrome({ wrapCode: v })}>
+        Wrap code blocks
+      </DropdownMenuCheckboxItem>
+    </>
+  );
 
   return (
     <header className="bg-background/90 border-border sticky top-0 z-30 flex h-[var(--bar-h)] items-center gap-1.5 border-b px-2 max-md:h-[calc(var(--bar-h)+env(safe-area-inset-top))] max-md:pt-[env(safe-area-inset-top)] md:px-3 md:backdrop-blur" data-testid="tab-strip">
@@ -217,41 +227,40 @@ export function TopBar() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="More" title="More" data-testid="bar-menu" className="shrink-0">
+            <Button variant="ghost" size="icon-sm" aria-label="More" title="More" data-testid="bar-menu" className={cn("shrink-0", !doc && "max-md:hidden")}>
               <MoreHorizontal />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
+          {/* Phone: the document title heads the menu, and the menu holds only what a phone reader needs.
+              Tabs are a desktop feature (the strip renders from 768px), so they are not offered here. */}
+          <div className="md:hidden">
+            {doc ? (
+              <>
+                <DropdownMenuLabel className="text-foreground line-clamp-2 py-1.5 text-sm leading-snug font-semibold whitespace-normal" data-testid="menu-title">
+                  {current?.title ?? "Document"}
+                </DropdownMenuLabel>
+                <DropdownMenuItem asChild>
+                  <Link href="/">← Sessions</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => copy(window.location.href)}>Copy link</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {docToggles}
+              </>
+            ) : null}
+          </div>
+          {/* Desktop: the menu as it was. */}
+          <div className="max-md:hidden">
             {doc ? (
               <>
                 <DropdownMenuLabel>This document</DropdownMenuLabel>
                 <DropdownMenuItem inset onSelect={() => copy(doc.path)}>
                   Copy file path
                 </DropdownMenuItem>
-                <DropdownMenuCheckboxItem checked={chrome.showResolved} onCheckedChange={(v) => setChrome({ showResolved: v })}>
-                  Show resolved comments
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={chrome.wrapCode} onCheckedChange={(v) => setChrome({ wrapCode: v })}>
-                  Wrap code blocks
-                </DropdownMenuCheckboxItem>
+                {docToggles}
                 <DropdownMenuSeparator />
               </>
             ) : null}
-            {/* Phone only: the tabs the bar has no room for */}
-            <div className="md:hidden">
-              <DropdownMenuLabel>Tabs</DropdownMenuLabel>
-              <DropdownMenuItem asChild>
-                <Link href="/">Home</Link>
-              </DropdownMenuItem>
-              {tabs.map((t) => (
-                <DropdownMenuItem key={t.id} asChild>
-                  <Link href={`/s/${t.id}`} className={cn(t.id === active && "font-semibold")}>
-                    <span className="truncate">{t.title}</span>
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-            </div>
             <DropdownMenuLabel>Manage tabs</DropdownMenuLabel>
             <DropdownMenuItem disabled={!current} onSelect={() => current && close(current.id)}>
               Close this tab
@@ -262,7 +271,8 @@ export function TopBar() {
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => history.back()}>Back</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => history.forward()}>Forward</DropdownMenuItem>
-          </DropdownMenuContent>
+          </div>
+        </DropdownMenuContent>
         </DropdownMenu>
         </div>
         <Button
