@@ -18,7 +18,7 @@ Usage:
   blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)
   blackboard sessions [--json]                   every session: id, title, location, branch, open comments
   blackboard close    <session>                  forget a session (its comments are kept)
-  blackboard comments <session> [--all] [--json]
+  blackboard comments <session> [--json]         every comment and its replies, resolved ones too
   blackboard reply    <session> <comment-id> <text>
   blackboard resolve  <session> <comment-id>
   blackboard reopen   <session> <comment-id>
@@ -70,7 +70,6 @@ async function main(argv: string[]): Promise<number> {
     options: {
       home: { type: "string" },
       author: { type: "string" },
-      all: { type: "boolean" },
       json: { type: "boolean" },
       quote: { type: "string" },
       occurrence: { type: "string" },
@@ -148,8 +147,8 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     }
     case "comments": {
-      need(1, "comments <session> [--all]");
-      const list = cli.comments(home, args[0], { all: o.all });
+      need(1, "comments <session> [--json]");
+      const list = cli.comments(home, args[0]);
       print(list, cli.formatComments(list));
       return 0;
     }

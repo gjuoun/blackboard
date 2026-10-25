@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { anchor } from "./anchor";
-import { close, comment, comments, open, reply, sessions, status } from "./cli";
+import { close, comment, comments, formatComments, open, reply, sessions, status } from "./cli";
 import { readComments } from "./comments-store";
 import { renderPlainText } from "./markdown";
 import { sessionCommentsPath } from "./sessions";
@@ -59,11 +59,21 @@ describe("cli commands", () => {
     expect(sessions(home)[0]).toMatchObject({ id: session.id, open: 1, branch: null, location: design });
     await reply(home, session.id, c.id, "a", "agent");
     await status(home, session.id, c.id, "resolved", "agent");
-    expect(comments(home, session.id)).toEqual([]);
-    const [all] = comments(home, session.id, { all: true });
+    const [all] = comments(home, session.id);
     expect(all).toMatchObject({ doc: "design.md", status: "resolved", resolvedBy: "agent" });
     expect(all.replies.map((r) => `${r.author}:${r.body}`)).toEqual(["agent:a"]);
     expect(sessions(home)[0].open).toBe(0);
+  });
+
+  test("comments lists resolved comments with their replies and reply ids", async () => {
+    const { home, design } = setup();
+    open(home, design);
+    const c = await comment(home, design, "Later text.", "q", "jun");
+    await reply(home, design, c.id, "done", "agent");
+    await status(home, design, c.id, "resolved", "agent");
+    const text = formatComments(comments(home, design));
+    expect(text).toContain(`${c.id}  design.md  resolved  jun`);
+    expect(text).toMatch(/↳ r_\w+  agent: done/);
   });
 
   test("unknown session, id and quote fail with a clear message", async () => {

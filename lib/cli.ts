@@ -52,12 +52,10 @@ export function close(home: string, ref: string, cwd = process.cwd()): Session {
   return closeSession(home, find(home, ref, cwd).session.id);
 }
 
-/** A session's comments, open only unless `all`, in creation order. */
-export function comments(home: string, ref: string, opts: { all?: boolean; cwd?: string } = {}): DocComment[] {
-  const { file } = find(home, ref, opts.cwd);
-  return Object.entries(readComments(file).docs)
-    .flatMap(([doc, list]) => list.map((c) => ({ ...c, doc })))
-    .filter((c) => opts.all || c.status === "open");
+/** Every comment in a session, resolved ones included, each with its replies, in creation order. */
+export function comments(home: string, ref: string, cwd = process.cwd()): DocComment[] {
+  const { file } = find(home, ref, cwd);
+  return Object.entries(readComments(file).docs).flatMap(([doc, list]) => list.map((c) => ({ ...c, doc })));
 }
 
 export async function reply(home: string, ref: string, id: string, body: string, author: string, cwd = process.cwd()): Promise<DocComment> {
@@ -98,13 +96,16 @@ export async function comment(
 
 const squash = (s: string) => s.replace(/\s+/g, " ").trim();
 
-/** Human-readable listing: id, doc, status, author and time, then the quote, note and replies. */
+/**
+ * Human-readable thread tree: each comment with its id, doc, status, author and time, its quote and
+ * note, then its replies indented under it. Each reply shows its id, so it can be answered in turn.
+ */
 export function formatComments(list: DocComment[]): string {
   if (list.length === 0) return "no comments";
   return list
     .map((c) => {
       const lines = [`${c.id}  ${c.doc}  ${c.status}  ${c.author}  ${c.createdAt}`, `  > ${squash(c.quote.exact)}`, `  ${c.body.replace(/\n/g, "\n  ")}`];
-      for (const r of c.replies) lines.push(`    ↳ ${r.author}: ${r.body.replace(/\n/g, "\n      ")}`);
+      for (const r of c.replies) lines.push(`    ↳ ${r.id}  ${r.author}: ${r.body.replace(/\n/g, "\n      ")}`);
       return lines.join("\n");
     })
     .join("\n\n");
