@@ -102,7 +102,7 @@ export function TopBar() {
   const copy = (text: string) => void navigator.clipboard?.writeText(text);
 
   return (
-    <header className="bg-background/90 border-border sticky top-0 z-30 flex h-[var(--bar-h)] items-center gap-1.5 border-b px-2 backdrop-blur md:px-3" data-testid="tab-strip">
+    <header className="bg-background/90 border-border sticky top-0 z-30 flex h-[var(--bar-h)] items-center gap-1.5 border-b px-2 max-md:h-[calc(var(--bar-h)+env(safe-area-inset-top))] max-md:pt-[env(safe-area-inset-top)] md:px-3 md:backdrop-blur" data-testid="tab-strip">
       <Link href="/" className="hidden items-center gap-2 px-1.5 text-[15px] font-bold md:flex" aria-label="Blackboard home">
         <span className="bg-primary size-2.5 rotate-45 rounded-[2px]" />
         Blackboard
@@ -184,74 +184,82 @@ export function TopBar() {
         {onHome ? "Blackboard" : (current?.title ?? "Document")}
       </div>
 
-      {doc?.readable ? (
-        <>
-          <span className="bg-border hidden h-5 w-px shrink-0 md:block" aria-hidden />
-          {doc.hasToc ? (
-            <Button variant="ghost" size="icon-sm" aria-pressed={desktop ? chrome.tocOpen : chrome.sheet === "toc"} aria-label="Contents" title="Contents" data-testid="toggle-toc" onClick={() => togglePanel("toc", desktop)} className={cn("shrink-0", (desktop ? chrome.tocOpen : chrome.sheet === "toc") && "bg-card border-border border")}>
-              <ListTree />
+      {/* Phone: the actions leave the top bar for a fixed bottom row (the fixed box is not contained by
+          the header, which is why the header drops its backdrop filter below 768px). From 768px the
+          wrapper is `display: contents`, so the desktop bar lays out exactly as before. */}
+      <div
+        data-testid="bar-actions"
+        className="md:contents max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:flex max-md:items-center max-md:justify-around max-md:gap-1 max-md:border-border max-md:border-t max-md:bg-background/95 max-md:px-2 max-md:pt-1.5 max-md:pb-[calc(0.375rem+env(safe-area-inset-bottom))]"
+      >
+        {doc?.readable ? (
+          <>
+            <span className="bg-border hidden h-5 w-px shrink-0 md:block" aria-hidden />
+            {doc.hasToc ? (
+              <Button variant="ghost" size="icon-sm" aria-pressed={desktop ? chrome.tocOpen : chrome.sheet === "toc"} aria-label="Contents" title="Contents" data-testid="toggle-toc" onClick={() => togglePanel("toc", desktop)} className={cn("shrink-0", (desktop ? chrome.tocOpen : chrome.sheet === "toc") && "bg-card border-border border")}>
+                <ListTree />
+              </Button>
+            ) : null}
+            <Button variant="ghost" size="sm" aria-pressed={desktop ? chrome.cmOpen : chrome.sheet === "cm"} aria-label="Comments" title="Comments" data-testid="toggle-comments" onClick={() => togglePanel("cm", desktop)} className={cn("shrink-0 gap-1.5 px-2", (desktop ? chrome.cmOpen : chrome.sheet === "cm") && "bg-card border-border border")}>
+              <MessageSquare />
+              {doc.open > 0 ? <span className="bg-primary-soft text-primary rounded-full px-1.5 text-xs leading-[18px] font-semibold">{doc.open}</span> : null}
             </Button>
-          ) : null}
-          <Button variant="ghost" size="sm" aria-pressed={desktop ? chrome.cmOpen : chrome.sheet === "cm"} aria-label="Comments" title="Comments" data-testid="toggle-comments" onClick={() => togglePanel("cm", desktop)} className={cn("shrink-0 gap-1.5 px-2", (desktop ? chrome.cmOpen : chrome.sheet === "cm") && "bg-card border-border border")}>
-            <MessageSquare />
-            {doc.open > 0 ? <span className="bg-primary-soft text-primary rounded-full px-1.5 text-xs leading-[18px] font-semibold">{doc.open}</span> : null}
-          </Button>
-        </>
-      ) : null}
+          </>
+        ) : null}
 
-      {/* Reading settings live in the bar at every width: one icon keeps the palette and font
-          controls one click away on a phone without a duplicate entry in the ⋯ menu. */}
-      <ReadingSettings />
+        {/* Reading settings live in the bar at every width: one icon keeps the palette and font
+            controls one click away on a phone without a duplicate entry in the ⋯ menu. */}
+        <ReadingSettings />
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="More" title="More" data-testid="bar-menu" className="shrink-0">
-            <MoreHorizontal />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-64">
-          {doc ? (
-            <>
-              <DropdownMenuLabel>This document</DropdownMenuLabel>
-              <DropdownMenuItem inset onSelect={() => copy(doc.path)}>
-                Copy file path
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon-sm" aria-label="More" title="More" data-testid="bar-menu" className="shrink-0">
+              <MoreHorizontal />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            {doc ? (
+              <>
+                <DropdownMenuLabel>This document</DropdownMenuLabel>
+                <DropdownMenuItem inset onSelect={() => copy(doc.path)}>
+                  Copy file path
+                </DropdownMenuItem>
+                <DropdownMenuCheckboxItem checked={chrome.showResolved} onCheckedChange={(v) => setChrome({ showResolved: v })}>
+                  Show resolved comments
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={chrome.wrapCode} onCheckedChange={(v) => setChrome({ wrapCode: v })}>
+                  Wrap code blocks
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
+            {/* Phone only: the tabs the bar has no room for */}
+            <div className="md:hidden">
+              <DropdownMenuLabel>Tabs</DropdownMenuLabel>
+              <DropdownMenuItem asChild>
+                <Link href="/">Home</Link>
               </DropdownMenuItem>
-              <DropdownMenuCheckboxItem checked={chrome.showResolved} onCheckedChange={(v) => setChrome({ showResolved: v })}>
-                Show resolved comments
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem checked={chrome.wrapCode} onCheckedChange={(v) => setChrome({ wrapCode: v })}>
-                Wrap code blocks
-              </DropdownMenuCheckboxItem>
+              {tabs.map((t) => (
+                <DropdownMenuItem key={t.id} asChild>
+                  <Link href={`/s/${t.id}`} className={cn(t.id === active && "font-semibold")}>
+                    <span className="truncate">{t.title}</span>
+                  </Link>
+                </DropdownMenuItem>
+              ))}
               <DropdownMenuSeparator />
-            </>
-          ) : null}
-          {/* Phone only: the tabs the bar has no room for */}
-          <div className="md:hidden">
-            <DropdownMenuLabel>Tabs</DropdownMenuLabel>
-            <DropdownMenuItem asChild>
-              <Link href="/">Home</Link>
+            </div>
+            <DropdownMenuLabel>Manage tabs</DropdownMenuLabel>
+            <DropdownMenuItem disabled={!current} onSelect={() => current && close(current.id)}>
+              Close this tab
             </DropdownMenuItem>
-            {tabs.map((t) => (
-              <DropdownMenuItem key={t.id} asChild>
-                <Link href={`/s/${t.id}`} className={cn(t.id === active && "font-semibold")}>
-                  <span className="truncate">{t.title}</span>
-                </Link>
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuItem disabled={tabs.length < 2 || !current} onSelect={closeOthers}>
+              Close other tabs
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
-          </div>
-          <DropdownMenuLabel>Manage tabs</DropdownMenuLabel>
-          <DropdownMenuItem disabled={!current} onSelect={() => current && close(current.id)}>
-            Close this tab
-          </DropdownMenuItem>
-          <DropdownMenuItem disabled={tabs.length < 2 || !current} onSelect={closeOthers}>
-            Close other tabs
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => history.back()}>Back</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => history.forward()}>Forward</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <DropdownMenuItem onSelect={() => history.back()}>Back</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => history.forward()}>Forward</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   );
 }

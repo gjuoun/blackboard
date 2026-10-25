@@ -289,7 +289,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
           />
         </aside>
       ) : null}
-      <main className="relative min-w-0 px-4 pt-6 pb-24 md:px-10 md:pt-8" ref={mainRef}>
+      <main className="relative min-w-0 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] md:px-10 md:pt-8 md:pb-24" ref={mainRef}>
         <div className="mx-auto min-w-0 max-w-[760px]">
           {header}
           <DocBody html={html} ref={bodyRef} onClick={onDocClick} onMouseMove={onDocMove} onMouseLeave={onDocLeave} />
