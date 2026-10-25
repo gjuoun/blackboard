@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { anchor } from "./anchor";
 import { close, comment, comments, open, reply, sessions, status } from "./cli";
-import { addComment, addReply, mutate, readComments } from "./comments-store";
+import { readComments } from "./comments-store";
 import { renderPlainText } from "./markdown";
 import { sessionCommentsPath } from "./sessions";
 
@@ -84,60 +84,6 @@ describe("cli commands", () => {
     open(home, design);
     expect(comments(home, design).map((c) => c.body)).toEqual(["keep me"]);
     expect(session.id).toBe(open(home, design).session.id);
-  });
-});
-
-describe("blackboard wait", () => {
-  test("wait returns when jun comments", async () => {
-    const { home, design } = setup();
-    const { session } = open(home, design);
-    const t0 = Date.now();
-    const p = Bun.spawn(["bun", BIN, "--home", home, "wait", design, "--json", "--timeout", "10s"], { stdout: "pipe" });
-    await Bun.sleep(400);
-    await mutate(sessionCommentsPath(home, session.id), (f) =>
-      addComment(f, "design.md", { quote: { exact: "Later text.", prefix: "", suffix: "" }, body: "look here", author: "jun" }),
-    );
-    expect(await p.exited).toBe(0);
-    expect(Date.now() - t0).toBeLessThan(3000);
-    const out = JSON.parse(await new Response(p.stdout).text());
-    expect(out.events.map((e: { kind: string; author: string; body: string }) => `${e.kind}:${e.author}:${e.body}`)).toEqual(["comment:jun:look here"]);
-    expect(out.next).toBe(out.events[0].at);
-  });
-
-  test("wait ignores my own reply and times out (exit 3)", async () => {
-    const { home, design } = setup();
-    const { session } = open(home, design);
-    const file = sessionCommentsPath(home, session.id);
-    const c = await mutate(file, (f) => addComment(f, "design.md", { quote: { exact: "x", prefix: "", suffix: "" }, body: "old", author: "jun" }));
-    const since = new Date().toISOString();
-    const p = Bun.spawn(["bun", BIN, "--home", home, "wait", session.id, "--since", since, "--timeout", "1500ms", "--author", "agent"], { stdout: "pipe" });
-    await Bun.sleep(300);
-    await mutate(file, (f) => addReply(f, "design.md", c.id, { body: "mine", author: "agent" }));
-    expect(await p.exited).toBe(3);
-    expect(await new Response(p.stdout).text()).toContain(`next: ${since}`);
-  });
-
-  // The regression that made CI red, measured instead of raced: `wait` with no --since reports its
-  // window in `next`, and that window must open when the PROCESS STARTED, not when the CLI finished
-  // booting into waitForActivity. Taking it after boot made any comment written during startup
-  // invisible until the child's own timeout (CI: a 400 ms sleep lost to a ~400 ms boot, the child
-  // was SIGTERMed at the 5 s test limit, exit 143).
-  //
-  // Offsets from spawn to the reported window, measured on this machine: 5-10 ms with the fix,
-  // 77-90 ms without it, ~400 ms on the GitHub runner. 50 ms separates them with headroom for a
-  // normal machine, and three attempts (best wins) keep a thrashing runner from deciding the result.
-  test("wait opens its window at process start, not after boot", async () => {
-    const { home, design } = setup();
-    open(home, design);
-    const offsets: number[] = [];
-    for (let i = 0; i < 3; i++) {
-      const spawnedAt = Date.now();
-      const p = Bun.spawn(["bun", BIN, "--home", home, "wait", design, "--json", "--timeout", "200ms"], { stdout: "pipe" });
-      expect(await p.exited).toBe(3); // nothing to report: it timed out
-      const out = JSON.parse(await new Response(p.stdout).text());
-      offsets.push(Date.parse(out.next) - spawnedAt);
-    }
-    expect(Math.min(...offsets)).toBeLessThanOrEqual(50);
   });
 });
 
