@@ -19,12 +19,13 @@ Usage:
   blackboard sessions [--json]                   every session: id, title, location, branch, open comments
   blackboard close    <session>                  forget a session (its comments are kept)
   blackboard comments <session> [--json]         every comment and its replies, resolved ones too
-  blackboard reply    <session> <comment-id> <text>
+  blackboard reply    <session> <id> <text>
   blackboard resolve  <session> <comment-id>
   blackboard reopen   <session> <comment-id>
   blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>
 
 <session> is a session id or a path to the registered file.
+<id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).
 
 Options:
   --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)
