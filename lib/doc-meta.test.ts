@@ -49,6 +49,9 @@ describe("docMeta", () => {
     expect(m.title).toBe("Plan");
     expect(m.repo).toEqual({ name: "my-repo", root, relPath: "docs/plan.md" });
     expect(m.branch).toBe("feat/x");
+    expect(m.detached).toBe(false);
+    expect(m.worktree).toBeNull();
+    expect(m.project).toEqual({ name: "my-repo", root });
     expect(m.missing).toBe(false);
     expect(m.stats).toEqual({ sections: 2, diagrams: 1 });
   });
@@ -57,7 +60,34 @@ describe("docMeta", () => {
     const root = repo();
     git(root, "checkout", "-q", "--detach");
     const sha = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: root }).toString().trim();
-    expect(docMeta(join(root, "docs", "plan.md")).branch).toBe(sha);
+    const m = docMeta(join(root, "docs", "plan.md"));
+    expect(m.branch).toBe(sha);
+    expect(m.detached).toBe(true);
+  });
+
+  test("file in a linked worktree names that worktree", () => {
+    const root = repo();
+    const wt = join(tmp(), "jw-feature");
+    git(root, "worktree", "add", "-q", "-b", "wt/feature", wt);
+    const m = docMeta(join(wt, "docs", "plan.md"));
+    expect(m.worktree).toEqual({ name: "jw-feature", path: realpathSync(wt) });
+    // The project is the main checkout, not the worktree directory.
+    expect(m.project).toEqual({ name: "my-repo", root: realpathSync(root) });
+    expect(m.repo).toMatchObject({ root: realpathSync(wt), relPath: "docs/plan.md" });
+    expect(m.branch).toBe("wt/feature");
+    expect(m.detached).toBe(false);
+  });
+
+  test("detached linked worktree keeps the worktree and the short sha", () => {
+    const root = repo();
+    const wt = join(tmp(), "jw-detached");
+    git(root, "worktree", "add", "-q", "--detach", wt);
+    const sha = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: wt }).toString().trim();
+    const m = docMeta(join(wt, "docs", "plan.md"));
+    expect(m.worktree).toEqual({ name: "jw-detached", path: realpathSync(wt) });
+    expect(m.project).toEqual({ name: "my-repo", root: realpathSync(root) });
+    expect(m.branch).toBe(sha);
+    expect(m.detached).toBe(true);
   });
 
   test("outside git has no repo", () => {
@@ -66,6 +96,8 @@ describe("docMeta", () => {
     const m = docMeta(join(dir, "loose.md"));
     expect(m.repo).toBeNull();
     expect(m.branch).toBeNull();
+    expect(m.worktree).toBeNull();
+    expect(m.project).toBeNull();
     expect(m.title).toBe("Loose");
   });
 

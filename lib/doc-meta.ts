@@ -1,9 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { basename, dirname, relative } from "node:path";
+import { basename, dirname, relative, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 
 export type DocRepo = { name: string; root: string; relPath: string };
+export type DocWorktree = { name: string; path: string };
+/** The main checkout a file belongs to: the repo a linked worktree was created from, or the repo itself. */
+export type DocProject = { name: string; root: string };
 export type DocStats = { sections: number; diagrams: number };
 export type DocMeta = {
   title: string;
@@ -11,6 +14,12 @@ export type DocMeta = {
   repo: DocRepo | null;
   /** Current branch, the short sha when detached, null outside git. */
   branch: string | null;
+  /** True when HEAD is detached, so `branch` is a short sha. */
+  detached: boolean;
+  /** The linked worktree the file is in; null for the main checkout and outside git. */
+  worktree: DocWorktree | null;
+  /** The main checkout's name and root, the same for a worktree and its main checkout; null outside git. */
+  project: DocProject | null;
   /** The newer of the doc's and its comment file's mtime, ISO; null when the doc is gone. */
   updatedAt: string | null;
   missing: boolean;
@@ -91,22 +100,54 @@ const mtime = (p: string | undefined) => {
   }
 };
 
+/**
+ * The linked worktree holding `dir`, or null. In the main checkout `--git-dir` and
+ * `--git-common-dir` are the same directory; in a linked worktree the first is `.git/worktrees/<name>`.
+ */
+function linkedWorktree(dir: string, root: string): DocWorktree | null {
+  const gitDir = git(dir, "rev-parse", "--git-dir");
+  const common = git(dir, "rev-parse", "--git-common-dir");
+  if (!gitDir || !common) return null;
+  // git prints these relative to `dir` when it can; resolve before comparing.
+  if (realpathSync(resolve(dir, gitDir)) === realpathSync(resolve(dir, common))) return null;
+  return { name: basename(root), path: root };
+}
+
+/**
+ * The main checkout's root. `--git-common-dir` is the shared `.git` directory, which sits in the main
+ * checkout's root; from a linked worktree it still points there. Falls back to `root` for an unusual layout.
+ */
+function mainCheckoutRoot(dir: string, root: string): string {
+  const common = git(dir, "rev-parse", "--git-common-dir");
+  if (!common) return root;
+  const abs = realpathSync(resolve(dir, common));
+  return basename(abs) === ".git" ? dirname(abs) : root;
+}
+
 /** What Home and the doc header show for one file: title, where it is, which branch. */
 export function docMeta(path: string, commentsFile?: string): DocMeta {
   if (!existsSync(path)) {
-    return { title: basename(path), repo: null, branch: null, updatedAt: null, missing: true, stats: { sections: 0, diagrams: 0 } };
+    return { title: basename(path), repo: null, branch: null, detached: false, worktree: null, project: null, updatedAt: null, missing: true, stats: { sections: 0, diagrams: 0 } };
   }
   const src = readFileSync(path, "utf8");
   const dir = dirname(path);
   const top = git(dir, "rev-parse", "--show-toplevel");
   let repo: DocRepo | null = null;
   let branch: string | null = null;
+  let detached = false;
+  let worktree: DocWorktree | null = null;
+  let project: DocProject | null = null;
   if (top) {
     // Docs live anywhere on disk by design; keep the build from tracing the whole project.
     const root = realpathSync(/*turbopackIgnore: true*/ top);
     repo = { name: basename(root), root, relPath: relative(root, path).split("\\").join("/") };
-    branch = git(dir, "branch", "--show-current") ?? git(dir, "rev-parse", "--short", "HEAD");
+    const current = git(dir, "branch", "--show-current");
+    detached = current === null;
+    branch = current ?? git(dir, "rev-parse", "--short", "HEAD");
+    worktree = linkedWorktree(dir, root);
+    const mainRoot = mainCheckoutRoot(dir, root);
+    project = { name: basename(mainRoot), root: mainRoot };
   }
   const updated = Math.max(mtime(path), mtime(commentsFile));
-  return { title: docTitle(src, path), repo, branch, updatedAt: new Date(updated).toISOString(), missing: false, stats: docStats(src) };
+  return { title: docTitle(src, path), repo, branch, detached, worktree, project, updatedAt: new Date(updated).toISOString(), missing: false, stats: docStats(src) };
 }

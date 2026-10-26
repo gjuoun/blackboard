@@ -144,7 +144,7 @@ export function resolveSession(home: string, idOrPath: string, cwd = process.cwd
 
 /** One line of the session list: the registry entry plus what the file says about itself. */
 export type SessionRow = Session &
-  Pick<DocMeta, "title" | "repo" | "branch" | "missing" | "stats"> & {
+  Pick<DocMeta, "title" | "repo" | "branch" | "detached" | "worktree" | "project" | "missing" | "stats"> & {
     /** "repo/rel/path.md" inside git, the absolute path outside it. */
     location: string;
     updatedAt: string;
@@ -153,7 +153,7 @@ export type SessionRow = Session &
   };
 
 /** "/Users/me/notes/a.md" -> "~/notes/a.md". */
-function tildify(p: string): string {
+export function tildify(p: string): string {
   const h = process.env.HOME;
   return h && p.startsWith(h + "/") ? "~" + p.slice(h.length) : p;
 }
@@ -176,6 +176,9 @@ export function sessionRow(home: string, s: Session): SessionRow {
     title: m.title,
     repo: m.repo,
     branch: m.branch,
+    detached: m.detached,
+    worktree: m.worktree,
+    project: m.project,
     missing: m.missing,
     stats: m.stats,
     location: m.repo ? `${m.repo.name}/${m.repo.relPath}` : tildify(s.path),
