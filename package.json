@@ -98,5 +98,8 @@
   "trustedDependencies": [
     "sharp",
     "unrs-resolver"
-  ]
+  ],
+  "dependencies": {
+    "rehype-highlight": "^7.0.2"
+  }
 }

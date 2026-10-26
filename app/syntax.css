@@ -1,0 +1,15 @@
+/*
+ * Syntax colour for fenced code. rehype-highlight classes the tokens on the server (no client JS and
+ * no highlight.js stylesheet), and each scope maps onto a palette token, so paper, plain and night
+ * recolour with the rest of the page. A palette has four hue tokens (primary, success, warn,
+ * destructive); scopes share them. lib/syntax.test.ts holds every mapped colour to AA on the code
+ * block's card, and the spans only change colour, so wrap and scroll on the <pre> are untouched.
+ */
+.doc-body pre :is(.hljs-keyword, .hljs-selector-tag, .hljs-attr, .hljs-property, .hljs-section, .hljs-name) { color: var(--primary); }
+.doc-body pre :is(.hljs-string, .hljs-regexp, .hljs-addition, .hljs-code) { color: var(--success); }
+.doc-body pre :is(.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet, .hljs-variable, .hljs-template-variable) { color: var(--warn); }
+.doc-body pre :is(.hljs-built_in, .hljs-type, .hljs-deletion) { color: var(--destructive); }
+.doc-body pre :is(.hljs-comment, .hljs-quote, .hljs-meta) { color: var(--muted-foreground); font-style: italic; }
+.doc-body pre .hljs-title { color: var(--foreground); font-weight: 600; }
+.doc-body pre .hljs-emphasis { font-style: italic; }
+.doc-body pre .hljs-strong { font-weight: 700; }

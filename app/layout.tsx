@@ -4,6 +4,7 @@ import { bootScript } from "@/lib/prefs";
 import { DEFAULT_THEME } from "@/lib/theme";
 import "./globals.css";
 import "./katex.css";
+import "./syntax.css";
 
 const DESCRIPTION = "Read markdown plans in the browser and comment on the text, so you and a coding agent can go back and forth on them.";
 
