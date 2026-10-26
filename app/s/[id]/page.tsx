@@ -1,18 +1,18 @@
 import { readFileSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, dirname } from "node:path";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Folder, FolderGit2, GitBranch, GitCommitHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { DocChip } from "@/components/DocChip";
 import { DocView } from "@/components/DocView";
 import { RegisterTab } from "@/components/RegisterTab";
 import { Toc } from "@/components/Toc";
 import { readComments } from "@/lib/comments-store";
 import { getHome } from "@/lib/home";
 import { renderMarkdown } from "@/lib/markdown";
-import { cn } from "@/lib/utils";
-import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath, sessionRow, tildify } from "@/lib/sessions";
+import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath, sessionRow } from "@/lib/sessions";
 
 /** The tab title is the doc's own title; the description names the file, never its folder. */
 export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promise<Metadata> {
@@ -39,37 +39,39 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   const file = servablePath(session);
 
   // Where the file lives, which branch, and which linked worktree: chips above the doc.
-  // Chips share one height, radius and padding; the location chip alone takes the slack and truncates from the left.
-  const chip = "h-6 max-w-full min-w-0 rounded-md border-border bg-card px-2 py-0 font-mono font-normal";
+  // The location reads as project root and file name; the full path is in its tooltip and copy button.
+  const project = row.repo?.name ?? basename(dirname(row.path));
   const header = (
     <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2 text-xs md:flex-nowrap" data-testid="doc-head">
-      <Badge variant="outline" className={cn(chip, "shrink")} data-testid="doc-location" title={row.path}>
+      <DocChip testid="doc-location" title={row.path} className="min-w-0 shrink" copy={{ value: row.path, label: "Copy path" }}>
         <Folder aria-hidden />
         <span dir="rtl" className="min-w-0 truncate">
-          <bdi dir="ltr">{tildify(row.path)}</bdi>
+          <bdi dir="ltr">{`${project} / ${basename(row.path)}`}</bdi>
         </span>
-      </Badge>
+      </DocChip>
       {row.branch ? (
-        <Badge
-          variant="outline"
-          className={cn(chip, "shrink-0", row.detached && "text-muted-foreground")}
-          data-testid="doc-branch"
+        <DocChip
+          testid="doc-branch"
           title={row.detached ? "detached HEAD" : "git branch"}
+          tone={row.detached ? "muted" : "default"}
+          className="shrink-0"
+          copy={row.detached ? { value: row.branch, label: "Copy short sha" } : { value: row.branch, label: "Copy branch" }}
         >
           {row.detached ? <GitCommitHorizontal aria-hidden /> : <GitBranch aria-hidden />}
           <span className="min-w-0 truncate">{row.branch}</span>
-        </Badge>
+        </DocChip>
       ) : null}
       {row.worktree ? (
-        <Badge
-          variant="outline"
-          className={cn(chip, "shrink-0 border-primary/50 bg-primary-soft text-foreground [&>svg]:text-primary")}
-          data-testid="doc-worktree"
+        <DocChip
+          testid="doc-worktree"
           title={`git worktree at ${row.worktree.path}`}
+          tone="accent"
+          className="shrink-0"
+          copy={{ value: row.worktree.path, label: "Copy worktree path" }}
         >
           <FolderGit2 aria-hidden />
           <span className="min-w-0 truncate">{row.worktree.name}</span>
-        </Badge>
+        </DocChip>
       ) : null}
       {row.missing ? <Badge variant="destructive" className="h-6 rounded-md px-2 py-0 font-normal">missing</Badge> : null}
     </div>
