@@ -8,7 +8,7 @@ import type { Comment } from "@/lib/comments-store";
 import { cn } from "@/lib/utils";
 import { buildTextMap, offsetOf, rangeOf } from "@/lib/text-map";
 import { clampPanels, type PanelKey } from "@/lib/prefs";
-import { patchDoc, setChrome, useChrome, useIsDesktop } from "./chrome";
+import { DESKTOP, patchDoc, setChrome, useChrome, useIsDesktop } from "./chrome";
 import { PanelResizer } from "./PanelResizer";
 import { CommentPanel, type PanelComment } from "./CommentPanel";
 import { DocBody } from "./DocBody";
@@ -58,9 +58,12 @@ export function DocView({ session, title, path, html, initialComments, header, t
   // column can follow the grip frame by frame without a localStorage write per pixel.
   const [resizing, setResizing] = useState<{ which: PanelKey; width: number } | null>(null);
 
-  // A narrower window must not leave the doc behind two wide panels: re-clamp both widths.
+  // A narrower window must not leave the doc behind two wide panels: re-clamp both widths. Only a
+  // desktop viewport gets this: a phone shows no side panels, and clamping there would overwrite the
+  // widths the reader chose on desktop.
   useEffect(() => {
     const onResize = () => {
+      if (!matchMedia(DESKTOP).matches) return;
       const next = clampPanels({ tocW: chrome.tocW, cmW: chrome.cmW }, innerWidth);
       if (next.tocW !== chrome.tocW || next.cmW !== chrome.cmW) setChrome(next);
     };
@@ -259,13 +262,13 @@ export function DocView({ session, title, path, html, initialComments, header, t
 
   // Desktop: Contents | doc | Comments, each side column collapsing (Comments to a thin rail).
   // Phone: the doc alone, with Contents and Comments as bottom sheets opened from the top bar.
-  // The columns read the variables the boot script put on <html>, so stored widths paint on the
-  // first frame; an inline override is only needed when a panel is closed.
+  // The column template is CSS (`.doc-grid`) and the side panels are hidden below 768px by CSS too,
+  // so the first paint, before any script runs, lays out the same way the viewport does. The columns
+  // read the variables the boot script put on <html>, so stored widths paint on the first frame; an
+  // inline override is only needed when a panel is closed.
   const tocW = resizing?.which === "toc" ? resizing.width : chrome.tocW;
   const cmW = resizing?.which === "cm" ? resizing.width : chrome.cmW;
-  const vars: Record<string, string> = desktop
-    ? { gridTemplateColumns: "var(--toc-w, 240px) minmax(0, 1fr) var(--cm-w, 340px)" }
-    : { gridTemplateColumns: "minmax(0,1fr)" };
+  const vars: Record<string, string> = {};
   if (desktop) {
     if (!(chrome.tocOpen && toc)) vars["--toc-w"] = "0px";
     else if (resizing?.which === "toc") vars["--toc-w"] = resizing.width + "px";
@@ -273,9 +276,9 @@ export function DocView({ session, title, path, html, initialComments, header, t
     else if (resizing?.which === "cm") vars["--cm-w"] = resizing.width + "px";
   }
   return (
-    <div className="grid min-h-[calc(100vh-var(--bar-h))] transition-[grid-template-columns] duration-200 [html[data-resizing]_&]:transition-none" style={vars as React.CSSProperties}>
+    <div className="doc-grid grid min-h-[calc(100vh-var(--bar-h))] transition-[grid-template-columns] duration-200 [html[data-resizing]_&]:transition-none" style={vars as React.CSSProperties}>
       {desktop ? (
-        <aside className={cn("border-border relative overflow-x-clip border-r", chrome.tocOpen && toc ? "" : "invisible border-0")} aria-hidden={!chrome.tocOpen} data-testid="toc-panel">
+        <aside className={cn("hidden border-border relative overflow-x-clip border-r md:block", chrome.tocOpen && toc ? "" : "invisible border-0")} aria-hidden={!chrome.tocOpen} data-testid="toc-panel">
           <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto p-3">{toc}</div>
           <PanelResizer
             which="toc"
@@ -286,7 +289,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
           />
         </aside>
       ) : null}
-      <main className="relative min-w-0 px-4 pt-6 pb-24 md:px-10 md:pt-8" ref={mainRef}>
+      <main className="relative min-w-0 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] max-md:pt-[calc(env(safe-area-inset-top)+0.75rem)] md:px-10 md:pt-8 md:pb-24" ref={mainRef}>
         <div className="mx-auto min-w-0 max-w-[760px]">
           {header}
           <DocBody html={html} ref={bodyRef} onClick={onDocClick} onMouseMove={onDocMove} onMouseLeave={onDocLeave} />
@@ -306,7 +309,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
       </main>
       {desktop ? (
         chrome.cmOpen ? (
-          <aside className="border-border bg-background relative border-l" data-testid="comments-panel">
+          <aside className="hidden border-border bg-background relative border-l md:block" data-testid="comments-panel">
             <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto p-3.5">{panel}</div>
             <PanelResizer
               which="cm"
@@ -318,7 +321,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
           </aside>
         ) : (
           // Collapsed means gone: the Comments button in the top bar brings it back.
-          <aside aria-hidden className="invisible" />
+          <aside aria-hidden className="hidden invisible md:block" />
         )
       ) : (
         <>

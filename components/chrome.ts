@@ -61,7 +61,8 @@ const subscribe = (l: () => void) => {
 };
 export const useChrome = () => useSyncExternalStore(subscribe, read, () => DEFAULTS);
 
-const DESKTOP = "(min-width: 768px)";
+/** The breakpoint the side panels and the doc grid switch at (the CSS `md:` class uses the same px). */
+export const DESKTOP = "(min-width: 768px)";
 const subscribeMq = (l: () => void) => {
   const mq = matchMedia(DESKTOP);
   mq.addEventListener("change", l);

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { TopBar } from "@/components/TopBar";
 import { bootScript } from "@/lib/prefs";
 import { DEFAULT_THEME } from "@/lib/theme";
@@ -15,6 +15,9 @@ export const metadata: Metadata = {
   openGraph: { type: "website", siteName: "Blackboard", title: "Blackboard", description: DESCRIPTION },
   twitter: { card: "summary_large_image", title: "Blackboard", description: DESCRIPTION },
 };
+
+/** cover lets the phone's bottom bar and top bar use the safe-area insets (env()); desktop has none. */
+export const viewport: Viewport = { viewportFit: "cover" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
