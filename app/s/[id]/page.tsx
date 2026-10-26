@@ -38,10 +38,10 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   const row = sessionRow(home, session);
   const file = servablePath(session);
 
-  // Two rows, on every width. Row 1: the file's full path. Row 2: its project, branch and linked worktree.
+  // Two rows, on every width. Row 1: the file's full path. Row 2: its project, branch and linked worktree,
+  // always one line: on a narrow screen that line scrolls sideways (scrollbar hidden) instead of wrapping.
   // Each chip keeps its own copy button: path, project root, branch (or short sha) and worktree path.
-  const project = row.repo?.name ?? basename(dirname(row.path));
-  const projectRoot = row.repo?.root ?? dirname(row.path);
+  const project = row.project ?? { name: basename(dirname(row.path)), root: dirname(row.path) };
   const header = (
     <div className="mb-4 flex min-w-0 flex-col gap-1.5 text-xs" data-testid="doc-head">
       <DocChip testid="doc-location" title={row.path} className="flex w-full min-w-0" copy={{ value: row.path, label: "Copy path" }}>
@@ -50,10 +50,13 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
           <bdi dir="ltr">{tildify(row.path)}</bdi>
         </span>
       </DocChip>
-      <div className="flex min-w-0 flex-wrap items-center gap-2" data-testid="doc-meta-row">
-        <DocChip testid="doc-project" title={`project root ${projectRoot}`} className="shrink-0" copy={{ value: projectRoot, label: "Copy project path" }}>
+      <div
+        className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        data-testid="doc-meta-row"
+      >
+        <DocChip testid="doc-project" title={`project root ${project.root}`} className="shrink-0" copy={{ value: project.root, label: "Copy project path" }}>
           <FolderTree aria-hidden />
-          <span className="min-w-0 truncate">{project}</span>
+          <span className="min-w-0 truncate">{project.name}</span>
         </DocChip>
         {row.branch ? (
           <DocChip
@@ -79,7 +82,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
             <span className="min-w-0 truncate">{row.worktree.name}</span>
           </DocChip>
         ) : null}
-        {row.missing ? <Badge variant="destructive" className="h-6 rounded-md px-2 py-0 font-normal">missing</Badge> : null}
+        {row.missing ? <Badge variant="destructive" className="h-6 shrink-0 rounded-md px-2 py-0 font-normal">missing</Badge> : null}
       </div>
     </div>
   );
