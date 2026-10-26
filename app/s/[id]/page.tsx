@@ -3,7 +3,7 @@ import { basename, dirname } from "node:path";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { Folder, FolderGit2, GitBranch, GitCommitHorizontal } from "lucide-react";
+import { Folder, FolderGit2, FolderTree, GitBranch, GitCommitHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DocChip } from "@/components/DocChip";
 import { DocView } from "@/components/DocView";
@@ -12,7 +12,7 @@ import { Toc } from "@/components/Toc";
 import { readComments } from "@/lib/comments-store";
 import { getHome } from "@/lib/home";
 import { renderMarkdown } from "@/lib/markdown";
-import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath, sessionRow } from "@/lib/sessions";
+import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath, sessionRow, tildify } from "@/lib/sessions";
 
 /** The tab title is the doc's own title; the description names the file, never its folder. */
 export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promise<Metadata> {
@@ -38,42 +38,49 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   const row = sessionRow(home, session);
   const file = servablePath(session);
 
-  // Where the file lives, which branch, and which linked worktree: chips above the doc.
-  // The location reads as project root and file name; the full path is in its tooltip and copy button.
+  // Two rows, on every width. Row 1: the file's full path. Row 2: its project, branch and linked worktree.
+  // Each chip keeps its own copy button: path, project root, branch (or short sha) and worktree path.
   const project = row.repo?.name ?? basename(dirname(row.path));
+  const projectRoot = row.repo?.root ?? dirname(row.path);
   const header = (
-    <div className="mb-4 flex min-w-0 flex-wrap items-center gap-2 text-xs md:flex-nowrap" data-testid="doc-head">
-      <DocChip testid="doc-location" title={row.path} className="min-w-0 shrink" copy={{ value: row.path, label: "Copy path" }}>
+    <div className="mb-4 flex min-w-0 flex-col gap-1.5 text-xs" data-testid="doc-head">
+      <DocChip testid="doc-location" title={row.path} className="flex w-full min-w-0" copy={{ value: row.path, label: "Copy path" }}>
         <Folder aria-hidden />
-        <span dir="rtl" className="min-w-0 truncate">
-          <bdi dir="ltr">{`${project} / ${basename(row.path)}`}</bdi>
+        <span dir="rtl" className="min-w-0 flex-1 truncate text-left">
+          <bdi dir="ltr">{tildify(row.path)}</bdi>
         </span>
       </DocChip>
-      {row.branch ? (
-        <DocChip
-          testid="doc-branch"
-          title={row.detached ? "detached HEAD" : "git branch"}
-          tone={row.detached ? "muted" : "default"}
-          className="shrink-0"
-          copy={row.detached ? { value: row.branch, label: "Copy short sha" } : { value: row.branch, label: "Copy branch" }}
-        >
-          {row.detached ? <GitCommitHorizontal aria-hidden /> : <GitBranch aria-hidden />}
-          <span className="min-w-0 truncate">{row.branch}</span>
+      <div className="flex min-w-0 flex-wrap items-center gap-2" data-testid="doc-meta-row">
+        <DocChip testid="doc-project" title={`project root ${projectRoot}`} className="shrink-0" copy={{ value: projectRoot, label: "Copy project path" }}>
+          <FolderTree aria-hidden />
+          <span className="min-w-0 truncate">{project}</span>
         </DocChip>
-      ) : null}
-      {row.worktree ? (
-        <DocChip
-          testid="doc-worktree"
-          title={`git worktree at ${row.worktree.path}`}
-          tone="accent"
-          className="shrink-0"
-          copy={{ value: row.worktree.path, label: "Copy worktree path" }}
-        >
-          <FolderGit2 aria-hidden />
-          <span className="min-w-0 truncate">{row.worktree.name}</span>
-        </DocChip>
-      ) : null}
-      {row.missing ? <Badge variant="destructive" className="h-6 rounded-md px-2 py-0 font-normal">missing</Badge> : null}
+        {row.branch ? (
+          <DocChip
+            testid="doc-branch"
+            title={row.detached ? "detached HEAD" : "git branch"}
+            tone={row.detached ? "muted" : "default"}
+            className="shrink-0"
+            copy={row.detached ? { value: row.branch, label: "Copy short sha" } : { value: row.branch, label: "Copy branch" }}
+          >
+            {row.detached ? <GitCommitHorizontal aria-hidden /> : <GitBranch aria-hidden />}
+            <span className="min-w-0 truncate">{row.branch}</span>
+          </DocChip>
+        ) : null}
+        {row.worktree ? (
+          <DocChip
+            testid="doc-worktree"
+            title={`git worktree at ${row.worktree.path}`}
+            tone="accent"
+            className="shrink-0"
+            copy={{ value: row.worktree.path, label: "Copy worktree path" }}
+          >
+            <FolderGit2 aria-hidden />
+            <span className="min-w-0 truncate">{row.worktree.name}</span>
+          </DocChip>
+        ) : null}
+        {row.missing ? <Badge variant="destructive" className="h-6 rounded-md px-2 py-0 font-normal">missing</Badge> : null}
+      </div>
     </div>
   );
 

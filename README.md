@@ -86,8 +86,8 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
 - **Scratchpad** — one free-form doc at `$BLACKBOARD_HOME/scratchpad.md`, pinned on Home; its card
   counts sections and diagrams. You can comment on it like any doc.
 - **Doc view** — GitHub-style markdown (tables with sticky headers, heading anchors), a
-  **Contents** list on the left that highlights the section you are reading, and chips above the
-  doc with its location, its branch and, for a linked git worktree, the worktree name, each with a copy button. On a desktop both side panels **resize** by dragging the 6px
+  **Contents** list on the left that highlights the section you are reading, and two rows of chips above the
+  doc: the file's path, then its project, branch and, for a linked git worktree, the worktree name, each with a copy button. On a desktop both side panels **resize** by dragging the 6px
   grip on their inner edge (arrows step 16px, Shift 64, double-click resets), and each one
   **collapses** independently from the top bar. YAML front matter shows as a field / value table: lists
   as chips, maps as nested tables, empty values as blank cells; YAML that does not parse is shown

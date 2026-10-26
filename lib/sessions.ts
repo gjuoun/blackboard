@@ -153,7 +153,7 @@ export type SessionRow = Session &
   };
 
 /** "/Users/me/notes/a.md" -> "~/notes/a.md". */
-function tildify(p: string): string {
+export function tildify(p: string): string {
   const h = process.env.HOME;
   return h && p.startsWith(h + "/") ? "~" + p.slice(h.length) : p;
 }
