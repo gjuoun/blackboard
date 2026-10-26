@@ -96,6 +96,9 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
   **⋯** menu, and Contents and Comments open as bottom sheets. The resize grips are desktop-only.
 - **Diagrams** — fenced `mermaid` blocks render in the browser from the bundled library, so
   they work offline.
+- **Math** — `$…$` inline and `$$…$$` blocks render with KaTeX on the server, so the page ships no
+  math JavaScript. A dollar amount such as `$5 and $6` stays text. A formula is one opaque unit to
+  comments: a quote may run across it.
 - **Comments** — select text, click **Comment**, type a note. Each card shows who and when, a
   **check circle** at the top right (click to resolve, click the green one to reopen) and a reply
   field. Replies are flat. Your own comments and replies (same author name) show **Edit** and
@@ -235,6 +238,7 @@ components/               TopBar (tabs, toggles, menu), SessionTable, DocView (s
                           CommentPanel, Toc, Mermaid; ui/ holds the shadcn pieces; chrome.ts is the shared panel state
 app/themes.css            one complete palette per [data-theme] block
 app/fonts.css             @font-face rules and the font stacks keyed by data-font-*
+app/katex.css            KaTeX's stylesheet; its woff2 faces are served from public/fonts/katex/
 app/globals.css           Tailwind, the markdown styles for a rendered doc
 lib/prefs.ts              the persisted reading record (theme, three fonts, both widths), parser + boot script
 lib/theme.ts, lib/fonts.ts  the palettes and the picker vocabularies
@@ -247,7 +251,8 @@ lib/anchor.ts             find a quoted passage again (pure, tested)
 lib/comments-store.ts     comment file read / locked atomic write (lib/lock.ts)
 lib/cli.ts, bin/          the `blackboard` command (bin/blackboard is the launcher, scripts/build-cli.ts bundles it)
 lib/server-ctl.ts         `serve start|stop|restart|status` and the start-on-first-use
-lib/markdown.ts           unified pipeline: GFM, heading ids, legacy marks, mermaid placeholders
+lib/markdown.ts           unified pipeline: GFM, heading ids, legacy marks, mermaid placeholders, KaTeX
+lib/math.ts               the single-dollar inline math rule (Typora / Pandoc guards) for remark-math
 proxy.ts                  localhost-only Host and Origin checks
 ```
 

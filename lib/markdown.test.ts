@@ -88,6 +88,35 @@ describe("renderMarkdown", () => {
   });
 });
 
+describe("renderMarkdown math", () => {
+  test("keeps a dollar amount literal: $5 and $6 is not a formula", async () => {
+    const { html } = await renderMarkdown("Cost is $5 and $6 today.\n");
+    expect(html).toContain("<p>Cost is $5 and $6 today.</p>");
+    expect(html).not.toContain("katex");
+  });
+
+  test("renders $…$ inline as pre-rendered KaTeX, with no TeX source left", async () => {
+    const { html } = await renderMarkdown("Energy $E=mc^2$ holds.\n");
+    expect(html).toContain('<span class="katex" data-testid="math">');
+    expect(html).not.toContain("$E=mc^2$");
+    expect(html).not.toContain("language-math");
+    expect(html).not.toContain("katex-mathml");
+  });
+
+  test("renders a $$…$$ paragraph as display math", async () => {
+    const { html } = await renderMarkdown("$$\\sum_{k=1}^n k$$\n");
+    expect(html).toContain('<span class="katex-display"><span class="katex" data-testid="math">');
+    expect(html).not.toContain("<p>");
+  });
+
+  test("keeps formulas out of the toc text and the heading slug", async () => {
+    const { html, toc } = await renderMarkdown("## Energy $E=mc^2$ law\n");
+    expect(toc).toEqual([{ depth: 2, id: "energy--law", text: "Energy law" }]);
+    expect(html).toContain('<h2 id="energy--law">');
+    expect(html).toContain('<span class="katex" data-testid="math">');
+  });
+});
+
 describe("renderMarkdown assetBase", () => {
   const DOC = "![shot](./shot.png) ![up](../assets/up.png) ![web](https://x.test/a.png) ![inline](data:image/png;base64,xx) ![sub](sub/dir/b.jpg)";
 
