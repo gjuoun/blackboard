@@ -7,7 +7,6 @@ import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
 import * as cli from "../lib/cli";
 import { getHome } from "../lib/home";
-import { formatImport } from "../lib/import";
 import pkg from "../package.json";
 import * as server from "../lib/server-ctl";
 
@@ -19,18 +18,14 @@ Usage:
   blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)
   blackboard sessions [--json]                   every session: id, title, location, branch, open comments
   blackboard close    <session>                  forget a session (its comments are kept)
-  blackboard comments <session> [--all] [--json]
-  blackboard reply    <session> <comment-id> <text>
+  blackboard comments <session> [--json]         every comment and its replies, resolved ones too
+  blackboard reply    <session> <id> <text>
   blackboard resolve  <session> <comment-id>
   blackboard reopen   <session> <comment-id>
   blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>
-  blackboard wait     <session> [--since <iso>] [--timeout 30m]
-      blocks until someone else comments, replies, edits, reopens or resolves;
-      prints the events and "next: <iso>" (pass it as --since to the next wait)
-  blackboard import   <root> [--dry-run]         copy comments from an old folder of boards
-                                                 (<root>/<board>/.blackboard/comments.json) into sessions
 
 <session> is a session id or a path to the registered file.
+<id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).
 
 Options:
   --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)
@@ -42,7 +37,7 @@ Options:
   --foreground     serve start: run in this terminal until Ctrl-C
   --version        print the version
 
-Exit codes: 0 ok, 1 command failed, 2 bad usage, 3 wait timed out.`;
+Exit codes: 0 ok, 1 command failed, 2 bad usage, 3 serve status: not running.`;
 
 /**
  * `open` needs the web app. First use starts it in the background; a build-less clone just warns
@@ -76,18 +71,14 @@ async function main(argv: string[]): Promise<number> {
     options: {
       home: { type: "string" },
       author: { type: "string" },
-      all: { type: "boolean" },
       json: { type: "boolean" },
       quote: { type: "string" },
       occurrence: { type: "string" },
-      since: { type: "string" },
-      timeout: { type: "string" },
       "no-browser": { type: "boolean" },
       "no-server": { type: "boolean" },
       port: { type: "string" },
       foreground: { type: "boolean" },
       version: { type: "boolean", short: "v" },
-      "dry-run": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -157,8 +148,8 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     }
     case "comments": {
-      need(1, "comments <session> [--all]");
-      const list = cli.comments(home, args[0], { all: o.all });
+      need(1, "comments <session> [--json]");
+      const list = cli.comments(home, args[0]);
       print(list, cli.formatComments(list));
       return 0;
     }
@@ -182,22 +173,6 @@ async function main(argv: string[]): Promise<number> {
       if (!Number.isInteger(n)) throw new cli.CliError("--occurrence must be a whole number", 2);
       const c = await cli.comment(home, args[0], o.quote, args.slice(1).join(" "), author, n);
       print(c, `commented ${c.id} on ${c.doc}`);
-      return 0;
-    }
-    case "wait": {
-      need(1, "wait <session> [--since <iso>] [--timeout 30m]");
-      // Default to when THIS PROCESS started, not when waitForActivity runs: the CLI needs a few
-      // hundred ms to boot, and anything written during that window is still "the next comment".
-      // Taking the timestamp after boot made a comment written in that window invisible (exit 3).
-      const since = (o.since as string | undefined) ?? new Date(performance.timeOrigin).toISOString();
-      const r = await cli.waitForActivity(home, args[0], { since, timeoutMs: cli.parseDuration(o.timeout ?? "30m"), me: author });
-      print({ events: r.events, next: r.next }, r.timedOut ? `nothing new\n\nnext: ${r.next}` : cli.formatActivity(r));
-      return r.timedOut ? 3 : 0;
-    }
-    case "import": {
-      need(1, "import <root> [--dry-run]");
-      const r = await cli.importRoot(home, args[0], o["dry-run"]);
-      print(r, formatImport(r, o["dry-run"]));
       return 0;
     }
     default:

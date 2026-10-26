@@ -1,7 +1,5 @@
-import { readFileSync, mkdirSync, watch, type FSWatcher } from "node:fs";
-import { basename, dirname } from "node:path";
-import { activitySince, type Activity } from "./activity";
-import { importBoards, type ImportResult } from "./import";
+import { readFileSync } from "node:fs";
+import { basename } from "node:path";
 import { addComment, addReply, mutate, readComments, setStatus, type Comment, type CommentFile } from "./comments-store";
 import { renderPlainText } from "./markdown";
 import { selectorFor } from "./selector";
@@ -28,6 +26,15 @@ function find(home: string, ref: string, cwd = process.cwd()): { session: Sessio
   return { session, file: sessionCommentsPath(home, session.id), doc: basename(session.path) };
 }
 
+/** The top-level comment that `id` is, or that holds `id` as one of its replies. Ids are unique within a session. */
+function threadOf(file: CommentFile, id: string): { doc: string; commentId: string } {
+  for (const [doc, list] of Object.entries(file.docs)) {
+    const c = list.find((x) => x.id === id || x.replies.some((r) => r.id === id));
+    if (c) return { doc, commentId: c.id };
+  }
+  throw new CliError(`no comment ${id} on this session`);
+}
+
 /** Comment ids are unique within a session, so a command can name a comment by id alone. */
 function docOf(file: CommentFile, id: string): string {
   const doc = Object.keys(file.docs).find((d) => file.docs[d].some((c) => c.id === id));
@@ -46,16 +53,6 @@ export function open(home: string, file: string, cwd = process.cwd()): { session
   }
 }
 
-/** Bring comments over from an old folder of boards (see importBoards). */
-export async function importRoot(home: string, root: string, dryRun = false): Promise<ImportResult> {
-  try {
-    return await importBoards(home, root, { dryRun });
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT" || (err as NodeJS.ErrnoException).code === "ENOTDIR") throw new CliError(`not a folder: ${root}`);
-    throw err;
-  }
-}
-
 export function sessions(home: string): SessionRow[] {
   return sessionRows(home);
 }
@@ -64,19 +61,21 @@ export function close(home: string, ref: string, cwd = process.cwd()): Session {
   return closeSession(home, find(home, ref, cwd).session.id);
 }
 
-/** A session's comments, open only unless `all`, in creation order. */
-export function comments(home: string, ref: string, opts: { all?: boolean; cwd?: string } = {}): DocComment[] {
-  const { file } = find(home, ref, opts.cwd);
-  return Object.entries(readComments(file).docs)
-    .flatMap(([doc, list]) => list.map((c) => ({ ...c, doc })))
-    .filter((c) => opts.all || c.status === "open");
+/** Every comment in a session, resolved ones included, each with its replies, in creation order. */
+export function comments(home: string, ref: string, cwd = process.cwd()): DocComment[] {
+  const { file } = find(home, ref, cwd);
+  return Object.entries(readComments(file).docs).flatMap(([doc, list]) => list.map((c) => ({ ...c, doc })));
 }
 
+/**
+ * Reply to a comment, or to one of its replies: `id` names either, and the text joins that comment's
+ * thread (replies are one flat list per comment). Returns the comment the reply went under.
+ */
 export async function reply(home: string, ref: string, id: string, body: string, author: string, cwd = process.cwd()): Promise<DocComment> {
   if (!body.trim()) throw new CliError("reply text is empty", 2);
   const { file } = find(home, ref, cwd);
-  const doc = docOf(readComments(file), id);
-  return { ...(await mutate(file, (f) => addReply(f, doc, id, { body: body.trim(), author }))), doc };
+  const { doc, commentId } = threadOf(readComments(file), id);
+  return { ...(await mutate(file, (f) => addReply(f, doc, commentId, { body: body.trim(), author }))), doc };
 }
 
 export async function status(home: string, ref: string, id: string, to: "resolved" | "open", author: string, cwd = process.cwd()): Promise<DocComment> {
@@ -108,68 +107,18 @@ export async function comment(
   return { ...(await mutate(file, (f) => addComment(f, doc, { quote: sel.selector, body: note.trim(), author }))), doc };
 }
 
-/** "90s", "30m", "2h" or plain milliseconds. */
-export function parseDuration(s: string): number {
-  const m = /^(\d+(?:\.\d+)?)(ms|s|m|h)?$/.exec(s.trim());
-  if (!m) throw new CliError(`bad duration "${s}" (use e.g. 90s, 30m, 2h)`, 2);
-  return Number(m[1]) * { ms: 1, s: 1000, m: 60_000, h: 3_600_000 }[(m[2] ?? "ms") as "ms" | "s" | "m" | "h"];
-}
-
-export type WaitResult = { events: Activity[]; next: string; timedOut: boolean };
-
-/**
- * Block until someone other than `me` comments, replies, edits, reopens or resolves on the session
- * after `since` (default: now), or until the timeout. Watches the session's comment folder and also
- * polls every 2 s, so a missed file event only costs latency.
- */
-export function waitForActivity(home: string, ref: string, opts: { since?: string; timeoutMs: number; me: string; cwd?: string }): Promise<WaitResult> {
-  const { file } = find(home, ref, opts.cwd);
-  const parsed = opts.since ? new Date(opts.since) : new Date();
-  if (Number.isNaN(parsed.getTime())) throw new CliError(`bad --since "${opts.since}"`, 2);
-  const since = parsed.toISOString();
-  mkdirSync(dirname(file), { recursive: true });
-  return new Promise((resolve) => {
-    let watcher: FSWatcher | null = null;
-    const finish = (r: WaitResult) => {
-      watcher?.close();
-      clearInterval(poll);
-      clearTimeout(timer);
-      resolve(r);
-    };
-    const check = () => {
-      let found;
-      try {
-        found = activitySince(readComments(file), since, opts.me);
-      } catch {
-        return; // unreadable for a moment: try again on the next event or poll
-      }
-      if (found.events.length > 0) finish({ ...found, timedOut: false });
-    };
-    const poll = setInterval(check, 2000);
-    const timer = setTimeout(() => finish({ events: [], next: since, timedOut: true }), opts.timeoutMs);
-    try {
-      watcher = watch(dirname(file), () => check());
-    } catch {
-      // polling still runs
-    }
-    check();
-  });
-}
-
-export function formatActivity(r: WaitResult): string {
-  const lines = r.events.map((e) => `${e.at}  ${e.kind}  ${e.doc}  ${e.commentId}  ${e.author}\n  > ${e.quote}\n  ${e.body.replace(/\n/g, "\n  ")}`);
-  return [...lines, `next: ${r.next}`].join("\n\n");
-}
-
 const squash = (s: string) => s.replace(/\s+/g, " ").trim();
 
-/** Human-readable listing: id, doc, status, author and time, then the quote, note and replies. */
+/**
+ * Human-readable thread tree: each comment with its id, doc, status, author and time, its quote and
+ * note, then its replies indented under it. Each reply shows its id, so it can be answered in turn.
+ */
 export function formatComments(list: DocComment[]): string {
   if (list.length === 0) return "no comments";
   return list
     .map((c) => {
       const lines = [`${c.id}  ${c.doc}  ${c.status}  ${c.author}  ${c.createdAt}`, `  > ${squash(c.quote.exact)}`, `  ${c.body.replace(/\n/g, "\n  ")}`];
-      for (const r of c.replies) lines.push(`    ↳ ${r.author}: ${r.body.replace(/\n/g, "\n      ")}`);
+      for (const r of c.replies) lines.push(`    ↳ ${r.id}  ${r.author}: ${r.body.replace(/\n/g, "\n      ")}`);
       return lines.join("\n");
     })
     .join("\n\n");

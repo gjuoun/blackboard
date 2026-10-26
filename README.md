@@ -124,12 +124,10 @@ blackboard open     <file> [--no-browser]         # prints "<id>  <url>"; starts
 blackboard serve    start|stop|restart|status     # the web app, in the background
 blackboard sessions [--json]                      # id, title, location, branch, open comments
 blackboard close    <session>                     # forget it; its comments are kept
-blackboard comments <session> [--all] [--json]    # open comments by default
-blackboard reply    <session> <comment-id> "text"
-blackboard resolve  <session> <comment-id>        # or: reopen
+blackboard comments <session> [--json]            # every comment and its replies, resolved ones included
 blackboard comment  <session> --quote "passage" [--occurrence 2] "note"
-blackboard wait     <session> [--since <iso>] [--timeout 30m] [--json]
-blackboard import   <root> [--dry-run]            # comments from the old folder-of-boards layout
+blackboard reply    <session> <id> "text"         # <id> is a comment or one of its replies
+blackboard resolve  <session> <comment-id>        # or: reopen
 ```
 
 `<session>` is a session id or a path to the registered file (relative paths are fine).
@@ -137,41 +135,30 @@ blackboard import   <root> [--dry-run]            # comments from the old folder
 | Setting | Default | Meaning |
 |---------|---------|---------|
 | `--home` / `BLACKBOARD_HOME` | `~/.blackboard` | Blackboard's folder |
-| `--author` / `BLACKBOARD_AUTHOR` | `agent` | Name on what the CLI writes; `wait` ignores this author's own activity |
+| `--author` / `BLACKBOARD_AUTHOR` | `agent` | Name on what the CLI writes |
 | `--no-browser` / `BLACKBOARD_NO_BROWSER=1` | off | `open` registers without launching the browser |
 
 Exit codes: `0` ok, `1` command failed (not a markdown file, unknown session / id, quote not
-found), `2` bad usage, `3` `wait` timed out with nothing new.
+found), `2` bad usage, `3` `serve status` when the app is not running.
 
 - `open` gives the same id for the same file every time (it is derived from the file's real
   path), and launches the browser with `open` (macOS) or `xdg-open`.
 - `comment` finds the passage in the doc's rendered text (the same text the browser anchors
   against), so the highlight lands where the agent meant. `--occurrence` picks a repeat.
-- `wait` blocks until someone else comments, replies, edits, reopens or resolves, then prints
-  the events and `next: <iso>`. Pass that as `--since` to the next `wait` so nothing is missed
-  or repeated.
+- `comments` prints every thread as stored: the comment, then its replies with their ids. Resolved
+  comments stay in the list. `--json` gives the same data as JSON.
+- `reply` takes a comment id or a reply id. Replies are one flat list per comment, so a reply to a
+  reply joins that comment's thread.
 
 ### The agent loop
 
+The CLI never blocks: read the threads when you need them.
+
 ```sh
-blackboard open docs/design.md --no-browser
-since=$(date -u +%FT%TZ)
-while true; do
-  out=$(blackboard wait docs/design.md --since "$since" --json --timeout 30m) || [ $? -eq 3 ] || break
-  since=$(jq -r .next <<<"$out")
-  # read the events / `blackboard comments docs/design.md`, edit the doc,
-  # then `blackboard reply docs/design.md <id> "done: …"` and maybe `blackboard resolve …`
-done
+blackboard comments docs/design.md                 # what is there now, resolved ones included
+blackboard reply docs/design.md <id> "done: …"     # <id> = a comment or a reply
+blackboard resolve docs/design.md <comment-id>     # once it is settled
 ```
-
-In pi, run `blackboard wait` with `bash_bg`: its completion message is the notification.
-
-### Moving from boards
-
-Earlier versions showed a folder of boards (`BLACKBOARD_ROOT`, one sub-folder per board, comments
-in `<board>/.blackboard/comments.json`). `blackboard import <root>` registers every doc that has
-comments there and copies them into its session. It skips sessions that already have comments,
-so it is safe to run twice, and it never changes the old files. Try `--dry-run` first.
 
 ## Files
 
@@ -258,8 +245,6 @@ lib/doc-meta.ts           title, repo, branch and stats of a doc
 lib/tabs.ts               the tab strip's model (pure, tested)
 lib/anchor.ts             find a quoted passage again (pure, tested)
 lib/comments-store.ts     comment file read / locked atomic write (lib/lock.ts)
-lib/activity.ts           what others did since a time (for `wait`)
-lib/import.ts             comments from the old folder-of-boards layout
 lib/cli.ts, bin/          the `blackboard` command (bin/blackboard is the launcher, scripts/build-cli.ts bundles it)
 lib/server-ctl.ts         `serve start|stop|restart|status` and the start-on-first-use
 lib/markdown.ts           unified pipeline: GFM, heading ids, legacy marks, mermaid placeholders
