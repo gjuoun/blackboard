@@ -87,7 +87,7 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
   counts sections and diagrams. You can comment on it like any doc.
 - **Doc view** — GitHub-style markdown (tables with sticky headers, heading anchors), a
   **Contents** list on the left that highlights the section you are reading, and chips above the
-  doc with its location and branch. On a desktop both side panels **resize** by dragging the 6px
+  doc with its location, its branch and, for a linked git worktree, the worktree name. On a desktop both side panels **resize** by dragging the 6px
   grip on their inner edge (arrows step 16px, Shift 64, double-click resets), and each one
   **collapses** independently from the top bar. YAML front matter shows as a field / value table: lists
   as chips, maps as nested tables, empty values as blank cells; YAML that does not parse is shown
@@ -245,7 +245,7 @@ lib/theme.ts, lib/fonts.ts  the palettes and the picker vocabularies
 public/fonts/             QuBlack Latin subsets (.woff2) + OFL licence
 scripts/subset-fonts.py   regenerates those subsets from a QuBlack release
 lib/sessions.ts           the session registry, comment-file paths, rows for Home and the CLI
-lib/doc-meta.ts           title, repo, branch and stats of a doc
+lib/doc-meta.ts           title, repo, branch, linked worktree and stats of a doc
 lib/tabs.ts               the tab strip's model (pure, tested)
 lib/anchor.ts             find a quoted passage again (pure, tested)
 lib/comments-store.ts     comment file read / locked atomic write (lib/lock.ts)
