@@ -1,6 +1,7 @@
 import type { Element, ElementContent, Root as HastRoot } from "hast";
 import type { FootnoteDefinition, PhrasingContent, Root as MdastRoot } from "mdast";
 import { toString as mdToString } from "mdast-util-to-string";
+import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
 import rehypeParse from "rehype-parse";
 import rehypeSlug from "rehype-slug";
@@ -244,6 +245,7 @@ export async function renderMarkdown(src: string, opts?: { assetBase?: string })
     .use(asset)
     .use(rehypeKatex, { output: "html" })
     .use(rehypeMathOpaque)
+    .use(rehypeHighlight, { detect: false, ignoreMissing: true })
     .use(rehypeStringify)
     .process(src);
   return { html: String(file), toc, frontmatter: fm.data };
