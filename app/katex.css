@@ -1245,3 +1245,20 @@
 body {
   counter-reset: katexEqnNo mmlEqnNo;
 }
+
+/*
+ * Blackboard: a wide formula must scroll inside its own box, not widen the page.
+ * On a phone a display block (a matrix, a long aligned line) can be twice the
+ * viewport, which used to push the whole document to 754px and give the reader a
+ * horizontal scrollbar. `overflow-x: auto` keeps the doc at 100% and lets the one
+ * formula scroll by itself; `max-width: 100%` does the same for an inline one.
+ */
+.katex-display {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 1px; /* room for the scrollbar so it does not clip glyphs */
+}
+.katex {
+  max-width: 100%;
+}
