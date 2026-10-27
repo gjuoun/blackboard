@@ -94,9 +94,14 @@ export function containedIn(real: string, roots: string[]): boolean {
  */
 export function resolveDocPath(ref: PathRef, roots: DocRoots): string | null {
   const p = expandHome(ref.path);
+  // A bare name (`local.ts`) means "next to the doc" and nothing else: letting it fall through to the
+  // repo root would quietly link the sentence to a different file than the author meant.
+  const bare = !p.includes("/");
   const candidates = isAbsolute(p)
     ? [p]
-    : [roots.docDir, roots.repoRoot, dirname(roots.docDir)].filter((b): b is string => b !== null).map((b) => resolve(b, p));
+    : bare
+      ? [resolve(roots.docDir, p)]
+      : [roots.docDir, roots.repoRoot, dirname(roots.docDir)].filter((b): b is string => b !== null).map((b) => resolve(b, p));
   for (const abs of candidates) {
     const real = realFile(abs);
     if (!real) continue;

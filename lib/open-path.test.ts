@@ -49,12 +49,17 @@ const resolve = (token: string, doc = "repo/docs/deep/doc.md") => {
 };
 
 describe("parsePathRef", () => {
-  test("reads paths with a slash or a code extension, with optional line and column", () => {
+  test("reads paths with a slash, with optional line and column", () => {
     expect(parsePathRef("lib/markdown.ts")).toEqual({ path: "lib/markdown.ts" });
-    expect(parsePathRef("package.json")).toEqual({ path: "package.json" });
     expect(parsePathRef("apps/x.ts:42")).toEqual({ path: "apps/x.ts", line: 42 });
     expect(parsePathRef("apps/x.ts:42:7")).toEqual({ path: "apps/x.ts", line: 42, col: 7 });
     expect(parsePathRef("~/code/a.tsx")).toEqual({ path: "~/code/a.tsx" });
+  });
+
+  test("a bare file name only means the doc's own folder", () => {
+    expect(parsePathRef("package.json")).toEqual({ path: "package.json" });
+    // present at the repo root but not next to the doc: no link, rather than a link to a different file
+    expect(resolve("package.json", "repo/docs/doc.md")).toBeNull();
   });
 
   test("rejects prose-like code, URLs, folders and bad positions", () => {
@@ -76,8 +81,10 @@ describe("resolveDocPath", () => {
     expect(resolve("src/foo.ts")).toBe(join(base, "repo", "src", "foo.ts"));
   });
 
-  test("then the doc folder's parent, when that lands inside the repo", () => {
-    expect(resolve("alpha.ts")).toBe(join(base, "repo", "docs", "alpha.ts"));
+  test("a bare name stays in the doc folder; its parent is not a candidate", () => {
+    // alpha.ts sits in repo/docs: a doc in repo/docs finds it, a doc in repo/docs/deep does not
+    expect(resolve("alpha.ts", "repo/docs/doc.md")).toBe(join(base, "repo", "docs", "alpha.ts"));
+    expect(resolve("alpha.ts")).toBeNull();
   });
 
   test("an absolute path resolves to itself; a missing one does not", () => {
