@@ -264,7 +264,7 @@ export function CommentPanel(p: Props) {
               {squash(c.quote.exact)}
             </blockquote>
             {c.orphaned ? <p className="text-warn m-0 mb-1.5 text-xs">Passage no longer in the doc</p> : null}
-            <ol data-testid="thread" className="thread mt-2 flex list-none flex-col gap-2.5 p-0">
+            <ol data-testid="thread" className="thread mt-2 flex list-none flex-col gap-3 p-0">
               <li data-testid="thread-entry" data-kind="comment" className={THREAD_ENTRY}>
                 <Body key={c.body} text={c.body} html={c.html} editing={editing === c.id} onSave={(v) => p.onEdit(c.id, v)} onCancel={() => setEditing(null)} />
                 {c.author === me ? (
@@ -279,22 +279,20 @@ export function CommentPanel(p: Props) {
                   </div>
                 ) : null}
               </li>
-              {c.replies.map((r, i) => (
-                <li key={r.id} data-testid="reply-item" className={THREAD_ENTRY} title={r.createdAt}>
-                  {/* A follow-up by the same author reads as one continuous thread: no repeated name/clock. */}
-                  {r.author === (i === 0 ? c.author : c.replies[i - 1].author) ? null : (
-                    <Meta
-                      kind="reply"
-                      author={r.author}
-                      createdAt={r.createdAt}
-                      editedAt={r.editedAt}
-                      own={r.author === me}
-                      onEdit={() => setEditing(r.id)}
-                      onDelete={() => {
-                        if (confirm("Delete this reply?")) void p.onDeleteReply(c.id, r.id);
-                      }}
-                    />
-                  )}
+              {c.replies.map((r) => (
+                <li key={r.id} data-testid="reply-item" className={THREAD_ENTRY}>
+                  {/* Every reply keeps its own name-and-clock line: that is what makes a thread readable. */}
+                  <Meta
+                    kind="reply"
+                    author={r.author}
+                    createdAt={r.createdAt}
+                    editedAt={r.editedAt}
+                    own={r.author === me}
+                    onEdit={() => setEditing(r.id)}
+                    onDelete={() => {
+                      if (confirm("Delete this reply?")) void p.onDeleteReply(c.id, r.id);
+                    }}
+                  />
                   <Body key={r.body} text={r.body} html={r.html} editing={editing === r.id} onSave={(v) => p.onEditReply(c.id, r.id, v)} onCancel={() => setEditing(null)} />
                 </li>
               ))}
