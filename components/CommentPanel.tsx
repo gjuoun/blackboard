@@ -280,7 +280,7 @@ export function CommentPanel(p: Props) {
                 ) : null}
               </li>
               {c.replies.map((r, i) => (
-                <li key={r.id} data-testid="reply-item" className={THREAD_ENTRY} title={when(r.createdAt)}>
+                <li key={r.id} data-testid="reply-item" className={THREAD_ENTRY} title={r.createdAt}>
                   {/* A follow-up by the same author reads as one continuous thread: no repeated name/clock. */}
                   {r.author === (i === 0 ? c.author : c.replies[i - 1].author) ? null : (
                     <Meta
