@@ -12,7 +12,7 @@ const TEXTAREA = "border-input bg-background focus-visible:ring-ring/40 w-full r
 export type PanelComment = RenderedComment & { orphaned: boolean };
 
 /** One entry of a comment's thread: a dot on the timeline line, no card around it. */
-const THREAD_ENTRY = "thread-entry relative before:absolute before:content-[''] before:-left-[17px] before:top-1.5 before:size-2 before:rounded-full before:bg-border";
+const THREAD_ENTRY = "thread-entry";
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -264,8 +264,8 @@ export function CommentPanel(p: Props) {
               {squash(c.quote.exact)}
             </blockquote>
             {c.orphaned ? <p className="text-warn m-0 mb-1.5 text-xs">Passage no longer in the doc</p> : null}
-            <ol data-testid="thread" className="thread border-border mt-2.5 flex list-none flex-col gap-3 border-l-2 p-0 pl-3">
-              <li data-testid="thread-entry" data-kind="comment" className={THREAD_ENTRY + " before:bg-primary"}>
+            <ol data-testid="thread" className="thread mt-2 flex list-none flex-col gap-2.5 p-0">
+              <li data-testid="thread-entry" data-kind="comment" className={THREAD_ENTRY}>
                 <Body key={c.body} text={c.body} html={c.html} editing={editing === c.id} onSave={(v) => p.onEdit(c.id, v)} onCancel={() => setEditing(null)} />
                 {c.author === me ? (
                   <div className="mt-1 flex justify-end" onClick={(e) => e.stopPropagation()}>
@@ -279,19 +279,22 @@ export function CommentPanel(p: Props) {
                   </div>
                 ) : null}
               </li>
-              {c.replies.map((r) => (
-                <li key={r.id} data-testid="reply-item" className={THREAD_ENTRY}>
-                  <Meta
-                    kind="reply"
-                    author={r.author}
-                    createdAt={r.createdAt}
-                    editedAt={r.editedAt}
-                    own={r.author === me}
-                    onEdit={() => setEditing(r.id)}
-                    onDelete={() => {
-                      if (confirm("Delete this reply?")) void p.onDeleteReply(c.id, r.id);
-                    }}
-                  />
+              {c.replies.map((r, i) => (
+                <li key={r.id} data-testid="reply-item" className={THREAD_ENTRY} title={when(r.createdAt)}>
+                  {/* A follow-up by the same author reads as one continuous thread: no repeated name/clock. */}
+                  {r.author === (i === 0 ? c.author : c.replies[i - 1].author) ? null : (
+                    <Meta
+                      kind="reply"
+                      author={r.author}
+                      createdAt={r.createdAt}
+                      editedAt={r.editedAt}
+                      own={r.author === me}
+                      onEdit={() => setEditing(r.id)}
+                      onDelete={() => {
+                        if (confirm("Delete this reply?")) void p.onDeleteReply(c.id, r.id);
+                      }}
+                    />
+                  )}
                   <Body key={r.body} text={r.body} html={r.html} editing={editing === r.id} onSave={(v) => p.onEditReply(c.id, r.id, v)} onCancel={() => setEditing(null)} />
                 </li>
               ))}

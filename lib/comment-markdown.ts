@@ -12,6 +12,7 @@ import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
+import type { PluggableList } from "unified";
 import type { Comment, Reply } from "./comments-store";
 import { remarkDisplayMath } from "./markdown";
 import { remarkSingleDollarMath } from "./math";
@@ -80,27 +81,47 @@ function rehypeLinkSafety() {
   };
 }
 
-/** Built once and reused: the processor is the expensive part, a body is cheap to run through it. */
-const processor = unified()
-  .use(remarkParse)
-  .use(remarkGfm)
-  .use(remarkMath, { singleDollarTextMath: false })
-  .use(remarkSingleDollarMath)
-  .use(remarkDisplayMath)
-  .use(remarkHtmlAsText)
-  .use(remarkSafeLinks)
-  .use(remarkImagesAsText)
-  .use(remarkLineBreaks)
-  .use(remarkRehype)
-  .use(rehypeLinkSafety)
-  .use(rehypeKatex, { output: "html" })
-  .use(rehypeHighlight, { detect: false, ignoreMissing: true })
-  .use(rehypeStringify)
-  .freeze();
+/**
+ * Four processors, because the expensive plugins should only run on a body that can use them: most
+ * comments are one plain paragraph, and running KaTeX + highlight.js over those was the whole cost of
+ * the first version (23.9 ms for 20 comments). Each is built once and frozen.
+ */
+function build(withMath: boolean, withCode: boolean) {
+  const plugins: PluggableList = [remarkParse, remarkGfm];
+  if (withMath) plugins.push([remarkMath, { singleDollarTextMath: false }], remarkSingleDollarMath, remarkDisplayMath);
+  plugins.push(remarkHtmlAsText, remarkSafeLinks, remarkImagesAsText, remarkLineBreaks, remarkRehype, rehypeLinkSafety);
+  if (withMath) plugins.push([rehypeKatex, { output: "html" }]);
+  if (withCode) plugins.push([rehypeHighlight, { detect: false, ignoreMissing: true }]);
+  plugins.push(rehypeStringify);
+  return unified().use(plugins).freeze();
+}
+
+const PLAIN = build(false, false);
+const MATH = build(true, false);
+const CODE = build(false, true);
+const MATH_CODE = build(true, true);
+
+/** Bodies that cannot contain math or a fence skip those plugins entirely. */
+const hasMath = (src: string) => src.includes("$");
+const hasFence = (src: string) => src.includes("```") || src.includes("~~~");
+
+/**
+ * Rendered bodies, keyed by the body text (not the id: the same sentence in two comments is one
+ * render) and kept across requests. A comment body never changes without its text changing, so the
+ * cache cannot go stale; it is bounded so a long session cannot grow it without limit.
+ */
+const rendered = new Map<string, string>();
+const CACHE_LIMIT = 500;
 
 /** HTML for one comment or reply body. Synchronous CPU work only; no file is read. */
 export function renderCommentBody(src: string): string {
-  return String(processor.processSync(src));
+  const hit = rendered.get(src);
+  if (hit !== undefined) return hit;
+  const p = hasMath(src) ? (hasFence(src) ? MATH_CODE : MATH) : hasFence(src) ? CODE : PLAIN;
+  const out = String(p.processSync(src));
+  if (rendered.size >= CACHE_LIMIT) rendered.delete(rendered.keys().next().value as string);
+  rendered.set(src, out);
+  return out;
 }
 
 /**
