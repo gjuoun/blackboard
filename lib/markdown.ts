@@ -16,6 +16,7 @@ import { unified } from "unified";
 import { visit } from "unist-util-visit";
 import { parse as parseYaml } from "yaml";
 import { remarkSingleDollarMath } from "./math";
+import { docRoots, parsePathRef, resolveDocPath, type DocRoots } from "./open-path";
 
 export type TocEntry = { depth: number; id: string; text: string };
 export type Frontmatter = Record<string, unknown>;
@@ -224,11 +225,48 @@ function rehypeCollectToc(toc: TocEntry[]) {
   };
 }
 
-/** Markdown to HTML on the server, so the text a comment anchors against is the same on every load. */
-export async function renderMarkdown(src: string, opts?: { assetBase?: string }): Promise<Rendered> {
+/**
+ * Inline code that names a file (`lib/markdown.ts`, `src/x.ts:42`) becomes a link that opens it in the
+ * editor. Only inline code qualifies: fenced blocks, prose and existing links keep their text. A span
+ * that does not resolve to a real file inside the doc's folder or repo stays plain code.
+ */
+function rehypePathLinks(docPath: string) {
+  return () => (tree: HastRoot) => {
+    let roots: DocRoots | null | undefined;
+    const linkOf = (code: Element): Element | null => {
+      const only = code.children.length === 1 ? code.children[0] : undefined;
+      if (only?.type !== "text") return null;
+      const ref = parsePathRef(only.value);
+      if (!ref) return null;
+      roots ??= docRoots(docPath);
+      const abs = roots ? resolveDocPath(ref, roots) : null;
+      if (!abs) return null;
+      const href = `/api/open?p=${encodeURIComponent(abs)}${ref.line ? `&l=${ref.line}` : ""}${ref.col ? `&c=${ref.col}` : ""}`;
+      const at = abs + (ref.line ? `:${ref.line}` : "") + (ref.col ? `:${ref.col}` : "");
+      return el("a", { href, title: at, className: ["path-link"], target: "_blank", rel: ["noopener"] }, [code]);
+    };
+    // Pre blocks and existing links are skipped whole: a code span inside either keeps its text.
+    const walk = (parent: HastRoot | Element) => {
+      parent.children.forEach((node, i) => {
+        if (node.type !== "element" || node.tagName === "pre" || node.tagName === "a") return;
+        const link = node.tagName === "code" ? linkOf(node) : null;
+        if (link) parent.children[i] = link;
+        else walk(node);
+      });
+    };
+    walk(tree);
+  };
+}
+
+/**
+ * Markdown to HTML on the server, so the text a comment anchors against is the same on every load.
+ * With a docPath, file paths in inline code become links (see rehypePathLinks).
+ */
+export async function renderMarkdown(src: string, opts?: { assetBase?: string; docPath?: string }): Promise<Rendered> {
   const toc: TocEntry[] = [];
   const fm: { data: Frontmatter | null } = { data: null };
   const asset: PluggableList = opts?.assetBase ? [rehypeAssetImages(opts.assetBase)] : [];
+  const paths: PluggableList = opts?.docPath ? [rehypePathLinks(opts.docPath)] : [];
   const file = await unified()
     .use(remarkParse)
     .use(remarkFrontmatter, ["yaml"])
@@ -245,6 +283,7 @@ export async function renderMarkdown(src: string, opts?: { assetBase?: string })
     .use(asset)
     .use(rehypeKatex, { output: "html" })
     .use(rehypeMathOpaque)
+    .use(paths)
     .use(rehypeHighlight, { detect: false, ignoreMissing: true })
     .use(rehypeStringify)
     .process(src);

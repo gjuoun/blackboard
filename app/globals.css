@@ -80,6 +80,9 @@
 .doc-body li::marker { color: var(--muted-foreground); }
 .doc-body ul.contains-task-list, .doc-body ul:has(> li > input[type="checkbox"]) { list-style: none; padding-left: 0.4em; }
 .doc-body a { color: var(--primary); }
+/* A file path in inline code that opens in the editor: the code font stays, a dotted underline shows it is a link, solid on hover. */
+.doc-body a.path-link { text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.doc-body a.path-link:hover { text-decoration-style: solid; }
 .doc-body a:hover { text-decoration: underline; }
 .doc-body :not(pre) > code { font-family: var(--font-code); font-size: 0.85em; background: var(--code); border: 1px solid var(--border); padding: 0.05em 0.4em; border-radius: 6px; }
 .doc-body pre { font-family: var(--font-code); font-size: 0.82rem; line-height: 1.65; margin: 1em 0; padding: 14px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; }

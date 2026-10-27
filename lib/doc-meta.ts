@@ -38,6 +38,12 @@ function git(cwd: string, ...args: string[]): string | null {
   }
 }
 
+/** The real path of the git repo root holding `dir`, or null outside git. */
+export function repoRoot(dir: string): string | null {
+  const top = git(dir, "rev-parse", "--show-toplevel");
+  return top ? realpathSync(/*turbopackIgnore: true*/ top) : null;
+}
+
 /** Split off a leading YAML front matter block. */
 function splitFrontMatter(src: string): { fm: string | null; body: string } {
   const m = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(src);

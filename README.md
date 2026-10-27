@@ -59,6 +59,7 @@ runs (`server/`); `bun run build:cli` bundles the command for Node (`dist/`). Al
 | `BLACKBOARD_HOME` | `~/.blackboard` | Blackboard's own folder: the session list, each session's comments, the scratchpad. |
 | `PORT` | `38770` | Port for `bun dev` / `bun start` (`serve start` takes `--port` or the port in `BLACKBOARD_URL`). |
 | `BLACKBOARD_NO_SERVER` | off | `1`: `blackboard open` never starts the web app. |
+| `BLACKBOARD_EDITOR` | `code` | Editor for file links in a doc: runs `$BLACKBOARD_EDITOR -g <file>:<line>` (split on spaces, no shell). |
 | `BLACKBOARD_URL` | `http://127.0.0.1:38770` | Where `blackboard open` points the browser, and the base of the share-card URLs in each page. Set it to your public address if the app is reachable from outside. |
 
 The server binds `127.0.0.1` and answers only `localhost` / `127.0.0.1` / `[::1]` Host
@@ -99,6 +100,7 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
 - **Math** — `$…$` inline and `$$…$$` blocks render with KaTeX on the server, so the page ships no
   math JavaScript. A dollar amount such as `$5 and $6` stays text. A formula is one opaque unit to
   comments: a quote may run across it.
+- **File paths** — inline code that names a file (`lib/x.ts`, `src/x.ts:42`) is a link; a click opens it in VS Code at that line. Only files inside the doc's folder or its git repo link; fenced code and prose stay as they are.
 - **Comments** — select text, click **Comment**, type a note. Each card shows who and when, a
   **check circle** at the top right (click to resolve, click the green one to reopen) and a reply
   field. Replies are flat. Your own comments and replies (same author name) show **Edit** and
