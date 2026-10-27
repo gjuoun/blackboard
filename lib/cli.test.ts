@@ -87,6 +87,20 @@ describe("cli commands", () => {
     expect(comments(home, design)[0].replies.map((r) => `${r.author}:${r.body}`)).toEqual(["agent:first", "jun:reply to the reply"]);
   });
 
+  test("the CLI says when a reply id joined a comment's thread", async () => {
+    const { home, design } = setup();
+    const { session } = open(home, design);
+    const c = await comment(home, session.id, "The cache is warm.", "q", "jun");
+    await reply(home, session.id, c.id, "first", "agent");
+    const replyId = comments(home, session.id)[0].replies[0].id;
+    const joined = run(home, ["reply", session.id, replyId, "second"]);
+    expect(joined.code).toBe(0);
+    expect(joined.out).toContain(`joined thread of ${c.id}`);
+    const direct = run(home, ["reply", session.id, c.id, "third"]);
+    expect(direct.out).not.toContain("joined thread");
+    expect(comments(home, session.id)[0].replies.map((x) => x.body)).toEqual(["first", "second", "third"]);
+  });
+
   test("unknown session, id and quote fail with a clear message", async () => {
     const { home, design, docs } = setup();
     open(home, design);

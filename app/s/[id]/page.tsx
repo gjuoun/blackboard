@@ -9,6 +9,7 @@ import { DocChip } from "@/components/DocChip";
 import { DocView } from "@/components/DocView";
 import { RegisterTab } from "@/components/RegisterTab";
 import { Toc } from "@/components/Toc";
+import { renderComments } from "@/lib/comment-markdown";
 import { readComments } from "@/lib/comments-store";
 import { getHome } from "@/lib/home";
 import { renderMarkdown } from "@/lib/markdown";
@@ -116,7 +117,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
         title={row.title}
         path={session.path}
         html={html}
-        initialComments={readComments(sessionCommentsPath(home, session.id)).docs[doc] ?? []}
+        initialComments={renderComments(readComments(sessionCommentsPath(home, session.id)).docs[doc] ?? [])}
         header={header}
         toc={toc.length > 1 ? <Toc toc={toc} /> : null}
       />

@@ -2,14 +2,17 @@
 
 import { ArrowUp, Check, Copy, Eye, EyeOff } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import type { Comment } from "@/lib/comments-store";
+import type { RenderedComment } from "@/lib/comment-markdown";
 import { exportComments } from "@/lib/export";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const TEXTAREA = "border-input bg-background focus-visible:ring-ring/40 w-full resize-y rounded-lg border p-2 text-[13.5px] outline-none focus-visible:ring-[3px]";
 
-export type PanelComment = Comment & { orphaned: boolean };
+export type PanelComment = RenderedComment & { orphaned: boolean };
+
+/** One entry of a comment's thread: a dot on the timeline line, no card around it. */
+const THREAD_ENTRY = "thread-entry relative before:absolute before:content-[''] before:-left-[17px] before:top-1.5 before:size-2 before:rounded-full before:bg-border";
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -17,9 +20,10 @@ const when = (iso: string) =>
 const squash = (s: string) => s.replace(/\s+/g, " ").trim();
 
 /** A comment or reply body that its author can edit in place. */
-function Body({ text, editing, onSave, onCancel }: { text: string; editing: boolean; onSave: (v: string) => Promise<void>; onCancel: () => void }) {
+/** The body as the server rendered it (HTML, never parsed here); the raw text only while editing. */
+function Body({ text, html, editing, onSave, onCancel }: { text: string; html: string; editing: boolean; onSave: (v: string) => Promise<void>; onCancel: () => void }) {
   const [value, setValue] = useState(text);
-  if (!editing) return <p className="m-0 text-[13.5px] leading-relaxed break-words whitespace-pre-wrap">{text}</p>;
+  if (!editing) return <div className="comment-md text-[13.5px] leading-relaxed break-words" dangerouslySetInnerHTML={{ __html: html }} />;
   const save = async () => {
     if (value.trim() && value.trim() !== text) await onSave(value.trim());
     onCancel();
@@ -260,38 +264,38 @@ export function CommentPanel(p: Props) {
               {squash(c.quote.exact)}
             </blockquote>
             {c.orphaned ? <p className="text-warn m-0 mb-1.5 text-xs">Passage no longer in the doc</p> : null}
-            <Body key={c.body} text={c.body} editing={editing === c.id} onSave={(v) => p.onEdit(c.id, v)} onCancel={() => setEditing(null)} />
-            {c.author === me ? (
-              <div className="mt-1 flex justify-end" onClick={(e) => e.stopPropagation()}>
-                <Actions
-                  kind="comment"
-                  onEdit={() => setEditing(c.id)}
-                  onDelete={() => {
-                    if (confirm("Delete this comment and its replies?")) void p.onDelete(c.id);
-                  }}
-                />
-              </div>
-            ) : null}
-            {c.replies.length > 0 ? (
-              <ul className="border-border mt-2 flex list-none flex-col gap-1.5 border-l-2 p-0 pl-2.5">
-                {c.replies.map((r) => (
-                  <li key={r.id} data-testid="reply-item">
-                    <Meta
-                      kind="reply"
-                      author={r.author}
-                      createdAt={r.createdAt}
-                      editedAt={r.editedAt}
-                      own={r.author === me}
-                      onEdit={() => setEditing(r.id)}
+            <ol data-testid="thread" className="thread border-border mt-2.5 flex list-none flex-col gap-3 border-l-2 p-0 pl-3">
+              <li data-testid="thread-entry" data-kind="comment" className={THREAD_ENTRY + " before:bg-primary"}>
+                <Body key={c.body} text={c.body} html={c.html} editing={editing === c.id} onSave={(v) => p.onEdit(c.id, v)} onCancel={() => setEditing(null)} />
+                {c.author === me ? (
+                  <div className="mt-1 flex justify-end" onClick={(e) => e.stopPropagation()}>
+                    <Actions
+                      kind="comment"
+                      onEdit={() => setEditing(c.id)}
                       onDelete={() => {
-                        if (confirm("Delete this reply?")) void p.onDeleteReply(c.id, r.id);
+                        if (confirm("Delete this comment and its replies?")) void p.onDelete(c.id);
                       }}
                     />
-                    <Body key={r.body} text={r.body} editing={editing === r.id} onSave={(v) => p.onEditReply(c.id, r.id, v)} onCancel={() => setEditing(null)} />
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+                  </div>
+                ) : null}
+              </li>
+              {c.replies.map((r) => (
+                <li key={r.id} data-testid="reply-item" className={THREAD_ENTRY}>
+                  <Meta
+                    kind="reply"
+                    author={r.author}
+                    createdAt={r.createdAt}
+                    editedAt={r.editedAt}
+                    own={r.author === me}
+                    onEdit={() => setEditing(r.id)}
+                    onDelete={() => {
+                      if (confirm("Delete this reply?")) void p.onDeleteReply(c.id, r.id);
+                    }}
+                  />
+                  <Body key={r.body} text={r.body} html={r.html} editing={editing === r.id} onSave={(v) => p.onEditReply(c.id, r.id, v)} onCancel={() => setEditing(null)} />
+                </li>
+              ))}
+            </ol>
             <div className="mt-2.5" onClick={(e) => e.stopPropagation()}>
               <ReplyBox onReply={(body) => p.onReply(c.id, body)} />
             </div>

@@ -1,13 +1,17 @@
 import { basename } from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
 import type { QuoteSelector } from "@/lib/anchor";
-import { addComment, addReply, deleteComment, deleteReply, editComment, editReply, mutate, readComments, setStatus } from "@/lib/comments-store";
+import { renderComments, type RenderedComment } from "@/lib/comment-markdown";
+import { addComment, addReply, deleteComment, deleteReply, editComment, editReply, mutate, readComments, setStatus, type Comment } from "@/lib/comments-store";
 import { getHome } from "@/lib/home";
 import { getSession, servablePath, sessionCommentsPath } from "@/lib/sessions";
 
 const MAX_BODY = 10_000;
 
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
+
+/** One comment as the client shows it: its bodies rendered to HTML. */
+const one = (c: Comment): RenderedComment => renderComments([c])[0];
 
 /** The comment file and doc key for a request, but only for a registered session whose file can still be served. */
 function target(session: unknown): { file: string; doc: string } | null {
@@ -41,7 +45,7 @@ async function json(req: NextRequest): Promise<Record<string, unknown> | null> {
 export async function GET(req: NextRequest) {
   const t = target(req.nextUrl.searchParams.get("session"));
   if (!t) return bad("unknown session");
-  return NextResponse.json({ comments: readComments(t.file).docs[t.doc] ?? [] });
+  return NextResponse.json({ comments: renderComments(readComments(t.file).docs[t.doc] ?? []) });
 }
 
 /** POST {session, quote, body, author} — a new comment on a passage. */
@@ -53,13 +57,15 @@ export async function POST(req: NextRequest) {
   const body = text(b.body, MAX_BODY);
   if (!q || !body) return bad("quote and body are required");
   const comment = await mutate(t.file, (f) => addComment(f, t.doc, { quote: q, body, author: author(b.author) }));
-  return NextResponse.json({ comment }, { status: 201 });
+  return NextResponse.json({ comment: one(comment) }, { status: 201 });
 }
 
 /**
  * PATCH {session, id, action, body?, replyId?, author?}
  * action: reply | resolve | reopen | edit | delete | edit-reply | delete-reply.
- * delete answers {deleted: id}; every other action answers the updated {comment}.
+ * `id` is always a comment id. reply takes an optional replyId, which must be a reply on that comment;
+ * the new reply joins that comment's flat thread.
+ * delete answers {deleted: id}; every other action answers the updated {comment}, bodies rendered.
  */
 export async function PATCH(req: NextRequest) {
   const b = await json(req);
@@ -72,12 +78,14 @@ export async function PATCH(req: NextRequest) {
     if (b.action === "reply") {
       const body = text(b.body, MAX_BODY);
       if (!body) return bad("body is required");
-      return NextResponse.json({ comment: await mutate(t.file, (f) => addReply(f, t.doc, id, { body, author: who })) });
+      const joinReplyId = b.replyId === undefined ? undefined : (text(b.replyId, 64) ?? undefined);
+      if (b.replyId !== undefined && !joinReplyId) return bad("replyId must be a reply id");
+      return NextResponse.json({ comment: one(await mutate(t.file, (f) => addReply(f, t.doc, id, { body, author: who, joinReplyId }))) });
     }
     if (b.action === "edit") {
       const body = text(b.body, MAX_BODY);
       if (!body) return bad("body is required");
-      return NextResponse.json({ comment: await mutate(t.file, (f) => editComment(f, t.doc, id, body)) });
+      return NextResponse.json({ comment: one(await mutate(t.file, (f) => editComment(f, t.doc, id, body))) });
     }
     if (b.action === "delete") {
       await mutate(t.file, (f) => deleteComment(f, t.doc, id));
@@ -87,15 +95,15 @@ export async function PATCH(req: NextRequest) {
       const replyId = text(b.replyId, 64);
       if (!replyId) return bad("replyId is required");
       if (b.action === "delete-reply") {
-        return NextResponse.json({ comment: await mutate(t.file, (f) => deleteReply(f, t.doc, id, replyId)) });
+        return NextResponse.json({ comment: one(await mutate(t.file, (f) => deleteReply(f, t.doc, id, replyId))) });
       }
       const body = text(b.body, MAX_BODY);
       if (!body) return bad("body is required");
-      return NextResponse.json({ comment: await mutate(t.file, (f) => editReply(f, t.doc, id, replyId, body)) });
+      return NextResponse.json({ comment: one(await mutate(t.file, (f) => editReply(f, t.doc, id, replyId, body))) });
     }
     if (b.action === "resolve" || b.action === "reopen") {
       const status = b.action === "resolve" ? "resolved" : "open";
-      return NextResponse.json({ comment: await mutate(t.file, (f) => setStatus(f, t.doc, id, status, who)) });
+      return NextResponse.json({ comment: one(await mutate(t.file, (f) => setStatus(f, t.doc, id, status, who))) });
     }
   } catch (err) {
     if (err instanceof Error && /not found/.test(err.message)) return bad(err.message, 404);
