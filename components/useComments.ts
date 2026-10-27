@@ -2,9 +2,9 @@
 
 import { useCallback, useState } from "react";
 import type { QuoteSelector } from "@/lib/anchor";
-import type { Comment } from "@/lib/comments-store";
+import type { RenderedComment } from "@/lib/comment-markdown";
 
-type Answer = { comment?: Comment; deleted?: string };
+type Answer = { comment?: RenderedComment; deleted?: string };
 
 async function call(method: string, payload: unknown): Promise<Answer> {
   const res = await fetch("/api/comments", { method, headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
@@ -13,7 +13,7 @@ async function call(method: string, payload: unknown): Promise<Answer> {
 }
 
 /** Comments for one doc, kept in sync with the server after each change. */
-export function useComments(session: string, initial: Comment[], author: string) {
+export function useComments(session: string, initial: RenderedComment[], author: string) {
   const [comments, setComments] = useState(initial);
   const [error, setError] = useState<string | null>(null);
 

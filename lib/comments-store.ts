@@ -77,8 +77,10 @@ export function addComment(file: CommentFile, doc: string, input: { quote: Quote
   return c;
 }
 
-export function addReply(file: CommentFile, doc: string, id: string, input: { body: string; author: string }): Comment {
+/** Appends to the comment's flat thread. `joinReplyId`, when given, must be a reply already on that comment. */
+export function addReply(file: CommentFile, doc: string, id: string, input: { body: string; author: string; joinReplyId?: string }): Comment {
   const c = find(file, doc, id);
+  if (input.joinReplyId !== undefined) findReply(c, input.joinReplyId);
   c.replies.push({ id: newId("r"), body: input.body, author: input.author, createdAt: now() });
   return c;
 }

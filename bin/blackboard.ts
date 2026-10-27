@@ -156,7 +156,8 @@ async function main(argv: string[]): Promise<number> {
     case "reply": {
       need(3, "reply <session> <comment-id> <text>");
       const c = await cli.reply(home, args[0], args[1], args.slice(2).join(" "), author);
-      print(c, `replied to ${c.id} on ${c.doc}`);
+      const joined = args[1] !== c.id;
+      print(c, joined ? `replied to ${args[1]} on ${c.doc}: joined thread of ${c.id}` : `replied to ${c.id} on ${c.doc}`);
       return 0;
     }
     case "resolve":

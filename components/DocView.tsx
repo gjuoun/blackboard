@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { Button } from "@/components/ui/button";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { anchor, makeSelector, type QuoteSelector, type TextRange } from "@/lib/anchor";
-import type { Comment } from "@/lib/comments-store";
+import type { RenderedComment } from "@/lib/comment-markdown";
 import { cn } from "@/lib/utils";
 import { buildTextMap, offsetOf, rangeOf } from "@/lib/text-map";
 import { clampPanels, type PanelKey } from "@/lib/prefs";
@@ -26,7 +26,7 @@ const highlights = () => (typeof CSS !== "undefined" && "highlights" in CSS ? CS
  * stored selector is anchored back to text offsets and drawn with the CSS Custom Highlight API,
  * which leaves the page DOM untouched.
  */
-export function DocView({ session, title, path, html, initialComments, header, toc }: { session: string; title: string; path: string; html: string; initialComments: Comment[]; header: ReactNode; toc: ReactNode }) {
+export function DocView({ session, title, path, html, initialComments, header, toc }: { session: string; title: string; path: string; html: string; initialComments: RenderedComment[]; header: ReactNode; toc: ReactNode }) {
   const bodyRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [author, setAuthor] = useState("jun");

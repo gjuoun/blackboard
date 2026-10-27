@@ -163,7 +163,7 @@ function remarkMermaidBlocks() {
 const hasClass = (node: Element, name: string) => Array.isArray(node.properties.className) && node.properties.className.includes(name);
 
 /** `$$…$$` alone in a paragraph is display math (Typora and Pandoc agree); remark-math reads it as inline. */
-function remarkDisplayMath() {
+export function remarkDisplayMath() {
   return (tree: MdastRoot, file: { value: unknown }) => {
     const src = String(file.value);
     visit(tree, "paragraph", (node, index, parent) => {
