@@ -37,7 +37,7 @@ export function DiffPanel({ index, selected }: { index: DiffSnapshot | null; sel
       </div>
       <span className="pr-base" data-testid="diff-base">
         <GitBranch aria-hidden />
-        base {index.baseRef} @ {index.baseSha} \u2192 worktree
+        base {index.baseRef} @ {index.baseSha} → worktree
       </span>
       <div className="pr-sum" data-testid="diff-summary">
         <b className="na">+{totals.additions}</b> <b className="nd">−{totals.deletions}</b> · {totals.files} files · tracked + staged + untracked
