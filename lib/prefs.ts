@@ -45,6 +45,14 @@ export type ChromeFlags = { tocOpen: boolean; cmOpen: boolean; showResolved: boo
 export type StoredChrome = Prefs & ChromeFlags;
 export const DEFAULT_CHROME: StoredChrome = { ...DEFAULT_PREFS, tocOpen: true, cmOpen: true, showResolved: false, wrapCode: false };
 
+export const RIGHT_TABS = ["comments", "pr"] as const;
+export type RightTab = (typeof RIGHT_TABS)[number];
+
+/** The shared right column has two panes, selected by the URL (server-rendered), not a third panel. */
+export function parseRightTab(v: unknown): RightTab {
+  return inList(RIGHT_TABS, v) ? v : "comments";
+}
+
 export const PANEL_LIMITS = {
   toc: { min: 180, max: 420 },
   cm: { min: 280, max: 560 },

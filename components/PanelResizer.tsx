@@ -43,7 +43,7 @@ export function PanelResizer({ which, width, other, onDraft, onCommit }: Props) 
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label={which === "toc" ? "Resize contents panel" : "Resize comments panel"}
+      aria-label={which === "toc" ? "Resize contents panel" : "Resize comments and local PR panel"}
       aria-valuemin={limits.min}
       aria-valuemax={limits.max}
       aria-valuenow={Math.round(width)}
