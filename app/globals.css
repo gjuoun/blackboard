@@ -135,3 +135,204 @@
 .comment-md table { margin: 0.5em 0; border-collapse: collapse; font-size: 0.95em; }
 .comment-md th, .comment-md td { border: 1px solid var(--border); padding: 3px 7px; }
 .comment-md .katex-display { margin: 0.45em 0; overflow-x: auto; }
+
+/* ---- Explicit file links in the document ---- */
+.doc-body a.file-ref {
+  font-family: var(--font-code);
+  font-size: 0.85em;
+  color: var(--primary);
+  border: 1px dashed color-mix(in srgb, var(--primary) 72%, transparent);
+  border-radius: 6px;
+  padding: 0.05em 0.45em;
+  text-decoration: underline dotted;
+  text-decoration-color: color-mix(in srgb, var(--primary) 80%, transparent);
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+.doc-body a.file-ref:hover,
+.doc-body a.file-ref[aria-current="true"] {
+  border-style: solid;
+  background: var(--primary-soft);
+  text-decoration-style: solid;
+  box-shadow: 0 0 0 1px var(--primary);
+}
+.doc-body a.file-ref-missing {
+  color: var(--muted-foreground);
+  border-color: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
+  text-decoration-color: color-mix(in srgb, var(--muted-foreground) 60%, transparent);
+}
+.doc-body a.file-ref-missing:hover {
+  background: var(--muted);
+  border-color: var(--muted-foreground);
+  box-shadow: none;
+}
+
+/* ---- Shared right rail: Comments / Local PR tabs ---- */
+.rail-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 10px 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.rail-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.rail-tab:hover { color: var(--foreground); }
+.rail-tab[aria-selected="true"] {
+  background: var(--card);
+  border-color: var(--border);
+  color: var(--foreground);
+  font-weight: 500;
+  /* QA: fill + border alone read too faintly; a primary top line makes the active tab obvious. */
+  box-shadow: inset 0 2px 0 var(--primary);
+}
+.rail-tab .count {
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 18px;
+  font-weight: 600;
+}
+.rail-tab .pr-num { font-family: var(--font-code); font-size: 10.5px; white-space: nowrap; }
+
+/* ---- Local PR: list, snippet and whole-file diff (all server-rendered) ---- */
+.diff-panel { font-size: 13px; min-width: 0; }
+.diff-panel .na { color: var(--success); }
+.diff-panel .nd { color: var(--destructive); }
+.diff-panel .pr-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.diff-panel .pr-head h2 { display: flex; align-items: center; gap: 7px; margin: 0 auto 0 0; font-size: 15px; font-weight: 600; }
+.diff-panel .pr-head svg { color: var(--primary); width: 15px; height: 15px; }
+.diff-panel .link-tag {
+  font-family: var(--font-code);
+  font-size: 10.5px;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--mark) 55%, transparent);
+  border: 1px solid var(--mark-line);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+.diff-panel .pr-base {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: var(--muted-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+.diff-panel .pr-base svg { width: 12px; height: 12px; }
+.diff-panel .pr-sum { margin: 6px 0 12px; font-size: 12px; color: var(--muted-foreground); }
+.diff-panel .pr-sum b { font-weight: 600; }
+.diff-panel .diff-empty { margin: 10px 0; color: var(--muted-foreground); font-size: 12.5px; }
+
+.pr-files { list-style: none; margin: 0; padding: 0; }
+.pr-files li { margin: 0; }
+.pr-files li > a {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  font-family: var(--font-code);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.pr-files li > a:hover { background: var(--accent); }
+.pr-files li.sel > a { background: var(--primary-soft); }
+.pr-files .st { width: 16px; font-size: 10.5px; font-weight: 700; text-align: center; border-radius: 4px; }
+.pr-files .st.M { color: var(--warn); background: color-mix(in srgb, var(--warn) 13%, transparent); }
+.pr-files .st.A { color: var(--success); background: color-mix(in srgb, var(--success) 13%, transparent); }
+.pr-files .st.D { color: var(--destructive); background: color-mix(in srgb, var(--destructive) 13%, transparent); }
+.pr-files .st.R { color: var(--primary); background: var(--primary-soft); }
+/* Middle truncation: the directory keeps its tail (nearest the file name) and the name never clips. */
+.pr-path { display: flex; min-width: 0; align-items: baseline; }
+.pr-path .pr-dir { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; color: var(--muted-foreground); }
+.pr-path .pr-name { flex: none; white-space: nowrap; }
+.pr-files .nums { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pr-files .stat { display: inline-flex; width: 44px; height: 4px; margin-left: 4px; border-radius: 2px; overflow: hidden; background: var(--muted); }
+.pr-files .stat .sa { height: 100%; background: var(--success); }
+.pr-files .stat .sd { height: 100%; background: var(--destructive); }
+
+.diff-panel .pr-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  text-decoration: none;
+}
+.diff-panel .pr-back:hover { background: var(--accent); color: var(--foreground); }
+.snip-path { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 4px; font-family: var(--font-code); min-width: 0; }
+.snip-path .fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; font-weight: 600; }
+.snip-range {
+  font-size: 10.5px;
+  color: var(--warn);
+  background: color-mix(in srgb, var(--mark) 55%, transparent);
+  border: 1px solid var(--mark-line);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+.snip-stat { margin-left: auto; font-size: 10.5px; white-space: nowrap; }
+.diff-panel .snip-actions { display: flex; gap: 12px; margin-top: 8px; font-size: 12px; }
+.diff-panel .snip-actions a { color: var(--primary); text-decoration: none; }
+.diff-panel .snip-actions a:hover { text-decoration: underline; }
+
+/* Line rows: old line, new line, sign, code. Folded rows keep the code column so their text hangs
+   from the same left edge, and nothing in the monospace region is italic (the mono face has none). */
+.dv {
+  margin-top: 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  overflow: hidden;
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  line-height: 1.6;
+  font-style: normal;
+}
+.dv :is(em, i) { font-style: normal; }
+.dl { display: grid; grid-template-columns: 3.4em 3.4em 12px minmax(0, 1fr); scroll-margin-top: calc(var(--bar-h) + 8px); }
+.dl .lo, .dl .ln { text-align: right; padding: 1px 4px 0 0; color: var(--muted-foreground); font-variant-numeric: tabular-nums; font-size: 10px; user-select: none; }
+.dl .sg { text-align: center; }
+.dl .tx { min-width: 0; padding-right: 8px; white-space: pre-wrap; overflow-wrap: anywhere; font-style: normal; }
+.dl.ctx .tx { color: color-mix(in srgb, var(--foreground) 88%, transparent); }
+.dl.add { background: var(--success-soft); }
+.dl.add .ln { background: color-mix(in srgb, var(--success) 17%, transparent); }
+.dl.add .sg { color: var(--success); font-weight: 700; }
+/* A destructive token on a green wash loses contrast; added lines keep that token on primary. */
+.dl.add .tk-t { color: var(--primary); }
+.dl.del { background: var(--destructive-soft); }
+.dl.del .lo { background: color-mix(in srgb, var(--destructive) 14%, transparent); }
+.dl.del .sg { color: var(--destructive); font-weight: 700; }
+.dl.hunk { background: var(--code); }
+.dl.hunk .tx { color: var(--muted-foreground); font-size: 10.5px; }
+.dl.inr { box-shadow: inset 3px 0 0 var(--mark-line); }
+.dl.fold { background: var(--code); }
+.dl.fold .tx { padding: 2px 8px; color: var(--muted-foreground); font-size: 10px; text-align: left; }
+

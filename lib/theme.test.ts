@@ -35,7 +35,7 @@ const ratio = (a: string, b: string) => {
 };
 
 /** Tokens used as text or as a text background; rgba() tokens (`--hl`) are decorative and exempt. */
-const GUARDED = ["background", "foreground", "muted-foreground", "primary", "primary-foreground", "warn", "success", "code"] as const;
+const GUARDED = ["background", "foreground", "muted-foreground", "primary", "primary-foreground", "warn", "success", "success-soft", "destructive-soft", "code"] as const;
 
 test("themes: registry matches the CSS blocks one-to-one", () => {
   expect(THEMES.map((t) => t.id).sort()).toEqual([...THEME_IDS].sort());
@@ -53,6 +53,18 @@ test("themes: every block is a complete self-contained token set", () => {
   for (const b of BLOCKS) expect(b.tokens.has("radius")).toBe(true);
   // Every guarded token is a plain sRGB hex, so the gate below cannot be fooled by color-mix/rgba.
   for (const b of BLOCKS) for (const key of GUARDED) expect(b.tokens.get(key)).toMatch(/^#[0-9a-f]{6}$/i);
+});
+
+test("themes: diff add/delete backgrounds keep hue and body text at AA", () => {
+  const pairs = [["success", "success-soft"], ["destructive", "destructive-soft"]] as const;
+  for (const b of BLOCKS) {
+    for (const [hue, soft] of pairs) {
+      const bg = b.tokens.get(soft)!;
+      expect({ id: b.id, soft, min: ratio(b.tokens.get(hue)!, bg) }).toEqual({ id: b.id, soft, min: expect.any(Number) });
+      expect({ id: b.id, soft, hue: ratio(b.tokens.get(hue)!, bg) >= 4.5 }).toEqual({ id: b.id, soft, hue: true });
+      expect({ id: b.id, soft, text: ratio(b.tokens.get("foreground")!, bg) >= 4.5 }).toEqual({ id: b.id, soft, text: true });
+    }
+  }
 });
 
 test("themes: paper keeps today's warm palette and only nudges the two tokens below AA", () => {

@@ -41,6 +41,8 @@
   --hl-active: rgba(255, 140, 0, 0.55);
   --warn: #9a6700;
   --success: #2f7d4f;
+  --success-soft: #ebf7ef;
+  --destructive-soft: #fdecee;
   --radius: 0.75rem;
 }
 
@@ -73,6 +75,8 @@
   --hl-active: rgba(255, 180, 0, 0.55);
   --warn: #8a5a00;
   --success: #1a7f37;
+  --success-soft: #e8f6ec;
+  --destructive-soft: #fcebed;
   --radius: 0.75rem;
 }
 
@@ -105,5 +109,7 @@
   --hl-active: rgba(255, 140, 0, 0.48);
   --warn: #d29922;
   --success: #3fb950;
+  --success-soft: #12261a;
+  --destructive-soft: #2a1416;
   --radius: 0.75rem;
 }
