@@ -106,7 +106,6 @@ const linesOf = (text: string) => {
 function emptySnapshot(root: string): DiffSnapshot {
   const files: readonly DiffFile[] = [];
   const byPath = new Map<string, DiffFile>();
-  const cache = new Map<string, readonly string[] | null>();
   return {
     root,
     baseRef: "HEAD",
