@@ -1,9 +1,9 @@
-# Sketch: diff-sidebar（JW-319）
+# Sketch: diff-sidebar
 
-**Question it answers** — JW-319 的三个设计分叉长什么样：
+**Question it answers** — 本 mock 回答的三个设计分叉长什么样：
 
 1. **Diff base** — `merge-base(main) → worktree`（chip 显示 `base main @ <sha>`，含 tracked/staged/untracked）
-2. **侧栏形态（v2，Jun 反馈「三个侧栏太拥挤」后改）** — 评论与 Local PR **共用一根右栏**，栏顶两个 tab 切换（默认形态）；备选是抽屉浮层（bar 上「右栏切换 / 抽屉」）。TOC 保留但 bar 左侧图标可一键收起。
+2. **侧栏形态（v2，评审反馈「三个侧栏太拥挤」后改）** — 评论与 Local PR **共用一根右栏**，栏顶两个 tab 切换（默认形态）；备选是抽屉浮层（bar 上「右栏切换 / 抽屉」）。TOC 保留但 bar 左侧图标可一键收起。
 3. **链接语法** — `[text](file:<path>:L<a>-<b>)`；`file:L330-240` 省路径=文档自身、倒序自动规范化
 
 ## What to look at

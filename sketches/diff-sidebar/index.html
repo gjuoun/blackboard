@@ -6,7 +6,7 @@
 <title>Diff panel mock · Blackboard</title>
 <link rel="stylesheet" href="mock.css" />
 <style>
-  /* ==== JW-319: comments + Local PR share ONE right rail (tabs); drawer is the alternative ==== */
+  /* ==== comments + Local PR share ONE right rail (tabs); drawer is the alternative ==== */
   .grid {
     grid-template-columns:
       var(--toc-w, 200px) var(--gut, 7px)
@@ -154,7 +154,7 @@
   <span class="mock-chip">mock</span>
   <nav class="tabs">
     <a class="tab tab-home" href="#" aria-label="Home"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></a>
-    <a class="tab" href="#" aria-current="page">JW-319 · diff panel <span class="x">×</span></a>
+    <a class="tab" href="#" aria-current="page">Diff panel review <span class="x">×</span></a>
   </nav>
   <div class="bar-actions">
     <button class="icon-btn" id="btn-toc" title="Contents" aria-pressed="true" aria-label="Contents"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12h-8"/><path d="M21 6H8"/><path d="M21 18h-8"/><path d="M3 6v4c0 1.1.9 2 2 2h3"/><path d="M3 10v6c0 1.1.9 2 2 2h3"/></svg></button>
@@ -176,7 +176,7 @@
   <aside class="toc">
     <h2>Contents</h2>
     <ul>
-      <li><a class="active" href="#top">JW-319 · diff panel</a></li>
+      <li><a class="active" href="#top">Diff panel review</a></li>
       <li><a class="sub" href="#goal">目标</a></li>
       <li><a class="sub" href="#steps">步骤</a></li>
       <li><a class="sub" href="#grammar">链接语法</a></li>
@@ -195,14 +195,14 @@
       </div>
 
       <table class="fm">
-        <tr><th>title</th><td>JW-319 · local PR diff panel and file range snippets</td></tr>
+        <tr><th>title</th><td>Local PR diff panel and file range snippets</td></tr>
         <tr><th>status</th><td>评审中</td></tr>
         <tr><th>reviewers</th><td><span class="pill">jun</span><span class="pill">agent</span></tr>
         <tr><th>plan</th><td>v2 · 右栏 tab 切换 · 8 steps</td></tr>
       </table>
 
       <div class="doc-body" id="top">
-        <h1>JW-319 · local PR diff panel</h1>
+        <h1>Local PR diff panel</h1>
         <p id="goal">评论与 Local PR <strong>共用同一根右栏</strong>，tab 切换；<code>file:</code> 链接点开后右栏自动切到 Local PR 并跳到该文件对应行段，<mark class="hl">新增绿、删除红</mark>，全部服务端渲染。diff base = <code>merge-base(main) → worktree</code>，覆盖 tracked / staged / untracked。TOC 可用 bar 左侧图标一键收起。</p>
 
         <h2 id="steps">步骤</h2>
@@ -299,7 +299,7 @@
         <div class="dv" id="snip-markdown">
           <div class="dl ctx"><span class="lo">236</span><span class="ln">236</span><span class="sg"></span><span class="tx">  <span class="tk-k">const</span> tree = parser.parse(src);</span></div>
           <div class="dl ctx"><span class="lo">237</span><span class="ln">237</span><span class="sg"></span><span class="tx">  <span class="tk-k">const</span> opts = resolveOpts(src);</span></div>
-          <div class="dl del"><span class="lo">238</span><span class="ln"></span><span class="sg">−</span><span class="tx">  <span class="tk-c">// JW-302: 逐 span realpathSync — 已回撤，勿再犯</span></span></div>
+          <div class="dl del"><span class="lo">238</span><span class="ln"></span><span class="sg">−</span><span class="tx">  <span class="tk-c">// reverted: per-span realpathSync — 勿再犯</span></span></div>
           <div class="dl del"><span class="lo">239</span><span class="ln"></span><span class="sg">−</span><span class="tx">  <span class="tk-k">const</span> probe = <span class="tk-k">new</span> <span class="tk-t">PathProbe</span>(repo);</span></div>
           <div class="dl add"><span class="lo"></span><span class="ln">238</span><span class="sg">+</span><span class="tx">  <span class="tk-c">// 一次性快照：每请求一次 git 调用，visitor 零 IO</span></span></div>
           <div class="dl add"><span class="lo"></span><span class="ln">239</span><span class="sg">+</span><span class="tx">  <span class="tk-k">const</span> index = opts?.diffIndex ?? <span class="tk-t">DiffIndex</span>.empty();</span></div>
@@ -328,7 +328,7 @@
           <div class="dl hunk"><span></span><span></span><span></span><span class="tx">@@ -236,7 +236,14 @@ export function renderMarkdown(src: string, opts?: RenderOpts)</span></div>
           <div class="dl ctx"><span class="lo">236</span><span class="ln">236</span><span class="sg"></span><span class="tx">  <span class="tk-k">const</span> tree = parser.parse(src);</span></div>
           <div class="dl ctx"><span class="lo">237</span><span class="ln">237</span><span class="sg"></span><span class="tx">  <span class="tk-k">const</span> opts = resolveOpts(src);</span></div>
-          <div class="dl del"><span class="lo">238</span><span class="ln"></span><span class="sg">−</span><span class="tx">  <span class="tk-c">// JW-302: 逐 span realpathSync — 已回撤，勿再犯</span></span></div>
+          <div class="dl del"><span class="lo">238</span><span class="ln"></span><span class="sg">−</span><span class="tx">  <span class="tk-c">// reverted: per-span realpathSync — 勿再犯</span></span></div>
           <div class="dl del"><span class="lo">239</span><span class="ln"></span><span class="sg">−</span><span class="tx">  <span class="tk-k">const</span> probe = <span class="tk-k">new</span> <span class="tk-t">PathProbe</span>(repo);</span></div>
           <div class="dl add"><span class="lo"></span><span class="ln">238</span><span class="sg">+</span><span class="tx">  <span class="tk-c">// 一次性快照：每请求一次 git 调用，visitor 零 IO</span></span></div>
           <div class="dl add"><span class="lo"></span><span class="ln">239</span><span class="sg">+</span><span class="tx">  <span class="tk-k">const</span> index = opts?.diffIndex ?? <span class="tk-t">DiffIndex</span>.empty();</span></div>

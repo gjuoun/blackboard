@@ -1,4 +1,4 @@
-/* JW-319 diff-panel mock — interactions only; tokens/palettes live in mock.css */
+/* diff-panel mock — interactions only; tokens/palettes live in mock.css */
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -51,7 +51,7 @@ $("#btn-toc").addEventListener("click", () => {
 $("#btn-comments").addEventListener("click", () => setPane("comments"));
 $("#btn-diff").addEventListener("click", () => setPane("diff"));
 
-/* ---- draggable gutters (JW-247 PanelResizer stand-in): TOC and right rail ---- */
+/* ---- draggable gutters (PanelResizer stand-in): TOC and right rail ---- */
 $$(".gut").forEach((g) => {
   g.addEventListener("pointerdown", (e) => {
     e.preventDefault();
