@@ -5,7 +5,7 @@
  *
  * QuBlack ships as two families per role: a Latin subset in the repo (~45 KB per face) and a CJK
  * face resolved from the installed font with local(). PostScript names are mandatory — Chromium
- * does not match a local() family name — and the installed 1.2.0 family is a VARIABLE font
+ * does not match a local() family name — and the installed family (Qu Black, since 1.3.0) is a VARIABLE font
  * (QuBlackSansVF-Regular), so the VF name comes first and the older static name second; one face
  * covers 100–900 and the browser instances the weight. The CJK face's unicode-range excludes Latin
  * so a CJK pick can still win for Chinese while the shipped subset keeps the Latin identity.
@@ -59,7 +59,7 @@
 }
 
 :root {
-  --font-ui: "QB Sans Latin", "QuBlack Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", Helvetica, Arial, sans-serif;
+  --font-ui: "QB Sans Latin", "Qu Black Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", Helvetica, Arial, sans-serif;
   --font-latin: "QB Sans Latin";
   --font-cjk: "QB Sans CJK", "PingFang SC", "Noto Sans SC", sans-serif;
   --font-read: var(--font-latin), var(--font-cjk);
