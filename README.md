@@ -280,7 +280,7 @@ To add a palette: copy a block in `app/themes.css`, give it a new `data-theme` n
 and its mode to `THEME_IDS` / `THEME_MODE` in `lib/prefs.ts`, then run `bun test lib/theme.test.ts`.
 
 **Fonts.** The document body follows three independent picks — Latin, 中文 and 等宽 — while the
-chrome keeps its own brand stack. The default is QuBlack Sans / QuBlack Mono. The app ships only
+chrome keeps its own brand stack. The default is Qu Black Sans / Qu Black Mono (the family was "QuBlack" before release 1.3.0). The app ships only
 QuBlack's **Latin** side as four woff2 subsets in `public/fonts/` (~182 KB); Chinese comes from the
 installed QuBlack through `local()` with PostScript names — the variable face
 `QuBlackSansVF-Regular` first, the older static name second, because Chromium matches nothing but

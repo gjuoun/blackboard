@@ -1,14 +1,14 @@
 ---
-title: 字体样张：JunHeiSans + JunHeiMono
+title: 字体样张：Qu Black Sans + Qu Black Mono
 repo: blackboard
 status: draft
-updated: 2026-10-21
+updated: 2026-10-27
 ---
 
-# 字体样张：JunHeiSans + JunHeiMono
+# 字体样张：Qu Black Sans + Qu Black Mono（v1.3.0）
 
-这一页是给 Blackboard 用的字体测试页：正文走比例家族 `JunHeiSans`，代码块和行内代码走等宽家族
-`JunHeiMono`。两套字共用同一副 CJK 面（思源黑体，经 Sarasa），拉丁都是 Recursive Linear，
+这一页是给 Blackboard 用的字体测试页：正文走比例家族 `Qu Black Sans`，代码块和行内代码走等宽家族
+`Qu Black Mono`（家族自 v1.3.0 起为两词名「Qu Black」，PostScript 名不变，旧安装的 `QuBlack` 名不再匹配）。两套字共用同一副 CJK 面（思源黑体，经 Sarasa），拉丁都是 Recursive Linear，
 所以终端里和文档里的汉字、英文是同一个笔意。整套授权是 SIL OFL 1.1，可再分发。
 
 ## 1. 正文：中英混排、行内代码与强调
