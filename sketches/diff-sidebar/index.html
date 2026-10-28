@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="paper" data-layout="tabs">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Diff panel mock · Blackboard</title>
+<link rel="stylesheet" href="mock.css" />
+<style>
+  /* ==== comments + Local PR share ONE right rail (tabs); drawer is the alternative ==== */
+  .grid {
+    grid-template-columns:
+      var(--toc-w, 200px) var(--gut, 7px)
+      minmax(0, 1fr)        var(--gut, 7px)
+      var(--cm-w, 360px);
+  }
+  html.notoc .grid { grid-template-columns: minmax(0, 1fr) var(--gut, 7px) var(--cm-w, 360px); }
+  html.notoc .toc, html.notoc .gut[data-for="toc"] { display: none; }
+
+  .toc, .rail { max-height: calc(100vh - var(--bar-h)); position: sticky; top: var(--bar-h); }
+  .toc { overflow-y: auto; }
+  .gut { cursor: col-resize; position: relative; touch-action: none; }
+  .gut::before { content: ""; position: absolute; top: 0; bottom: 0; left: calc(50% - .5px); width: 1px; background: var(--border); }
+  .gut:hover::before, .gut.drag::before { width: 2px; left: calc(50% - 1px); background: var(--primary); }
+
+  /* ---- right rail with tabbed panes ---- */
+  .rail { border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .rail-tabs { display: flex; align-items: flex-end; gap: 4px; padding: 10px 10px 0; border-bottom: 1px solid var(--border); }
+  .rtab {
+    height: 30px; padding: 0 10px; display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--muted-foreground);
+    border: 1px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0;
+  }
+  .rtab:hover { color: var(--foreground); }
+  .rtab[aria-selected="true"] {
+    background: var(--card); border-color: var(--border); color: var(--foreground);
+    font-weight: 500; box-shadow: 0 1px 0 0 var(--card);
+  }
+  .rtab .pr-num { font-family: var(--font-code); font-size: 10.5px; white-space: nowrap; }
+  .rtab .pr-num .na { color: var(--success); } .rtab .pr-num .nd { color: var(--destructive); }
+  .pane { flex: 1 1 auto; overflow-y: auto; padding: 14px; }
+  .pane[hidden] { display: none; }
+
+  /* drawer: the diff pane detaches and floats over the page */
+  html[data-layout="drawer"] #pane-diff {
+    position: fixed; top: var(--bar-h); right: 0; bottom: 0;
+    width: min(var(--diff-w, 520px), 72vw); z-index: 40;
+    background: var(--background); border-left: 1px solid var(--border);
+    box-shadow: -16px 0 40px rgb(0 0 0 / .14); padding: 14px;
+  }
+  html[data-layout="drawer"] #pane-diff[hidden] { display: block; } /* the floating diff is always on */
+  html[data-layout="drawer"] #pane-comments { display: block; }
+  html[data-layout="drawer"] .rtab[data-pane="diff"] { opacity: .45; }
+
+  /* ---- file: link as rendered in the doc ---- */
+  .file-link {
+    font-family: var(--font-code); font-size: .85em;
+    border: 1px dashed color-mix(in srgb, var(--primary) 72%, transparent);
+    background: transparent; /* deliberate: inline code owns the gray fill, links stay unfilled */
+    color: var(--primary); border-radius: 6px; padding: .05em .45em;
+    text-decoration: underline; text-decoration-style: dotted;
+    text-decoration-color: color-mix(in srgb, var(--primary) 80%, transparent);
+    text-underline-offset: 3px; white-space: nowrap; cursor: pointer;
+  }
+  .file-link:hover, .file-link[aria-current="true"] {
+    border-color: var(--primary); border-style: solid; background: var(--primary-soft);
+    text-decoration-style: solid; box-shadow: 0 0 0 1px var(--primary);
+  }
+
+  /* ---- local PR content ---- */
+  .pr-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .pr-head h2 { margin: 0 auto 0 0; font-size: 15px; display: flex; align-items: center; gap: 7px; }
+  .pr-head svg { color: var(--primary); }
+  .pr-base {
+    font-family: var(--font-code); font-size: 11px; color: var(--muted-foreground);
+    background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+    padding: 2px 9px; display: inline-flex; align-items: center; gap: 5px;
+  }
+  .pr-sum { font-size: 12px; color: var(--muted-foreground); margin: 6px 0 12px; }
+  .pr-sum b.na { color: var(--success); font-weight: 600; }
+  .pr-sum b.nd { color: var(--destructive); font-weight: 600; }
+
+  .pr-files { list-style: none; margin: 0; padding: 0; }
+  .pr-files li {
+    display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 8px; align-items: center;
+    padding: 6px 8px; border-radius: 8px; cursor: pointer;
+    font-family: var(--font-code); font-size: 12px; line-height: 1.45;
+  }
+  .pr-files li:hover { background: var(--accent); }
+  .pr-files li.sel { background: var(--primary-soft); }
+  .pr-files .st { font-size: 10.5px; font-weight: 700; text-align: center; border-radius: 4px; width: 16px; }
+  .st.M { color: var(--warn); background: color-mix(in srgb, var(--warn) 13%, transparent); }
+  .st.A { color: var(--success); background: color-mix(in srgb, var(--success) 13%, transparent); }
+  .st.D { color: var(--destructive); background: color-mix(in srgb, var(--destructive) 13%, transparent); }
+  .pr-files .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pr-files .nums { font-size: 10.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .nums .na { color: var(--success); } .nums .nd { color: var(--destructive); }
+  .stat { display: inline-flex; width: 58px; height: 4px; border-radius: 2px; background: var(--muted); vertical-align: middle; margin-left: 6px; overflow: hidden; }
+  .stat i { height: 100%; } .stat .sa { background: var(--success); } .stat .sd { background: var(--destructive); }
+
+  /* ---- selected file diff view ---- */
+  .pr-back { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted-foreground); text-decoration: none; margin-bottom: 8px; padding: 2px 6px; border-radius: 6px; }
+  .pr-back:hover { background: var(--accent); color: var(--foreground); }
+  .link-tag {
+    font-family: var(--font-code); font-size: 10.5px; color: var(--warn);
+    background: color-mix(in srgb, var(--mark) 55%, transparent);
+    border: 1px solid var(--mark-line); border-radius: 999px; padding: 1px 8px; margin-top: 2px;
+  }
+  .dv { font-family: var(--font-code); font-size: 11.5px; line-height: 1.6; background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-top: 6px; }
+  .dv-head { padding: 6px 10px; font-size: 11px; background: var(--code); border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 8px; }
+  .dv-head .fn { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dv-head .nums { margin-left: auto; font-size: 10.5px; white-space: nowrap; }
+  .dl { display: grid; grid-template-columns: 3.4em 3.4em 12px minmax(0, 1fr); }
+  .dl .lo, .dl .ln { text-align: right; color: var(--muted-foreground); font-variant-numeric: tabular-nums; font-size: 10px; padding: 1px 4px 0 0; user-select: none; }
+  .dl .sg { text-align: center; }
+  .dl .tx { white-space: pre-wrap; overflow-wrap: anywhere; padding-right: 8px; }
+  .dl.ctx .tx { color: color-mix(in srgb, var(--foreground) 88%, transparent); }
+  .dl.add { background: color-mix(in srgb, var(--success) 10%, transparent); }
+  .dl.add .ln { background: color-mix(in srgb, var(--success) 17%, transparent); }
+  .dl.add .sg { color: var(--success); font-weight: 700; }
+  .dl.del { background: color-mix(in srgb, var(--destructive) 8%, transparent); }
+  .dl.del .lo { background: color-mix(in srgb, var(--destructive) 14%, transparent); }
+  .dl.del .sg { color: var(--destructive); font-weight: 700; }
+  .dl.hunk { background: var(--code); color: var(--muted-foreground); font-size: 10.5px; padding: 2px 0; }
+  .dl.hunk .tx { color: var(--muted-foreground); }
+  .dl.inr { box-shadow: inset 3px 0 0 var(--mark-line); }
+  .tk-k { color: var(--primary); } .tk-s { color: var(--success); }
+  .tk-t { color: var(--destructive); } .tk-c { color: var(--muted-foreground); font-style: italic; }
+  /* a destructive-toned token on an added-line green wash loses contrast — keep it on primary there */
+  .dl.add .tk-t { color: var(--primary); }
+  /* non-italic muted note (QB Mono has no italic face — italics fall back to a proportional one) */
+  .tk-n { color: var(--muted-foreground); font-style: normal; }
+
+  .pr-note { font-size: 11px; color: var(--muted-foreground); margin-top: 10px; line-height: 1.5; }
+  /* ---- snippet view (what a file: link opens) ---- */
+  .snip-path { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 4px; font-family: var(--font-code); }
+  .snip-path .fn { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .snip-range { font-size: 10.5px; color: var(--warn); background: color-mix(in srgb, var(--mark) 55%, transparent); border: 1px solid var(--mark-line); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+  .snip-stat { margin-left: auto; font-size: 10.5px; white-space: nowrap; }
+  .dl.fold { background: var(--code); color: var(--muted-foreground); font-size: 10px; text-align: center; cursor: pointer; }
+  .dl.fold .tx { text-align: center; padding: 2px 8px; }
+  .snip-actions { display: flex; gap: 12px; margin-top: 8px; font-size: 12px; }
+  .snip-actions a { color: var(--primary); text-decoration: none; }
+  .snip-actions a:hover { text-decoration: underline; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; height: 26px; margin-left: 4px; }
+  .seg button { padding: 0 9px; font-size: 11.5px; color: var(--muted-foreground); }
+  .seg button[aria-pressed="true"] { background: var(--card); color: var(--foreground); box-shadow: inset 0 0 0 1px var(--border); }
+  /* the grammar example must never clip — the three lines are the point of that block */
+  .doc-body pre.wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<header class="bar">
+  <span class="brand"><span class="brand-mark"></span>Blackboard</span>
+  <span class="mock-chip">mock</span>
+  <nav class="tabs">
+    <a class="tab tab-home" href="#" aria-label="Home"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></a>
+    <a class="tab" href="#" aria-current="page">Diff panel review <span class="x">×</span></a>
+  </nav>
+  <div class="bar-actions">
+    <button class="icon-btn" id="btn-toc" title="Contents" aria-pressed="true" aria-label="Contents"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12h-8"/><path d="M21 6H8"/><path d="M21 18h-8"/><path d="M3 6v4c0 1.1.9 2 2 2h3"/><path d="M3 10v6c0 1.1.9 2 2 2h3"/></svg></button>
+    <button class="icon-btn" id="btn-comments" title="Comments" aria-pressed="true" aria-label="Comments"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="count">2</span></button>
+    <button class="icon-btn" id="btn-diff" title="Local PR" aria-pressed="false" aria-label="Local PR"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5V13"/><path d="M12 13H5v3.5"/><path d="M12 13h7v3.5"/></svg></button>
+    <span class="bar-sep"></span>
+    <span class="seg" role="group" aria-label="Palette">
+      <button id="seg-paper" onclick="setTheme('paper')">paper</button>
+      <button id="seg-night" onclick="setTheme('night')">night</button>
+    </span>
+    <span class="seg" role="group" aria-label="Diff panel placement">
+      <button id="seg-tabs" onclick="setLayout('tabs')">右栏切换</button>
+      <button id="seg-drawer" onclick="setLayout('drawer')">抽屉</button>
+    </span>
+  </div>
+</header>
+
+<main class="grid">
+  <aside class="toc">
+    <h2>Contents</h2>
+    <ul>
+      <li><a class="active" href="#top">Diff panel review</a></li>
+      <li><a class="sub" href="#goal">目标</a></li>
+      <li><a class="sub" href="#steps">步骤</a></li>
+      <li><a class="sub" href="#grammar">链接语法</a></li>
+      <li><a class="sub" href="#risks">风险</a></li>
+    </ul>
+  </aside>
+
+  <div class="gut" data-for="toc" title="拖拽调整宽度"></div>
+
+  <article class="doc">
+    <div class="doc-inner">
+      <div class="chips">
+        <span class="chip">blackboard/docs/jw-319-diff-sidebar.md</span>
+        <span class="chip">⎇ feat/diff-sidebar</span>
+        <span class="chip">+558 −27</span>
+      </div>
+
+      <table class="fm">
+        <tr><th>title</th><td>Local PR diff panel and file range snippets</td></tr>
+        <tr><th>status</th><td>评审中</td></tr>
+        <tr><th>reviewers</th><td><span class="pill">jun</span><span class="pill">agent</span></tr>
+        <tr><th>plan</th><td>v2 · 右栏 tab 切换 · 8 steps</td></tr>
+      </table>
+
+      <div class="doc-body" id="top">
+        <h1>Local PR diff panel</h1>
+        <p id="goal">评论与 Local PR <strong>共用同一根右栏</strong>，tab 切换；<code>file:</code> 链接点开后右栏自动切到 Local PR 并跳到该文件对应行段，<mark class="hl">新增绿、删除红</mark>，全部服务端渲染。diff base = <code>merge-base(main) → worktree</code>，覆盖 tracked / staged / untracked。TOC 可用 bar 左侧图标一键收起。</p>
+
+        <h2 id="steps">步骤</h2>
+        <table>
+          <thead><tr><th>#</th><th>步骤</th><th>证明</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>基线 + 协议冻结</td><td>render-bench 基线 JSON</td></tr>
+            <tr><td>2</td><td>一次性 diff 快照索引</td><td>每请求一次 git 调用</td></tr>
+            <tr><td>3</td><td>file: 链接解析 + SSR snippet</td><td>rehype 只读索引</td></tr>
+            <tr><td>4</td><td>App Router 串起快照与选中态</td><td>首屏含 diff HTML</td></tr>
+            <tr><td>5</td><td>右栏 tabs + 宽度持久化</td><td>复用 PanelResizer</td></tr>
+            <tr><td>6</td><td>三套 palette 的行级 green/red</td><td>token 来源 + AA</td></tr>
+            <tr><td>7</td><td>浏览器冒烟（SSR + 零客户端）</td><td>drive diff 双内核</td></tr>
+            <tr><td>8</td><td>同文档复测基线 + 全 gates</td><td>mean/p95 对比</td></tr>
+          </tbody>
+        </table>
+
+        <h2 id="grammar">链接语法</h2>
+        <p>渲染管线入口在 <a class="file-link" href="#" data-file="lib/markdown.ts" data-range="236,330">file:lib/markdown.ts:L236-L330</a>，快照索引的实现见 <a class="file-link" href="#" data-file="lib/diff-index.ts" data-range="40,72">file:lib/diff-index.ts:L40-L72</a>。省略路径时指向文档自身，倒序区间自动规范化：<a class="file-link" href="#" data-file="docs/jw-319-diff-sidebar.md" data-range="240,330">file:L330-240</a> → L240-L330。原始写法：</p>
+        <pre class="wrap"><code>[渲染管线入口](file:lib/markdown.ts:L236-L330)
+[file:lib/diff-index.ts:L40-L72](file:lib/diff-index.ts:L40-L72)
+[本文档自身 · 倒序](file:L330-240)   <span class="tk-n">→ 规范化为 L240-L330</span></code></pre>
+
+        <h2 id="risks">风险</h2>
+        <ul>
+          <li><strong>渲染路径纪律</strong> — rehype visitor 只读预建索引；任何节点级同步 IO 都是回撤级红线。</li>
+          <li><strong>缓存签名</strong> — 索引缓存必须包含 HEAD / index / worktree 签名，防止脏读。</li>
+          <li><strong>AA 对比度</strong> — 行级 soft green/red 走 <code>color-mix</code> 派生 token，三套 palette 都要过。</li>
+        </ul>
+        <hr />
+        <p>文档本身也在这个 local PR 里：<code>docs/jw-319-diff-sidebar.md</code>。评论留在右栏，代理可直接读取。</p>
+      </div>
+    </div>
+  </article>
+
+  <div class="gut" data-for="cm" title="拖拽调整宽度"></div>
+
+  <aside class="rail">
+    <div class="rail-tabs" role="tablist">
+      <button class="rtab" id="tab-comments" data-pane="comments" role="tab" aria-selected="true">Comments <span class="count">2</span></button>
+      <button class="rtab" id="tab-diff" data-pane="diff" role="tab" aria-selected="false">Local PR <span class="pr-num"><b class="na">+558</b> <b class="nd">−27</b></span></button>
+    </div>
+
+    <div class="pane" id="pane-comments">
+      <div class="card active">
+        <div class="card-meta"><span><b>jun</b> · Oct 28, 5:02 PM</span><span class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span></div>
+        <p class="quote">行级 soft green/red 走 color-mix 派生 token，三套 palette 都要过</p>
+        <p>同意。night 下 green 的背景对比度最容易翻车，AA 断言别只测 paper。</p>
+        <div class="reply"><span class="avatar">a</span><div><div class="card-meta"><span><b>agent</b> · 5:05 PM</span></div><p style="margin:0">Step 6 的 token-source 测试三套全测，AA 用对比度计算断言。</p></div></div>
+        <div class="reply-row" style="margin-top:8px"><input class="reply-input" placeholder="Reply…" /><span class="send"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-meta"><span><b>agent</b> · Oct 28, 4:58 PM</span><span class="check done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span></div>
+        <p class="quote">merge-base(main) → worktree</p>
+        <p>base chip 显示 merge-base 的 SHA 还是只写分支名？倾向 SHA + 分支名都带。已解决：chip = <code>main @ 0cbceff</code>。</p>
+      </div>
+
+      <div class="card">
+        <div class="card-meta"><span><b>jun</b> · Oct 28, 5:14 PM</span><span class="check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span></div>
+        <p class="quote">三个侧边栏太拥挤了</p>
+        <p>评论与 Local PR 合成一根右栏、tab 切换；TOC 保留但可一键收起（bar 左侧图标）。</p>
+      </div>
+    </div>
+
+    <div class="pane" id="pane-diff" hidden>
+      <div class="pr-head">
+        <h2><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5V13"/><path d="M12 13H5v3.5"/><path d="M12 13h7v3.5"/></svg>Local PR</h2>
+        <span class="link-tag" id="link-tag" hidden>来自链接 · L240-L330</span>
+      </div>
+      <span class="pr-base">⎇ base main @ 0cbceff → worktree</span>
+      <div class="pr-sum"><b class="na">+558</b> <b class="nd">−27</b> · 10 files · tracked + staged + untracked</div>
+
+      <ul class="pr-files" id="pr-list">
+        <li data-file="lib/diff-index.ts"><span class="st A">A</span><span class="nm">lib/diff-index.ts</span><span class="nums">+142<span class="stat"><i class="sa" style="width:100%"></i></span></span></li>
+        <li data-file="docs/jw-319-diff-sidebar.md"><span class="st M">M</span><span class="nm">docs/jw-319-diff-sidebar.md</span><span class="nums">+64 −8<span class="stat"><i class="sa" style="width:89%"></i><i class="sd" style="width:11%"></i></span></span></li>
+        <li data-file="components/DiffPanel.tsx"><span class="st A">A</span><span class="nm">components/DiffPanel.tsx</span><span class="nums">+118<span class="stat"><i class="sa" style="width:100%"></i></span></span></li>
+        <li data-file="lib/file-refs.ts"><span class="st A">A</span><span class="nm">lib/file-refs.ts</span><span class="nums">+86<span class="stat"><i class="sa" style="width:100%"></i></span></span></li>
+        <li data-file="lib/markdown.ts"><span class="st M">M</span><span class="nm">lib/markdown.ts</span><span class="nums">+38 −12<span class="stat"><i class="sa" style="width:76%"></i><i class="sd" style="width:24%"></i></span></span></li>
+        <li data-file="lib/snippet.ts"><span class="st A">A</span><span class="nm">lib/snippet.ts</span><span class="nums">+64<span class="stat"><i class="sa" style="width:100%"></i></span></span></li>
+        <li data-file="app/s/[id]/page.tsx"><span class="st M">M</span><span class="nm">app/s/[id]/page.tsx</span><span class="nums">+21 −4<span class="stat"><i class="sa" style="width:84%"></i><i class="sd" style="width:16%"></i></span></span></li>
+        <li data-file="app/themes.css"><span class="st M">M</span><span class="nm">app/themes.css</span><span class="nums">+12<span class="stat"><i class="sa" style="width:100%"></i></span></span></li>
+        <li data-file="lib/prefs.ts"><span class="st M">M</span><span class="nm">lib/prefs.ts</span><span class="nums">+9 −2<span class="stat"><i class="sa" style="width:82%"></i><i class="sd" style="width:18%"></i></span></span></li>
+        <li data-file="app/globals.css"><span class="st M">M</span><span class="nm">app/globals.css</span><span class="nums">+4 −1<span class="stat"><i class="sa" style="width:80%"></i><i class="sd" style="width:20%"></i></span></span></li>
+      </ul>
+
+      <div id="pr-snippet" hidden>
+        <a class="pr-back" href="#" id="snip-back">‹ 10 files</a>
+        <div class="snip-path">
+          <span class="fn">lib/markdown.ts</span>
+          <span class="snip-range">L236-L330</span>
+          <span class="snip-stat nums"><span class="na">+8</span> <span class="nd">−2</span> in range</span>
+        </div>
+        <div class="dv" id="snip-markdown">
+          <div class="dl ctx"><span class="lo">236</span><span class="ln">236</span><span class="sg"></span><span class="tx">  <span class="tk-k">const</span> tree = parser.parse(src);</span></div>
+          <div class="dl ctx"><span class="lo">237</span><span class="ln">237</span><span class="sg"></span><span class="tx">  <span class="tk-k">const</span> opts = resolveOpts(src);</span></div>
+          <div class="dl del"><span class="lo">238</span><span class="ln"></span><span class="sg">−</span><span class="tx">  <span class="tk-c">// reverted: per-span realpathSync — 勿再犯</span></span></div>
+          <div class="dl del"><span class="lo">239</span><span class="ln"></span><span class="sg">−</span><span class="tx">  <span class="tk-k">const</span> probe = <span class="tk-k">new</span> <span class="tk-t">PathProbe</span>(repo);</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">238</span><span class="sg">+</span><span class="tx">  <span class="tk-c">// 一次性快照：每请求一次 git 调用，visitor 零 IO</span></span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">239</span><span class="sg">+</span><span class="tx">  <span class="tk-k">const</span> index = opts?.diffIndex ?? <span class="tk-t">DiffIndex</span>.empty();</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">240</span><span class="sg">+</span><span class="tx">  <span class="tk-k">const</span> fileRefs = <span class="tk-t">FileRefs</span>.collect(tree, index);</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">241</span><span class="sg">+</span><span class="tx">  <span class="tk-k">for</span> (<span class="tk-k">const</span> ref <span class="tk-k">of</span> fileRefs) {</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">242</span><span class="sg">+</span><span class="tx">    rewriteLink(ref, index); <span class="tk-c">// 只读索引，不碰磁盘</span></span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">243</span><span class="sg">+</span><span class="tx">  }</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">244</span><span class="sg">+</span><span class="tx">  <span class="tk-k">return</span> render(tree, { index });</span></div>
+          <div class="dl ctx"><span class="lo">240</span><span class="ln">245</span><span class="sg"></span><span class="tx">}</span></div>
+          <div class="dl fold"><span></span><span></span><span></span><span class="tx">⋯ L246-L258 无变更，已折叠 ⋯</span></div>
+          <div class="dl ctx"><span class="lo">252</span><span class="ln">259</span><span class="sg"></span><span class="tx">  <span class="tk-k">const</span> hit = index.lookup(ref.path);</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">260</span><span class="sg">+</span><span class="tx">  <span class="tk-k">if</span> (!hit) <span class="tk-k">return</span> missingState(ref); <span class="tk-c">// 稳定空态，不抛</span></span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">261</span><span class="sg">+</span><span class="tx">  ref.range = normalizeRange(ref.range); <span class="tk-c">// L330-240 → 240..330</span></span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">262</span><span class="sg">+</span><span class="tx">  emitAnchor(ref, hit.newStart);</span></div>
+          <div class="dl ctx"><span class="lo">253</span><span class="ln">263</span><span class="sg"></span><span class="tx">  <span class="tk-k">return</span> sessionLink(ref);</span></div>
+          <div class="dl fold"><span></span><span></span><span></span><span class="tx">⋯ L264-L330 无变更，已折叠 ⋯</span></div>
+        </div>
+        <div class="snip-actions"><a href="#" id="snip-fullfile">整个文件的 diff ›</a></div>
+      </div>
+
+      <div id="pr-file" hidden>
+        <a class="pr-back" href="#" id="back">‹ 10 files</a>
+
+        <div class="dv" id="dv-markdown" hidden>
+          <div class="dv-head"><span class="fn">lib/markdown.ts</span><span class="nums"><span class="na">+38</span> <span class="nd">−12</span></span></div>
+          <div class="dl hunk"><span></span><span></span><span></span><span class="tx">@@ -236,7 +236,14 @@ export function renderMarkdown(src: string, opts?: RenderOpts)</span></div>
+          <div class="dl ctx"><span class="lo">236</span><span class="ln">236</span><span class="sg"></span><span class="tx">  <span class="tk-k">const</span> tree = parser.parse(src);</span></div>
+          <div class="dl ctx"><span class="lo">237</span><span class="ln">237</span><span class="sg"></span><span class="tx">  <span class="tk-k">const</span> opts = resolveOpts(src);</span></div>
+          <div class="dl del"><span class="lo">238</span><span class="ln"></span><span class="sg">−</span><span class="tx">  <span class="tk-c">// reverted: per-span realpathSync — 勿再犯</span></span></div>
+          <div class="dl del"><span class="lo">239</span><span class="ln"></span><span class="sg">−</span><span class="tx">  <span class="tk-k">const</span> probe = <span class="tk-k">new</span> <span class="tk-t">PathProbe</span>(repo);</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">238</span><span class="sg">+</span><span class="tx">  <span class="tk-c">// 一次性快照：每请求一次 git 调用，visitor 零 IO</span></span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">239</span><span class="sg">+</span><span class="tx">  <span class="tk-k">const</span> index = opts?.diffIndex ?? <span class="tk-t">DiffIndex</span>.empty();</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">240</span><span class="sg">+</span><span class="tx">  <span class="tk-k">const</span> fileRefs = <span class="tk-t">FileRefs</span>.collect(tree, index);</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">241</span><span class="sg">+</span><span class="tx">  <span class="tk-k">for</span> (<span class="tk-k">const</span> ref <span class="tk-k">of</span> fileRefs) {</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">242</span><span class="sg">+</span><span class="tx">    rewriteLink(ref, index); <span class="tk-c">// 只读索引，不碰磁盘</span></span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">243</span><span class="sg">+</span><span class="tx">  }</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">244</span><span class="sg">+</span><span class="tx">  <span class="tk-k">return</span> render(tree, { index });</span></div>
+          <div class="dl ctx"><span class="lo">240</span><span class="ln">245</span><span class="sg"></span><span class="tx">}</span></div>
+          <div class="dl hunk"><span></span><span></span><span></span><span class="tx">@@ -252,6 +259,9 @@ function rewriteLink(ref, index)</span></div>
+          <div class="dl ctx"><span class="lo">252</span><span class="ln">259</span><span class="sg"></span><span class="tx">  <span class="tk-k">const</span> hit = index.lookup(ref.path);</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">260</span><span class="sg">+</span><span class="tx">  <span class="tk-k">if</span> (!hit) <span class="tk-k">return</span> missingState(ref); <span class="tk-c">// 稳定空态，不抛</span></span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">261</span><span class="sg">+</span><span class="tx">  ref.range = normalizeRange(ref.range); <span class="tk-c">// L330-240 → 240..330</span></span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">262</span><span class="sg">+</span><span class="tx">  emitAnchor(ref, hit.newStart);</span></div>
+          <div class="dl ctx"><span class="lo">253</span><span class="ln">263</span><span class="sg"></span><span class="tx">  <span class="tk-k">return</span> sessionLink(ref);</span></div>
+        </div>
+
+        <div class="dv" id="dv-diff-index" hidden>
+          <div class="dv-head"><span class="fn">lib/diff-index.ts</span><span class="nums"><span class="na">+142</span></span></div>
+          <div class="dl hunk"><span></span><span></span><span></span><span class="tx">@@ -0,0 +38,20 @@ export class DiffIndex</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">38</span><span class="sg">+</span><span class="tx"><span class="tk-k">export</span> <span class="tk-k">class</span> <span class="tk-t">DiffIndex</span> {</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">39</span><span class="sg">+</span><span class="tx">  <span class="tk-k">static</span> <span class="tk-k">async</span> capture(root: <span class="tk-t">string</span>): <span class="tk-t">Promise</span>&lt;<span class="tk-t">DiffIndex</span>&gt; {</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">40</span><span class="sg">+</span><span class="tx">    <span class="tk-k">const</span> base = <span class="tk-k">await</span> git([<span class="tk-s">"merge-base"</span>, <span class="tk-s">"HEAD"</span>, <span class="tk-s">"origin/main"</span>]);</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">41</span><span class="sg">+</span><span class="tx">    <span class="tk-k">const</span> patch = <span class="tk-k">await</span> git([<span class="tk-s">"diff"</span>, <span class="tk-s">"--no-color"</span>, base, <span class="tk-s">"--"</span>, <span class="tk-s">"."</span>]);</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">42</span><span class="sg">+</span><span class="tx">    <span class="tk-k">return</span> <span class="tk-k">new</span> <span class="tk-t">DiffIndex</span>(parseHunks(patch), <span class="tk-k">await</span> untracked(root));</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">43</span><span class="sg">+</span><span class="tx">  }</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">44</span><span class="sg">+</span><span class="tx">  <span class="tk-c">// 每请求一次快照；缓存键 = root + HEAD/index/worktree 签名</span></span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">45</span><span class="sg">+</span><span class="tx">  lookup(path: <span class="tk-t">string</span>): <span class="tk-t">FileEntry</span> | <span class="tk-k">undefined</span> { <span class="tk-c">/* … */</span> }</span></div>
+        </div>
+
+        <div class="dv" id="dv-generic" hidden>
+          <div class="dv-head"><span class="fn" id="gen-name">file</span><span class="nums"><span class="na">+…</span> <span class="nd">−…</span></span></div>
+          <div class="dl hunk"><span></span><span></span><span></span><span class="tx">@@ hunk</span></div>
+          <div class="dl ctx"><span class="lo">1</span><span class="ln">1</span><span class="sg"></span><span class="tx">…</span></div>
+          <div class="dl add"><span class="lo"></span><span class="ln">2</span><span class="sg">+</span><span class="tx">… <span class="tk-c">（mock 只渲染两个文件的完整 diff，build 轮接真 git diff）</span></span></div>
+          <div class="dl del"><span class="lo">2</span><span class="ln"></span><span class="sg">−</span><span class="tx">…</span></div>
+        </div>
+
+        <p class="pr-note">统一 diff 视图 · 服务端渲染 · 行号左旧右新 · 黄色边带 = 链接区间（L240-L330）。<span class="nums"><span class="na">新增</span></span> / <span class="nums"><span class="nd">删除</span></span>行背景由 <code>color-mix(success/destructive)</code> 派生，三套 palette 共用一套语义 token。</p>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<script src="mock.js"></script>
+</body>
+</html>

@@ -15,6 +15,7 @@ import type { PluggableList } from "unified";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
 import { parse as parseYaml } from "yaml";
+import { rehypeFileRefs, type FileLinkOptions } from "./file-refs";
 import { remarkSingleDollarMath } from "./math";
 
 export type TocEntry = { depth: number; id: string; text: string };
@@ -225,10 +226,12 @@ function rehypeCollectToc(toc: TocEntry[]) {
 }
 
 /** Markdown to HTML on the server, so the text a comment anchors against is the same on every load. */
-export async function renderMarkdown(src: string, opts?: { assetBase?: string }): Promise<Rendered> {
+export async function renderMarkdown(src: string, opts?: { assetBase?: string; fileLinks?: FileLinkOptions }): Promise<Rendered> {
   const toc: TocEntry[] = [];
   const fm: { data: Frontmatter | null } = { data: null };
   const asset: PluggableList = opts?.assetBase ? [rehypeAssetImages(opts.assetBase)] : [];
+  // With no snapshot the pipeline is byte-for-byte what CLI and cloud callers already get.
+  const refs: PluggableList = opts?.fileLinks ? [[rehypeFileRefs, opts.fileLinks]] : [];
   const file = await unified()
     .use(remarkParse)
     .use(remarkFrontmatter, ["yaml"])
@@ -243,6 +246,7 @@ export async function renderMarkdown(src: string, opts?: { assetBase?: string })
     .use(rehypeSlugOutsideMath)
     .use(rehypeCollectToc(toc))
     .use(asset)
+    .use(refs)
     .use(rehypeKatex, { output: "html" })
     .use(rehypeMathOpaque)
     .use(rehypeHighlight, { detect: false, ignoreMissing: true })

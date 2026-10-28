@@ -7,9 +7,10 @@ import { anchor, makeSelector, type QuoteSelector, type TextRange } from "@/lib/
 import type { RenderedComment } from "@/lib/comment-markdown";
 import { cn } from "@/lib/utils";
 import { buildTextMap, offsetOf, rangeOf } from "@/lib/text-map";
-import { clampPanels, type PanelKey } from "@/lib/prefs";
+import { clampPanels, type PanelKey, type RightTab } from "@/lib/prefs";
 import { DESKTOP, patchDoc, setChrome, useChrome, useIsDesktop } from "./chrome";
 import { PanelResizer } from "./PanelResizer";
+import { RightTabs } from "./RightTabs";
 import { CommentPanel, type PanelComment } from "./CommentPanel";
 import { DocBody } from "./DocBody";
 import { useComments } from "./useComments";
@@ -17,6 +18,19 @@ import { useLiveDoc } from "./useLiveDoc";
 
 const AUTHOR_KEY = "bb-author";
 type Draft = { selector: QuoteSelector; top: number; left: number };
+/** The Local PR half of the shared right column, rendered by the server page. */
+export type DiffRail = { panel: ReactNode; commentHref: string; prHref: string; additions: number; deletions: number };
+type DocViewProps = {
+  session: string;
+  title: string;
+  path: string;
+  html: string;
+  initialComments: RenderedComment[];
+  header: ReactNode;
+  toc: ReactNode;
+  rightTab?: RightTab;
+  diff?: DiffRail;
+};
 
 // CSS Custom Highlight API: Chrome 105+, Safari 17.2+. Absent elsewhere; comments still list.
 const highlights = () => (typeof CSS !== "undefined" && "highlights" in CSS ? CSS.highlights : null);
@@ -26,7 +40,7 @@ const highlights = () => (typeof CSS !== "undefined" && "highlights" in CSS ? CS
  * stored selector is anchored back to text offsets and drawn with the CSS Custom Highlight API,
  * which leaves the page DOM untouched.
  */
-export function DocView({ session, title, path, html, initialComments, header, toc }: { session: string; title: string; path: string; html: string; initialComments: RenderedComment[]; header: ReactNode; toc: ReactNode }) {
+export function DocView({ session, title, path, html, initialComments, header, toc, rightTab = "comments", diff }: DocViewProps) {
   const bodyRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [author, setAuthor] = useState("jun");
@@ -45,6 +59,12 @@ export function DocView({ session, title, path, html, initialComments, header, t
   const desktop = useIsDesktop();
   useLiveDoc(session, reload);
   const openCount = comments.filter((c) => c.status === "open").length;
+  // A file link selects Local PR in the URL; a phone has no right rail, so open the existing
+  // bottom sheet for that pane instead of inventing another panel.
+  const activeTab: RightTab = diff && rightTab === "pr" ? "pr" : "comments";
+  useEffect(() => {
+    if (!desktop && activeTab === "pr") setChrome({ sheet: "cm" });
+  }, [desktop, activeTab]);
   useEffect(() => patchDoc({ open: openCount }), [openCount, chrome.doc?.id]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [composing, setComposing] = useState<QuoteSelector | null>(null);
@@ -309,8 +329,15 @@ export function DocView({ session, title, path, html, initialComments, header, t
       </main>
       {desktop ? (
         chrome.cmOpen ? (
-          <aside className="hidden border-border bg-background relative border-l md:block" data-testid="comments-panel">
-            <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto p-3.5">{panel}</div>
+          <aside className="hidden border-border bg-background relative border-l md:block" data-testid="comments-panel" data-tab={activeTab}>
+            <div className="sticky top-[var(--bar-h)] flex max-h-[calc(100vh-var(--bar-h))] flex-col">
+              {diff ? (
+                <RightTabs active={activeTab} commentHref={diff.commentHref} prHref={diff.prHref} open={openCount} additions={diff.additions} deletions={diff.deletions} />
+              ) : null}
+              <div className="min-h-0 flex-1 overflow-y-auto p-3.5" data-testid={activeTab === "pr" && diff ? "diff-pane" : "comments-pane"}>
+                {activeTab === "pr" && diff ? diff.panel : panel}
+              </div>
+            </div>
             <PanelResizer
               which="cm"
               width={cmW}
@@ -320,7 +347,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
             />
           </aside>
         ) : (
-          // Collapsed means gone: the Comments button in the top bar brings it back.
+          // Collapsed means gone: the Comments / Local PR buttons in the top bar bring it back.
           <aside aria-hidden className="hidden invisible md:block" />
         )
       ) : (
@@ -336,9 +363,14 @@ export function DocView({ session, title, path, html, initialComments, header, t
           <Sheet open={chrome.sheet === "cm"} onOpenChange={(o) => setChrome({ sheet: o ? "cm" : null })}>
             <SheetContent side="bottom" showCloseButton={false} className="bg-background max-h-[80vh] overflow-y-auto rounded-t-2xl px-4 pt-2 pb-8">
               <div className="bg-border mx-auto mb-3 h-1 w-10 shrink-0 rounded-full" aria-hidden />
-              <SheetTitle className="sr-only">Comments</SheetTitle>
-              <SheetDescription className="sr-only">Comments on this document</SheetDescription>
-              {panel}
+              <SheetTitle className="sr-only">{activeTab === "pr" && diff ? "Local PR" : "Comments"}</SheetTitle>
+              <SheetDescription className="sr-only">Comments and local changes on this document</SheetDescription>
+              {diff ? (
+                <div className="mb-3">
+                  <RightTabs active={activeTab} commentHref={diff.commentHref} prHref={diff.prHref} open={openCount} additions={diff.additions} deletions={diff.deletions} />
+                </div>
+              ) : null}
+              {activeTab === "pr" && diff ? diff.panel : panel}
             </SheetContent>
           </Sheet>
         </>

@@ -5,14 +5,18 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Folder, FolderGit2, FolderTree, GitBranch, GitCommitHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { DiffPanel } from "@/components/DiffPanel";
 import { DocChip } from "@/components/DocChip";
 import { DocView } from "@/components/DocView";
 import { RegisterTab } from "@/components/RegisterTab";
 import { Toc } from "@/components/Toc";
 import { renderComments } from "@/lib/comment-markdown";
 import { readComments } from "@/lib/comments-store";
+import { getDiffSnapshot } from "@/lib/diff-index";
+import { fileHref, parseSelectedFile, tabHref } from "@/lib/file-refs";
 import { getHome } from "@/lib/home";
 import { renderMarkdown } from "@/lib/markdown";
+import { parseRightTab } from "@/lib/prefs";
 import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath, sessionRow, tildify } from "@/lib/sessions";
 
 /** The tab title is the doc's own title; the description names the file, never its folder. */
@@ -29,9 +33,10 @@ export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promis
 }
 
 /** One session: a registered markdown file, its comments, where it lives and which branch. */
-export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
+export default async function SessionPage({ params, searchParams }: PageProps<"/s/[id]">) {
   await connection();
   const { id } = await params;
+  const search = await searchParams;
   const home = getHome();
   if (id === SCRATCHPAD_ID) scratchpadSession(home);
   const session = getSession(home, id);
@@ -106,7 +111,19 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
     );
   }
 
-  const { html, toc } = await renderMarkdown(readFileSync(file, "utf8"), { assetBase: `/api/asset/${id}` });
+  // One snapshot for the whole request: the link visitor and the diff pane read this index, never
+  // the filesystem or git.
+  const docPath = row.repo?.relPath ?? null;
+  const snapshot = row.repo ? getDiffSnapshot(row.repo.root) : null;
+  const selected = snapshot ? parseSelectedFile(search, docPath) : null;
+  const rightTab = snapshot && parseRightTab(search.tab) === "pr" ? "pr" : "comments";
+  const prHref = selected
+    ? fileHref(selected.path, selected.start !== null ? { start: selected.start, end: selected.end ?? selected.start } : null)
+    : tabHref("pr");
+  const { html, toc } = await renderMarkdown(readFileSync(file, "utf8"), {
+    assetBase: `/api/asset/${id}`,
+    fileLinks: snapshot ? { index: snapshot, docPath, selected } : undefined,
+  });
   const doc = basename(file);
   return (
     <>
@@ -120,6 +137,18 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
         initialComments={renderComments(readComments(sessionCommentsPath(home, session.id)).docs[doc] ?? [])}
         header={header}
         toc={toc.length > 1 ? <Toc toc={toc} /> : null}
+        rightTab={rightTab}
+        diff={
+          snapshot
+            ? {
+                panel: <DiffPanel index={snapshot} selected={selected} />,
+                commentHref: tabHref("comments"),
+                prHref,
+                additions: snapshot.totals.additions,
+                deletions: snapshot.totals.deletions,
+              }
+            : undefined
+        }
       />
     </>
   );

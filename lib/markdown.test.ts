@@ -117,6 +117,15 @@ describe("renderMarkdown math", () => {
   });
 });
 
+describe("renderMarkdown file links", () => {
+  test("keeps explicit file: links byte-compatible without a snapshot", async () => {
+    const { html } = await renderMarkdown("See [the parser](file:lib/markdown.ts:L236-L330).\n");
+    expect(html).toContain('href="file:lib/markdown.ts:L236-L330"');
+    expect(html).toContain("the parser");
+    expect(html).not.toContain("file-ref");
+  });
+});
+
 describe("renderMarkdown assetBase", () => {
   const DOC = "![shot](./shot.png) ![up](../assets/up.png) ![web](https://x.test/a.png) ![inline](data:image/png;base64,xx) ![sub](sub/dir/b.jpg)";
 

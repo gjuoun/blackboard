@@ -9,3 +9,4 @@ looking than by describing. Plain HTML/CSS/JS — no framework, no build, nothin
 | Sketch | Question it answers |
 |---|---|
 | `reading-config` | Which palette (paper / plain / night) and which Latin / 中文 / 等宽 pairing should Blackboard default to? |
+| `diff-sidebar` | where the local-PR diff panel lives (4th column vs drawer), what `file:path:L<a>-<b>` links look like, and whether green/red line diff survives all palettes |

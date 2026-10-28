@@ -7,6 +7,7 @@ import {
   DEFAULT_PREFS,
   PANEL_LIMITS,
   parsePrefs,
+  parseRightTab,
   serializePrefs,
   type StoredChrome,
 } from "./prefs";
@@ -131,6 +132,13 @@ test("boot: a throwing storage never breaks the page", () => {
   const storage = { getItem() { throw new Error("blocked"); } };
   expect(() => new Function("localStorage", "document", bootScript())(storage, { documentElement: root.el })).not.toThrow();
   expect(root.attrs.size).toBe(0);
+});
+
+test("right tab: the URL selects Comments or Local PR, anything else falls back", () => {
+  expect(parseRightTab("pr")).toBe("pr");
+  expect(parseRightTab("comments")).toBe("comments");
+  expect(parseRightTab("drawers")).toBe("comments");
+  expect(parseRightTab(undefined)).toBe("comments");
 });
 
 test("stored record type check: defaults satisfy the shape", () => {
