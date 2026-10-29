@@ -73,7 +73,7 @@ describe("DiffPanel", () => {
 describe("DiffPanel document references", () => {
   const index = () => snapshot([planFile({ path: "docs/plan.md", additions: 3, deletions: 1 }), planFile({ path: "lib/a.ts", additions: 2, deletions: 4 }), planFile({ path: "lib/b.ts", additions: 1, deletions: 0 })]);
   const rows = (html: string) => [...html.matchAll(/data-file="([^"]+)"/g)].map((m) => m[1]);
-  const summary = (html: string) => /data-testid="diff-summary">(.*?)<\/div>/s.exec(html)?.[1] ?? "";
+  const summary = (html: string) => /data-testid="diff-summary">([\s\S]*?)<\/div>/.exec(html)?.[1] ?? "";
 
   test("a document with references starts as their intersection", () => {
     const html = renderToStaticMarkup(<DiffPanel index={index()} selected={null} refs={["lib/a.ts"]} />);

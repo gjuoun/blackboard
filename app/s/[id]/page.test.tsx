@@ -104,7 +104,7 @@ describe("session page file filter", () => {
   test("the whole-PR summary is identical in the filtered and expanded states", async () => {
     const filtered = await filteredPage("See [a](file:lib/a.ts:L1-L2).");
     const expanded = await filteredPage("See [a](file:lib/a.ts:L1-L2).", { all: "1" });
-    const sum = (html: string) => /data-testid="diff-summary">(.*?)<\/div>/s.exec(html)?.[1] ?? "";
+    const sum = (html: string) => /data-testid="diff-summary">([\s\S]*?)<\/div>/.exec(html)?.[1] ?? "";
     expect(sum(filtered.panel)).toBe(sum(expanded.panel));
     expect(sum(filtered.panel)).toContain("3 files");
   });
