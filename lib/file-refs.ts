@@ -56,6 +56,13 @@ export type FileLinkOptions = {
   docPath: string | null;
   /** The selected file/range from the query string, so its link paints active. */
   selected?: { path: string; start: number | null; end: number | null } | null;
+  /**
+   * Request-local accumulator. The visitor fills it while it walks the tree it is already visiting,
+   * so the diff pane reuses this parse instead of reading the markdown or the snapshot again. Only
+   * paths that resolve to a changed file are recorded; a link to something the snapshot does not
+   * contain is not a reference this document can open here.
+   */
+  refs?: Set<string>;
 };
 
 const encode = (value: string) => encodeURIComponent(value);
@@ -70,6 +77,10 @@ export function fileHref(path: string, range: LineRange | null): string {
 /** The Local PR file list, or the Comments tab. */
 export const prListHref = () => "?tab=pr";
 export const tabHref = (tab: "comments" | "pr") => "?tab=" + tab;
+/** The full Local PR list, even when the document references only some of its files. */
+export const prAllHref = () => "?tab=pr&all=1";
+/** The `all` switch is a server choice: only the literal `1` expands the list. */
+export const parseShowAll = (raw: string | string[] | undefined): boolean => (Array.isArray(raw) ? raw[0] : raw) === "1";
 
 export type SelectedFile = { path: string; start: number | null; end: number | null };
 
@@ -114,6 +125,7 @@ export function rehypeFileRefs(opts: FileLinkOptions) {
       if (!path) return;
       const range = normalizeRange(ref.start, ref.end);
       const file = opts.index.file(path);
+      if (file) opts.refs?.add(path);
       el.properties.href = fileHref(path, range);
       el.properties.className = [...classList(el), "file-ref", file ? "" : "file-ref-missing"].filter(Boolean);
       el.properties.dataFile = path;

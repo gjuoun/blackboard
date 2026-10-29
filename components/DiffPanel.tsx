@@ -1,6 +1,6 @@
 import { GitBranch, GitCompareArrows } from "lucide-react";
 import type { DiffSnapshot } from "@/lib/diff-index";
-import { fileHref, prListHref, type SelectedFile } from "@/lib/file-refs";
+import { fileHref, prAllHref, prListHref, type SelectedFile } from "@/lib/file-refs";
 import { renderFileDiff, renderSnippet } from "@/lib/snippet";
 import { DiffFileList } from "./DiffFileList";
 
@@ -8,8 +8,22 @@ import { DiffFileList } from "./DiffFileList";
  * The Local PR pane: server-rendered HTML for the file list, a selected range snippet, or a whole
  * file diff. No client component is involved, so the diff and its line colours exist in the first
  * response and never depend on a browser-side highlighter.
+ *
+ * `refs` is the document's own file-link result, already computed by the markdown pass: when it
+ * names any changed file the list starts as that intersection. `showAll` is the `?all=1` server
+ * choice that puts every changed file back. The summary always reports the whole snapshot.
  */
-export function DiffPanel({ index, selected }: { index: DiffSnapshot | null; selected: SelectedFile | null }) {
+export function DiffPanel({
+  index,
+  selected,
+  refs = [],
+  showAll = false,
+}: {
+  index: DiffSnapshot | null;
+  selected: SelectedFile | null;
+  refs?: readonly string[];
+  showAll?: boolean;
+}) {
   if (!index) {
     return (
       <div className="diff-panel" data-testid="diff-panel">
@@ -21,6 +35,13 @@ export function DiffPanel({ index, selected }: { index: DiffSnapshot | null; sel
   const range = selected && selected.start !== null ? { start: selected.start, end: selected.end ?? selected.start } : null;
   const snippet = selected && range ? renderSnippet(index, selected.path, range) : null;
   const whole = selected && !range ? renderFileDiff(index, selected.path) : null;
+
+  // A document with no changed-file reference keeps the whole list. Only snapshot files can match,
+  // because `refs` was collected from this same index.
+  const referenced = new Set(refs);
+  const filtered = !showAll && referenced.size > 0;
+  const files = filtered ? index.files.filter((file) => referenced.has(file.path)) : index.files;
+  const showAllHref = !showAll && files.length < index.files.length ? prAllHref() : null;
 
   return (
     <div className="diff-panel" data-testid="diff-panel">
@@ -74,7 +95,7 @@ export function DiffPanel({ index, selected }: { index: DiffSnapshot | null; sel
           <div dangerouslySetInnerHTML={{ __html: whole.html }} />
         </div>
       ) : (
-        <DiffFileList index={index} selected={null} />
+        <DiffFileList index={index} selected={null} files={files} showAllHref={showAllHref} />
       )}
     </div>
   );

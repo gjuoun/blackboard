@@ -20,7 +20,8 @@ import { remarkSingleDollarMath } from "./math";
 
 export type TocEntry = { depth: number; id: string; text: string };
 export type Frontmatter = Record<string, unknown>;
-export type Rendered = { html: string; toc: TocEntry[]; frontmatter: Frontmatter | null };
+/** `fileRefs` is what the link visitor already resolved: the changed files this document opens. */
+export type Rendered = { html: string; toc: TocEntry[]; frontmatter: Frontmatter | null; fileRefs: readonly string[] };
 
 /** A node remark-rehype turns into the element named by data.hName. */
 type HNode = { type: string; data: { hName: string; hProperties?: Record<string, unknown>; hChildren?: unknown[] }; children?: PhrasingContent[] };
@@ -230,8 +231,11 @@ export async function renderMarkdown(src: string, opts?: { assetBase?: string; f
   const toc: TocEntry[] = [];
   const fm: { data: Frontmatter | null } = { data: null };
   const asset: PluggableList = opts?.assetBase ? [rehypeAssetImages(opts.assetBase)] : [];
+  // One accumulator per render: the visitor records each reference as it rewrites the link, so the
+  // Local PR list reuses this parse instead of scanning the markdown again.
+  const fileRefs = new Set<string>();
   // With no snapshot the pipeline is byte-for-byte what CLI and cloud callers already get.
-  const refs: PluggableList = opts?.fileLinks ? [[rehypeFileRefs, opts.fileLinks]] : [];
+  const refs: PluggableList = opts?.fileLinks ? [[rehypeFileRefs, { ...opts.fileLinks, refs: fileRefs }]] : [];
   const file = await unified()
     .use(remarkParse)
     .use(remarkFrontmatter, ["yaml"])
@@ -252,7 +256,7 @@ export async function renderMarkdown(src: string, opts?: { assetBase?: string; f
     .use(rehypeHighlight, { detect: false, ignoreMissing: true })
     .use(rehypeStringify)
     .process(src);
-  return { html: String(file), toc, frontmatter: fm.data };
+  return { html: String(file), toc, frontmatter: fm.data, fileRefs: [...fileRefs].sort() };
 }
 
 /** Blocks the browser draws from their source; their text is not in the comment coordinate system. */
