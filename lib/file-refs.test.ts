@@ -122,3 +122,38 @@ describe("renderMarkdown file links", () => {
     expect(html).toContain('href="file:L1-L2"');
   });
 });
+describe("collected file references", () => {
+  /** What the Local PR list filters on: the changed files the document itself opens. */
+  test("valid references to changed files are collected once, even when repeated", async () => {
+    const src = [
+      "[range](file:lib/a.ts:L1-L2)",
+      "[whole](file:lib/a.ts)",
+      "[deleted](file:docs/deleted.md:L4)",
+      "[self](file:L9-3)",
+    ].join("\n");
+    const { fileRefs } = await renderMarkdown(src, { fileLinks: { index: INDEX(), docPath: "docs/deleted.md" } });
+    expect(fileRefs).toEqual(["docs/deleted.md", "lib/a.ts"]);
+  });
+
+  test("a reference the snapshot does not contain never enters the set", async () => {
+    const { html, fileRefs } = await renderMarkdown("[gone](file:docs/none.md)", { fileLinks: { index: INDEX(), docPath: null } });
+    expect(fileRefs).toEqual([]);
+    expect(html).toContain("file-ref-missing");
+  });
+
+  test("prose, fenced code and an unresolvable shorthand collect nothing", async () => {
+    const src = ["Prose file:lib/a.ts:L1-L2.", "", "```md", "[fenced](file:lib/a.ts:L1-L2)", "```", "", "[self](file:L1-L2)"].join("\n");
+    const { fileRefs } = await renderMarkdown(src, { fileLinks: { index: INDEX(), docPath: null } });
+    expect(fileRefs).toEqual([]);
+  });
+
+  test("a document with no file links answers with an empty set, never undefined", async () => {
+    const { fileRefs } = await renderMarkdown("# Nothing\n\nPlain prose.", { fileLinks: { index: INDEX(), docPath: "lib/a.ts" } });
+    expect(fileRefs).toEqual([]);
+  });
+
+  test("without file options nothing is collected", async () => {
+    const { fileRefs } = await renderMarkdown("[a](file:lib/a.ts:L1-L2)");
+    expect(fileRefs).toEqual([]);
+  });
+});

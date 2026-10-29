@@ -70,4 +70,56 @@ describe("DiffPanel", () => {
     const html = renderToStaticMarkup(<DiffPanel index={snapshot()} selected={{ path: "nope.md", start: 1, end: 3 }} />);
     expect(html).toContain("No local change for this file.");
   });
+describe("DiffPanel document references", () => {
+  const index = () => snapshot([planFile({ path: "docs/plan.md", additions: 3, deletions: 1 }), planFile({ path: "lib/a.ts", additions: 2, deletions: 4 }), planFile({ path: "lib/b.ts", additions: 1, deletions: 0 })]);
+  const rows = (html: string) => [...html.matchAll(/data-file="([^"]+)"/g)].map((m) => m[1]);
+  const summary = (html: string) => /data-testid="diff-summary">([\s\S]*?)<\/div>/.exec(html)?.[1] ?? "";
+
+  test("a document with references starts as their intersection", () => {
+    const html = renderToStaticMarkup(<DiffPanel index={index()} selected={null} refs={["lib/a.ts"]} />);
+    expect(rows(html)).toEqual(["lib/a.ts"]);
+  });
+
+  test("the filtered list offers show all with the whole file count", () => {
+    const html = renderToStaticMarkup(<DiffPanel index={index()} selected={null} refs={["lib/a.ts"]} />);
+    expect(html).toContain('data-testid="diff-show-all"');
+    expect(html).toContain('href="?tab=pr&amp;all=1"');
+    expect(html).toContain("show all 3 files");
+  });
+
+  test("show all expands the list and drops the footer", () => {
+    const html = renderToStaticMarkup(<DiffPanel index={index()} selected={null} refs={["lib/a.ts"]} showAll />);
+    expect(rows(html)).toEqual(["docs/plan.md", "lib/a.ts", "lib/b.ts"]);
+    expect(html).not.toContain("diff-show-all");
+  });
+
+  test("a document with no references keeps every file and no footer", () => {
+    const html = renderToStaticMarkup(<DiffPanel index={index()} selected={null} refs={[]} />);
+    expect(rows(html)).toHaveLength(3);
+    expect(html).not.toContain("diff-show-all");
+  });
+
+  test("references that already cover the snapshot are not a filter", () => {
+    const html = renderToStaticMarkup(<DiffPanel index={index()} selected={null} refs={["docs/plan.md", "lib/a.ts", "lib/b.ts"]} />);
+    expect(rows(html)).toHaveLength(3);
+    expect(html).not.toContain("diff-show-all");
+  });
+
+  test("the summary keeps whole-PR totals in both states", () => {
+    const whole = renderToStaticMarkup(<DiffPanel index={index()} selected={null} refs={[]} />);
+    const filtered = renderToStaticMarkup(<DiffPanel index={index()} selected={null} refs={["lib/a.ts"]} />);
+    const expanded = renderToStaticMarkup(<DiffPanel index={index()} selected={null} refs={["lib/a.ts"]} showAll />);
+    expect(summary(filtered)).toBe(summary(whole));
+    expect(summary(expanded)).toBe(summary(whole));
+    expect(summary(whole)).toContain("3 files");
+    expect(summary(whole)).toContain("+6");
+    expect(summary(whole)).toContain("−5");
+  });
+
+  test("a selected snippet keeps the whole-PR back count", () => {
+    const html = renderToStaticMarkup(<DiffPanel index={index()} selected={{ path: "docs/plan.md", start: 2, end: 4 }} refs={["lib/a.ts"]} />);
+    expect(html).toContain('data-testid="diff-snippet"');
+    expect(html).toContain("‹ 3 files");
+  });
+});
 });

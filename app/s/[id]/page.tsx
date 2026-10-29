@@ -13,7 +13,7 @@ import { Toc } from "@/components/Toc";
 import { renderComments } from "@/lib/comment-markdown";
 import { readComments } from "@/lib/comments-store";
 import { getDiffSnapshot } from "@/lib/diff-index";
-import { fileHref, parseSelectedFile, tabHref } from "@/lib/file-refs";
+import { fileHref, parseSelectedFile, parseShowAll, tabHref } from "@/lib/file-refs";
 import { getHome } from "@/lib/home";
 import { renderMarkdown } from "@/lib/markdown";
 import { parseRightTab } from "@/lib/prefs";
@@ -120,10 +120,13 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   const prHref = selected
     ? fileHref(selected.path, selected.start !== null ? { start: selected.start, end: selected.end ?? selected.start } : null)
     : tabHref("pr");
-  const { html, toc } = await renderMarkdown(readFileSync(file, "utf8"), {
+  // The same markdown pass collects the document's file links, so the Local PR list filters to them
+  // without a second parse and without another filesystem or git call.
+  const { html, toc, fileRefs } = await renderMarkdown(readFileSync(file, "utf8"), {
     assetBase: `/api/asset/${id}`,
     fileLinks: snapshot ? { index: snapshot, docPath, selected } : undefined,
   });
+  const showAll = parseShowAll(search.all);
   const doc = basename(file);
   return (
     <>
@@ -141,7 +144,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
         diff={
           snapshot
             ? {
-                panel: <DiffPanel index={snapshot} selected={selected} />,
+                panel: <DiffPanel index={snapshot} selected={selected} refs={fileRefs} showAll={showAll} />,
                 commentHref: tabHref("comments"),
                 prHref,
                 additions: snapshot.totals.additions,
