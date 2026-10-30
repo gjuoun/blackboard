@@ -10,3 +10,4 @@ looking than by describing. Plain HTML/CSS/JS — no framework, no build, nothin
 |---|---|
 | `reading-config` | Which palette (paper / plain / night) and which Latin / 中文 / 等宽 pairing should Blackboard default to? |
 | `diff-sidebar` | where the local-PR diff panel lives (4th column vs drawer), what `file:path:L<a>-<b>` links look like, and whether green/red line diff survives all palettes |
+| `code-comments` | can comments live INSIDE a Local PR snippet — line-anchored inline threads, the `+` entry, and what the Comments tab shows for a code anchor |
