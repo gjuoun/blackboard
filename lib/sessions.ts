@@ -10,7 +10,9 @@ import { withFileLock } from "./lock";
  * A session is one markdown file, anywhere on disk, that someone opened for review.
  * The registry is <home>/sessions.json — plain JSON, so an agent can read it from disk.
  */
-export type Session = { id: string; path: string; createdAt: string; openedAt: string };
+export type SessionKind = "plain" | "pr";
+/** A session is one markdown file; pr sessions carry the diff pane's front-matter baseline. */
+export type Session = { id: string; path: string; createdAt: string; openedAt: string; kind?: SessionKind };
 type Registry = { version: 1; sessions: Session[] };
 
 export const SCRATCHPAD_ID = "scratchpad";
@@ -83,23 +85,26 @@ export function servablePath(s: Session): string | null {
 /** Stable per file: opening the same file again finds the same session. */
 export const sessionId = (realPath: string) => createHash("sha1").update(realPath).digest("hex").slice(0, 10);
 
-function upsert(reg: Registry, id: string, path: string): Session {
+function upsert(reg: Registry, id: string, path: string, kind?: SessionKind): Session {
   const t = now();
   const found = reg.sessions.find((s) => s.id === id);
   if (found) {
     found.path = path;
     found.openedAt = t;
+    // Re-opening without --kind keeps the recorded kind: the tab does not vanish because a
+    // later command omitted a flag.
+    if (kind) found.kind = kind;
     return { ...found };
   }
-  const s: Session = { id, path, createdAt: t, openedAt: t };
+  const s: Session = { id, path, createdAt: t, openedAt: t, kind: kind ?? "plain" };
   reg.sessions.push(s);
   return { ...s };
 }
 
-/** Register a markdown file (or bump it if already registered). */
-export function openSession(home: string, file: string, cwd = process.cwd()): Session {
+/** Register a markdown file (or bump it if already registered), recording the kind it was opened as. */
+export function openSession(home: string, file: string, cwd = process.cwd(), kind?: SessionKind): Session {
   const real = realDoc(file, cwd);
-  return update(home, (reg) => upsert(reg, sessionId(real), real));
+  return update(home, (reg) => upsert(reg, sessionId(real), real, kind));
 }
 
 export function listSessions(home: string): Session[] {

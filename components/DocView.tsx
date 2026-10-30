@@ -20,7 +20,15 @@ import { useLiveDoc } from "./useLiveDoc";
 const AUTHOR_KEY = "bb-author";
 type Draft = { selector: QuoteSelector; top: number; left: number };
 /** The Local PR half of the shared right column, rendered by the server page. */
-export type DiffRail = { panel: ReactNode; commentHref: string; prHref: string; additions: number; deletions: number };
+export type DiffRail = {
+  panel: ReactNode;
+  commentHref: string;
+  prHref: string;
+  additions: number;
+  deletions: number;
+  /** False for a plain document: the rail keeps its single Comments tab and never offers the diff. */
+  showPr?: boolean;
+};
 type DocViewProps = {
   session: string;
   title: string;
@@ -353,7 +361,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
           <aside className="hidden border-border bg-background relative border-l md:block" data-testid="comments-panel" data-tab={activeTab}>
             <div className="sticky top-[var(--bar-h)] flex max-h-[calc(100vh-var(--bar-h))] flex-col">
               {diff ? (
-                <RightTabs active={activeTab} commentHref={diff.commentHref} prHref={diff.prHref} open={openCount} additions={diff.additions} deletions={diff.deletions} />
+                <RightTabs active={activeTab} commentHref={diff.commentHref} prHref={diff.prHref} open={openCount} additions={diff.additions} deletions={diff.deletions} showPr={diff.showPr ?? true} />
               ) : null}
               <div className="min-h-0 flex-1 overflow-y-auto p-3.5" data-testid={activeTab === "pr" && diff ? "diff-pane" : "comments-pane"}>
                 {activeTab === "pr" && diff ? diff.panel : panel}
@@ -388,7 +396,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
               <SheetDescription className="sr-only">Comments and local changes on this document</SheetDescription>
               {diff ? (
                 <div className="mb-3">
-                  <RightTabs active={activeTab} commentHref={diff.commentHref} prHref={diff.prHref} open={openCount} additions={diff.additions} deletions={diff.deletions} />
+                  <RightTabs active={activeTab} commentHref={diff.commentHref} prHref={diff.prHref} open={openCount} additions={diff.additions} deletions={diff.deletions} showPr={diff.showPr ?? true} />
                 </div>
               ) : null}
               {activeTab === "pr" && diff ? diff.panel : panel}

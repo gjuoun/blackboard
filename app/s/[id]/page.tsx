@@ -17,6 +17,7 @@ import { getDiffSnapshot } from "@/lib/diff-index";
 import { fileHref, parseSelectedFile, parseShowAll, tabHref } from "@/lib/file-refs";
 import { getHome } from "@/lib/home";
 import { renderMarkdown } from "@/lib/markdown";
+import { parsePrFrontmatter } from "@/lib/pr-kind";
 import { parseRightTab } from "@/lib/prefs";
 import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath, sessionRow, tildify } from "@/lib/sessions";
 
@@ -112,20 +113,26 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     );
   }
 
+  // The doc is read once: its front matter decides the rail and the pinned diff base, and the same
+  // string feeds the markdown pass that collects this document's file links.
+  const src = readFileSync(file, "utf8");
+  const prDoc = parsePrFrontmatter(src);
+  // Explicit, checkable activation: the session says pr and the doc carries a pin git can read.
+  const pr = session.kind === "pr" && prDoc.baseSha !== null;
   // One snapshot for the whole request: the link visitor and the diff pane read this index, never
-  // the filesystem or git.
+  // the filesystem or git. A pr doc pins the commit its front matter names; a plain doc keeps the
+  // floating base only for its code-comment threads and never shows the diff.
   const docPath = row.repo?.relPath ?? null;
-  const snapshot = row.repo ? getDiffSnapshot(row.repo.root) : null;
+  const snapshot = row.repo ? getDiffSnapshot(row.repo.root, pr ? { baseRef: prDoc.base ?? "main", base: prDoc.baseSha! } : {}) : null;
   const selected = snapshot ? parseSelectedFile(search, docPath) : null;
-  const rightTab = snapshot && parseRightTab(search.tab) === "pr" ? "pr" : "comments";
+  const rightTab = pr && snapshot && parseRightTab(search.tab) === "pr" ? "pr" : "comments";
   const prHref = selected
     ? fileHref(selected.path, selected.start !== null ? { start: selected.start, end: selected.end ?? selected.start } : null)
     : tabHref("pr");
-  // The same markdown pass collects the document's file links, so the Local PR list filters to them
-  // without a second parse and without another filesystem or git call.
-  const { html, toc, fileRefs } = await renderMarkdown(readFileSync(file, "utf8"), {
+  // A plain document's file: links stay literal text, so the visitor is not installed for it.
+  const { html, toc, fileRefs } = await renderMarkdown(src, {
     assetBase: `/api/asset/${id}`,
-    fileLinks: snapshot ? { index: snapshot, docPath, selected } : undefined,
+    fileLinks: pr && snapshot ? { index: snapshot, docPath, selected } : undefined,
   });
   const showAll = parseShowAll(search.all);
   const doc = basename(file);
@@ -155,6 +162,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
                 prHref,
                 additions: snapshot.totals.additions,
                 deletions: snapshot.totals.deletions,
+                showPr: pr,
               }
             : undefined
         }

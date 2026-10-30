@@ -1,11 +1,13 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { anchorLabel, codeStateFromLines, parseCodeRef, type CodeState } from "./code-anchor";
 import { addComment, addReply, mutate, readComments, setStatus, type Comment, type CommentFile } from "./comments-store";
 import { docMeta } from "./doc-meta";
 import { renderPlainText } from "./markdown";
+import { ensurePrDoc } from "./pr-kind";
+import { prStatus, type PrStatus } from "./pr-status";
 import { selectorFor } from "./selector";
-import { closeSession, openSession, resolveSession, SessionError, sessionCommentsPath, sessionRows, type Session, type SessionRow } from "./sessions";
+import { closeSession, openSession, realDoc, resolveSession, SessionError, sessionCommentsPath, sessionRows, type Session, type SessionKind, type SessionRow } from "./sessions";
 
 /** A failure the CLI reports on stderr. code 1 = the command failed, 2 = bad usage. */
 export class CliError extends Error {
@@ -44,11 +46,29 @@ function docOf(file: CommentFile, id: string): string {
   return doc;
 }
 
-/** Register a markdown file as a session (again is fine) and give its URL. */
-export function open(home: string, file: string, cwd = process.cwd()): { session: Session; url: string } {
+/** What the CLI pinned, so both the text and --json output can report it. */
+export type PrPin = { base: string; sha: string; filled: boolean };
+
+/**
+ * Register a markdown file as a session (again is fine) and give its URL. A pr session is
+ * verified before it is registered: the front matter must name a hash git can resolve, and a
+ * missing block is filled from the merge-base once, then written back into the doc.
+ */
+export function open(home: string, file: string, cwd = process.cwd(), kind?: SessionKind): { session: Session; url: string; pr?: PrPin } {
   try {
-    const session = openSession(home, file, cwd);
-    return { session, url: sessionUrl(session.id) };
+    const real = realDoc(file, cwd);
+    let pr: PrPin | undefined;
+    if (kind === "pr") {
+      const repo = docMeta(real).repo;
+      if (!repo) throw new CliError(`${real} is not inside a git repository`);
+      const src = readFileSync(real, "utf8");
+      const ensured = ensurePrDoc(src, repo.root);
+      if (!ensured.ok) throw new CliError(ensured.error);
+      if (ensured.src !== src) writeFileSync(real, ensured.src);
+      pr = { base: ensured.base, sha: ensured.sha, filled: ensured.filled };
+    }
+    const session = openSession(home, real, cwd, kind);
+    return { session, url: sessionUrl(session.id), ...(pr ? { pr } : {}) };
   } catch (err) {
     if (err instanceof SessionError) throw new CliError(err.message);
     throw err;
@@ -193,10 +213,31 @@ export function formatComments(list: DocComment[]): string {
     .join("\n\n");
 }
 
-/** One line per session: id, title, where it is, branch, open comments. */
+/** The pinned baseline and the exact diff command for one session; unknown refs fail like any other command. */
+export function pr(home: string, ref: string, cwd = process.cwd()): PrStatus {
+  const status = prStatus(home, ref, cwd);
+  if (!status) throw new CliError(`no session "${ref}" (register the file with: blackboard open <file>)`);
+  return status;
+}
+
+/** Human form of a session's pr state: the front matter's baseline and the command to run. */
+export function formatPr(status: PrStatus): string {
+  const lines = [`${status.session}  ${status.path}  ${status.kind}`];
+  if (status.base && status.command) {
+    const totals = status.totals ?? { files: 0, additions: 0, deletions: 0 };
+    lines.push(`base ${status.base.ref} @ ${status.base.sha}`, status.command);
+    lines.push(`${totals.files} files  +${totals.additions} -${totals.deletions}  ${status.comments.open} open`);
+  } else {
+    lines.push("no pinned base: open the doc with --kind pr");
+  }
+  return lines.join("\n");
+}
+
+/** One line per session: id, title, where it is, branch, open comments, kind. */
 export function formatSessions(rows: SessionRow[]): string {
   if (rows.length === 0) return "no sessions (register a file with: blackboard open <file>)";
   return rows
-    .map((r) => `${r.id}  ${r.title}  ${r.location}  ${r.branch ?? "-"}  ${r.open} open${r.missing ? "  (missing)" : ""}`)
+    .map((r) => `${r.id}  ${r.title}  ${r.location}  ${r.branch ?? "-"}  ${r.open} open  ${r.kind ?? "plain"}${r.missing ? "  (missing)" : ""}`)
     .join("\n");
 }
+

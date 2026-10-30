@@ -13,8 +13,10 @@ import * as server from "../lib/server-ctl";
 const HELP = `blackboard — review markdown files and their comments, from the shell
 
 Usage:
-  blackboard open     <file> [--no-browser]      register a .md file, print "<id>  <url>", open it
+  blackboard open     <file> [--kind pr] [--no-browser]
+                                                 register a .md file, print "<id>  <url>", open it
                                                  (starts the web app first when it is not running)
+  blackboard pr       <session> [--json]         the pinned diff baseline, its git command and totals
   blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)
   blackboard sessions [--json]                   every session: id, title, location, branch, open comments
   blackboard close    <session>                  forget a session (its comments are kept)
@@ -29,6 +31,7 @@ Usage:
 <id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).
 
 Options:
+  --kind <k>       open: plain (default) or pr; pr pins the diff baseline in the doc's front matter
   --code <ref>     comment: anchor on <repo-relative-path>:L<n> instead of a quoted passage
   --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)
   --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or "agent")
@@ -76,6 +79,7 @@ async function main(argv: string[]): Promise<number> {
       json: { type: "boolean" },
       quote: { type: "string" },
       code: { type: "string" },
+      kind: { type: "string" },
       occurrence: { type: "string" },
       "no-browser": { type: "boolean" },
       "no-server": { type: "boolean" },
@@ -103,10 +107,14 @@ async function main(argv: string[]): Promise<number> {
 
   switch (cmd) {
     case "open": {
-      need(1, "open <file> [--no-browser]");
+      need(1, "open <file> [--kind plain|pr] [--no-browser]");
+      if (o.kind !== undefined && o.kind !== "plain" && o.kind !== "pr") {
+        throw new cli.CliError('--kind takes "plain" or "pr"', 2);
+      }
       if (!o["no-server"] && process.env.BLACKBOARD_NO_SERVER !== "1") await ensureServer(home);
-      const { session, url } = cli.open(home, args[0]);
-      print({ ...session, url }, `${session.id}  ${url}`);
+      const { session, url, pr } = cli.open(home, args[0], process.cwd(), o.kind);
+      const pin = pr ? `\npr base ${pr.base} @ ${pr.sha.slice(0, 7)}${pr.filled ? "  (front matter filled)" : ""}` : "";
+      print({ ...session, url, ...(pr ? { pr } : {}) }, `${session.id}  ${url}${pin}`);
       if (!o["no-browser"] && process.env.BLACKBOARD_NO_BROWSER !== "1") launch(url);
       return 0;
     }
@@ -142,6 +150,12 @@ async function main(argv: string[]): Promise<number> {
     case "sessions": {
       const rows = cli.sessions(home);
       print(rows, cli.formatSessions(rows));
+      return 0;
+    }
+    case "pr": {
+      need(1, "pr <session> [--json]");
+      const status = cli.pr(home, args[0]);
+      print(status, cli.formatPr(status));
       return 0;
     }
     case "close": {
