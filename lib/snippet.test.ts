@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { rowKey, threadKey, type CodeThread } from "./code-anchor";
 import type { DiffFile, DiffHunk, DiffSnapshot } from "./diff-index";
 import { renderFileDiff, renderSnippet } from "./snippet";
 
@@ -95,6 +96,84 @@ describe("range snippet", () => {
     const binary = renderSnippet(snapshot([file({ binary: true })]), "lib/a.ts", { start: 1, end: 5 });
     expect(binary.state).toBe("binary");
     expect(binary.html).toContain("Binary file");
+  });
+});
+
+const thread = (over: Partial<CodeThread> = {}): CodeThread => ({
+  id: "c_1",
+  anchor: { path: "lib/a.ts", startLine: 4, endLine: 4, side: "new", lineText: "line 4 changed" },
+  author: "jun",
+  createdAt: "2026-10-29T12:00:00.000Z",
+  status: "open",
+  orphaned: false,
+  movedTo: null,
+  count: 2,
+  entries: [
+    { id: "c_1", author: "jun", createdAt: "2026-10-29T12:00:00.000Z", html: "<p>why here?</p>", body: "why here?", reply: false },
+    { id: "r_1", author: "agent", createdAt: "2026-10-29T12:05:00.000Z", html: "<p>because</p>", body: "because", reply: true },
+  ],
+  ...over,
+});
+
+const lookup = (...threads: CodeThread[]) =>
+  new Map(threads.map((t) => [threadKey(t.anchor.path, rowKey(t.anchor)), threads.filter((x) => x.anchor.path === t.anchor.path && rowKey(x.anchor) === rowKey(t.anchor))]));
+
+describe("code comment threads", () => {
+  test("a thread renders immediately after its anchor row inside the same diff box", () => {
+    const s = renderSnippet(snapshot([file()]), "lib/a.ts", { start: 1, end: 20 }, lookup(thread()));
+    expect(s.html).toContain('class="dl add inr cmt" id="L4"');
+    const row = s.html.indexOf('id="L4"');
+    const block = s.html.indexOf('data-testid="code-thread"');
+    expect(block).toBeGreaterThan(row);
+    expect(block).toBeLessThan(s.html.indexOf('id="L5"'));
+    expect(s.html).toContain('data-anchor="L4"');
+    expect(s.html).toContain('data-testid="code-count">2</span>');
+    expect(s.html).toContain("<p>why here?</p>");
+    expect(s.html).toContain("<p>because</p>");
+    expect(s.html).toContain("Resolve conversation");
+  });
+
+  test("every real line row carries the entry, and hunk or folded rows carry none", () => {
+    const s = renderSnippet(snapshot([file()]), "lib/a.ts", { start: 1, end: 20 });
+    const rows = (s.html.match(/class="dl (?:add|del|ctx)[^"]*"/g) ?? []).length;
+    const entries = (s.html.match(/data-testid="code-add"/g) ?? []).length;
+    expect(entries).toBe(rows);
+    const folded = s.html.slice(s.html.indexOf('class="dl fold"'), s.html.indexOf("</div>", s.html.indexOf('class="dl fold"')));
+    expect(folded).not.toContain("code-add");
+    expect(folded).not.toContain("code-count");
+  });
+
+  test("an orphaned thread shows the warn badge and the line its text moved to", () => {
+    const s = renderSnippet(snapshot([file()]), "lib/a.ts", { start: 1, end: 20 }, lookup(thread({ orphaned: true, movedTo: 6 })));
+    expect(s.html).toContain('class="cc-thread orphan"');
+    expect(s.html).toContain("L4 \u21a6 \u73b0 L6");
+  });
+
+  test("an old-side anchor hangs from the deleted row", () => {
+    const old = thread({ anchor: { path: "lib/a.ts", startLine: 4, endLine: 4, side: "old", lineText: "line 4" } });
+    const s = renderSnippet(snapshot([file()]), "lib/a.ts", { start: 1, end: 20 }, lookup(old));
+    expect(s.html).toContain('class="dl del inr cmt" id="Lold4"');
+    expect(s.html).toContain('data-anchor="Lold4"');
+  });
+
+  test("a thread for another file or another line is not rendered", () => {
+    const otherFile = thread({ anchor: { path: "lib/b.ts", startLine: 4, endLine: 4, side: "new", lineText: "x" } });
+    const otherLine = thread({ anchor: { path: "lib/a.ts", startLine: 9, endLine: 9, side: "new", lineText: "line 9" } });
+    const s = renderSnippet(snapshot([file()]), "lib/a.ts", { start: 1, end: 20 }, lookup(otherFile, otherLine));
+    expect(s.html).not.toContain('data-testid="code-thread"');
+    expect(s.html).not.toContain('data-testid="code-count"');
+  });
+
+  test("a resolved thread keeps its block and offers to reopen", () => {
+    const s = renderSnippet(snapshot([file()]), "lib/a.ts", { start: 1, end: 20 }, lookup(thread({ status: "resolved" })));
+    expect(s.html).toContain('class="cc-thread resolved"');
+    expect(s.html).toContain("Reopen conversation");
+  });
+
+  test("the whole-file diff renders the same thread after its row", () => {
+    const d = renderFileDiff(snapshot([file()]), "lib/a.ts", lookup(thread()));
+    expect(d.html).toContain('id="L4"');
+    expect(d.html.indexOf('data-testid="code-thread"')).toBeGreaterThan(d.html.indexOf('id="L4"'));
   });
 });
 

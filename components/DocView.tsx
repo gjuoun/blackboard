@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { Button } from "@/components/ui/button";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { anchor, makeSelector, type QuoteSelector, type TextRange } from "@/lib/anchor";
+import type { CodeState } from "@/lib/code-anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
 import { cn } from "@/lib/utils";
 import { buildTextMap, offsetOf, rangeOf } from "@/lib/text-map";
@@ -30,6 +31,8 @@ type DocViewProps = {
   toc: ReactNode;
   rightTab?: RightTab;
   diff?: DiffRail;
+  /** Per code-anchored comment: whether its line still reads as it did, and where it moved to. */
+  codeState?: Record<string, CodeState>;
 };
 
 // CSS Custom Highlight API: Chrome 105+, Safari 17.2+. Absent elsewhere; comments still list.
@@ -40,7 +43,7 @@ const highlights = () => (typeof CSS !== "undefined" && "highlights" in CSS ? CS
  * stored selector is anchored back to text offsets and drawn with the CSS Custom Highlight API,
  * which leaves the page DOM untouched.
  */
-export function DocView({ session, title, path, html, initialComments, header, toc, rightTab = "comments", diff }: DocViewProps) {
+export function DocView({ session, title, path, html, initialComments, header, toc, rightTab = "comments", diff, codeState }: DocViewProps) {
   const bodyRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [author, setAuthor] = useState("jun");
@@ -101,6 +104,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
     const active: Range[] = [];
     const hover: Range[] = [];
     for (const c of comments) {
+      if (!c.quote) continue;
       const r = anchor(map.text, c.quote);
       next[c.id] = r;
       const range = r && rangeOf(map, r.start, r.end);
@@ -225,10 +229,27 @@ export function DocView({ session, title, path, html, initialComments, header, t
     if (rect && (rect.top < 100 || rect.bottom > innerHeight)) scrollBy({ top: rect.top - innerHeight / 3, behavior: "smooth" });
   };
 
+  // Passage anchors keep their reading order; code anchors follow, by file then line. A drifted
+  // code anchor is ordered as usual — it is the badge, not the sort, that reports the drift.
   const panelComments: PanelComment[] = useMemo(() => {
-    const withPos = comments.map((c) => ({ ...c, orphaned: c.id in anchors && anchors[c.id] === null, pos: anchors[c.id]?.start ?? Infinity }));
-    return withPos.sort((a, b) => a.pos - b.pos);
-  }, [comments, anchors]);
+    const withPos = comments.map((c) => {
+      const code = c.code ? codeState?.[c.id] : undefined;
+      return {
+        ...c,
+        orphaned: c.quote ? c.id in anchors && anchors[c.id] === null : (code?.orphaned ?? false),
+        movedTo: code?.movedTo ?? null,
+        pos: c.quote ? (anchors[c.id]?.start ?? Infinity) : Infinity,
+      };
+    });
+    return withPos.sort((a, b) => {
+      if (a.code && b.code) {
+        return a.code.path.localeCompare(b.code.path) || a.code.startLine - b.code.startLine || a.createdAt.localeCompare(b.createdAt);
+      }
+      if (a.code) return 1;
+      if (b.code) return -1;
+      return a.pos - b.pos;
+    });
+  }, [comments, anchors, codeState]);
 
   const composer = composing ? (
     <div className="border-primary mb-3 rounded-xl border p-2.5">

@@ -23,11 +23,13 @@ Usage:
   blackboard resolve  <session> <comment-id>
   blackboard reopen   <session> <comment-id>
   blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>
+  blackboard comment  <session> --code <path>:L<n> <note>
 
 <session> is a session id or a path to the registered file.
 <id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).
 
 Options:
+  --code <ref>     comment: anchor on <repo-relative-path>:L<n> instead of a quoted passage
   --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)
   --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or "agent")
   --json           machine-readable output
@@ -73,6 +75,7 @@ async function main(argv: string[]): Promise<number> {
       author: { type: "string" },
       json: { type: "boolean" },
       quote: { type: "string" },
+      code: { type: "string" },
       occurrence: { type: "string" },
       "no-browser": { type: "boolean" },
       "no-server": { type: "boolean" },
@@ -168,11 +171,19 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     }
     case "comment": {
-      need(2, "comment <session> --quote <passage> <note>");
-      if (!o.quote) throw new cli.CliError("comment needs --quote <passage>", 2);
+      need(2, "comment <session> --quote <passage> | --code <path>:L<n> <note>");
+      const note = args.slice(1).join(" ");
+      if (o.code) {
+        if (o.quote) throw new cli.CliError("comment takes --quote or --code, not both", 2);
+        if (o.occurrence) throw new cli.CliError("--occurrence only applies to --quote", 2);
+        const c = await cli.commentOnCode(home, args[0], o.code, note, author);
+        print(c, `commented ${c.id} on ${c.doc} at ${o.code}`);
+        return 0;
+      }
+      if (!o.quote) throw new cli.CliError("comment needs --quote <passage> or --code <path>:L<n>", 2);
       const n = o.occurrence ? Number(o.occurrence) : 1;
       if (!Number.isInteger(n)) throw new cli.CliError("--occurrence must be a whole number", 2);
-      const c = await cli.comment(home, args[0], o.quote, args.slice(1).join(" "), author, n);
+      const c = await cli.comment(home, args[0], o.quote, note, author, n);
       print(c, `commented ${c.id} on ${c.doc}`);
       return 0;
     }

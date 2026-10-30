@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { anchor } from "./anchor";
-import { close, comment, comments, formatComments, open, reply, sessions, status } from "./cli";
+import { close, comment, commentOnCode, comments, formatComments, open, reply, sessions, status } from "./cli";
 import { readComments } from "./comments-store";
 import { renderPlainText } from "./markdown";
 import { sessionCommentsPath } from "./sessions";
@@ -21,6 +22,24 @@ function setup() {
   writeFileSync(design, DESIGN);
   writeFileSync(join(docs, "other.md"), "# Other\n");
   return { base, home, docs, design };
+}
+
+/** A temp home and a git repo with one source file and one registered doc. */
+function repoSetup() {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), "bb-cli-repo-")));
+  const home = join(base, "home");
+  const repo = join(base, "repo");
+  mkdirSync(join(repo, "lib"), { recursive: true });
+  mkdirSync(join(repo, "docs"), { recursive: true });
+  const source = join(repo, "lib", "residency.ts");
+  writeFileSync(source, "export function residency() {\n  const gate = 1;\n  return gate;\n}\n");
+  const design = join(repo, "docs", "review.md");
+  writeFileSync(design, "# Review\n\nA doc.\n");
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: repo });
+  git("init", "-q", "-b", "main");
+  git("-c", "user.name=t", "-c", "user.email=t@e", "add", "-A");
+  git("-c", "user.name=t", "-c", "user.email=t@e", "commit", "-qm", "fixture");
+  return { home, repo, source, design };
 }
 
 const run = (home: string, args: string[], cwd?: string) => {
@@ -48,7 +67,7 @@ describe("cli commands", () => {
     const { session } = open(home, design);
     const c = await comment(home, design, "The cache is warm.", "why warm?", "agent", 2);
     const text = await renderPlainText(DESIGN);
-    expect(anchor(text, c.quote)?.start).toBe(text.lastIndexOf("The cache is warm."));
+    expect(anchor(text, c.quote!)?.start).toBe(text.lastIndexOf("The cache is warm."));
     expect(readComments(sessionCommentsPath(home, session.id)).docs["design.md"][0]).toMatchObject({ author: "agent", body: "why warm?" });
   });
 
@@ -120,6 +139,45 @@ describe("cli commands", () => {
     open(home, design);
     expect(comments(home, design).map((c) => c.body)).toEqual(["keep me"]);
     expect(session.id).toBe(open(home, design).session.id);
+  });
+});
+
+describe("code-anchored comments", () => {
+  test("comment by path:line stores the anchor and its line text", async () => {
+    const { home, design, source } = repoSetup();
+    open(home, design);
+    const c = await commentOnCode(home, design, "lib/residency.ts:L3", "why the gate?", "agent");
+    expect(c.code).toEqual({ path: "lib/residency.ts", startLine: 3, endLine: 3, side: "new", lineText: "  return gate;" });
+    expect(c.quote).toBeUndefined();
+    const listed = comments(home, design);
+    expect(listed[0].codeState).toEqual({ orphaned: false, movedTo: null });
+    const text = formatComments(listed);
+    expect(text).toContain("lib/residency.ts:L3");
+    expect(text).toContain("why the gate?");
+    // The doc's own file is untouched: the anchor is metadata, not a rewrite of the source.
+    expect(readFileSync(source, "utf8")).toContain("return gate;");
+  });
+
+  test("a drifted line reads as L3 -> 现 L4 and the stored anchor is not rewritten", async () => {
+    const { home, design, source } = repoSetup();
+    open(home, design);
+    const c = await commentOnCode(home, design, "lib/residency.ts:L3", "still here?", "jun");
+    writeFileSync(source, "export function residency() {\n  // drifted\n  const gate = 1;\n  return gate;\n}\n");
+    const text = formatComments(comments(home, design));
+    expect(text).toContain("L3 ↦ 现 L4");
+    expect(c.code?.startLine).toBe(3);
+    const stored = comments(home, design)[0];
+    expect(stored.code?.startLine).toBe(3);
+    expect(stored.codeState).toEqual({ orphaned: true, movedTo: 4 });
+  });
+
+  test("a bad reference, a missing line and an escaping path are all refused", async () => {
+    const { home, design } = repoSetup();
+    open(home, design);
+    await expect(commentOnCode(home, design, "lib/residency.ts", "x", "jun")).rejects.toThrow(/--code takes/);
+    await expect(commentOnCode(home, design, "lib/residency.ts:L99", "x", "jun")).rejects.toThrow(/no line 99/);
+    await expect(commentOnCode(home, design, "../outside.ts:L1", "x", "jun")).rejects.toThrow(/--code takes/);
+    await expect(commentOnCode(home, design, "lib/missing.ts:L1", "x", "jun")).rejects.toThrow(/no such file/);
   });
 });
 

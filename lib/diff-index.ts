@@ -1,7 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { lstatSync, readFileSync, statSync } from "node:fs";
-import { isAbsolute, join, posix, relative, resolve, sep } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
+import { normalizeRepoPath } from "./repo-path";
+
+export { normalizeRepoPath } from "./repo-path";
 
 /**
  * One repository snapshot per render request. The page builds it before markdown rendering and
@@ -72,14 +75,6 @@ const readUtf8: FileRead = (abs) => {
     return null;
   }
 };
-
-/** A repository-relative path we are willing to expose: no absolute paths, no escapes, no NUL. */
-export function normalizeRepoPath(path: string): string | null {
-  if (!path || path.includes("\0") || path.includes("\\") || isAbsolute(path)) return null;
-  const norm = posix.normalize(path).replace(/^\.\//, "");
-  if (!norm || norm === "." || norm === ".." || norm.startsWith("../") || norm.startsWith("/")) return null;
-  return norm;
-}
 
 /** Absolute path inside the root for a normalized relative path, or null for a symlink/escape. */
 function safeAbsolute(root: string, path: string): string | null {

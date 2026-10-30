@@ -1,6 +1,7 @@
 import { basename } from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
 import type { QuoteSelector } from "@/lib/anchor";
+import { normalizeCodeAnchor, type CodeAnchor } from "@/lib/code-anchor";
 import { renderComments, type RenderedComment } from "@/lib/comment-markdown";
 import { addComment, addReply, deleteComment, deleteReply, editComment, editReply, mutate, readComments, setStatus, type Comment } from "@/lib/comments-store";
 import { getHome } from "@/lib/home";
@@ -48,15 +49,19 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ comments: renderComments(readComments(t.file).docs[t.doc] ?? []) });
 }
 
-/** POST {session, quote, body, author} — a new comment on a passage. */
+const code = (v: unknown): CodeAnchor | null => (v === undefined ? null : normalizeCodeAnchor(v));
+
+/** POST {session, quote | code, body, author} — a new comment on a passage or on a diff line. */
 export async function POST(req: NextRequest) {
   const b = await json(req);
   const t = b && target(b.session);
   if (!b || !t) return bad("unknown session");
   const q = quote(b.quote);
+  const anchor = code(b.code);
   const body = text(b.body, MAX_BODY);
-  if (!q || !body) return bad("quote and body are required");
-  const comment = await mutate(t.file, (f) => addComment(f, t.doc, { quote: q, body, author: author(b.author) }));
+  if (!body) return bad("body is required");
+  if (Boolean(q) === Boolean(anchor)) return bad("exactly one of quote or code is required");
+  const comment = await mutate(t.file, (f) => addComment(f, t.doc, q ? { quote: q, body, author: author(b.author) } : { code: anchor!, body, author: author(b.author) }));
   return NextResponse.json({ comment: one(comment) }, { status: 201 });
 }
 

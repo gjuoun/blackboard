@@ -2,14 +2,17 @@
 
 import { ArrowUp, Check, Copy, Eye, EyeOff } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { anchorLabel, rowKey } from "@/lib/code-anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
 import { exportComments } from "@/lib/export";
+import { fileHref } from "@/lib/hrefs";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const TEXTAREA = "border-input bg-background focus-visible:ring-ring/40 w-full resize-y rounded-lg border p-2 text-[13.5px] outline-none focus-visible:ring-[3px]";
 
-export type PanelComment = RenderedComment & { orphaned: boolean };
+/** `orphaned` covers either anchor kind; `movedTo` is the line a drifted code anchor reads on today. */
+export type PanelComment = RenderedComment & { orphaned: boolean; movedTo?: number | null };
 
 /** One entry of a comment's thread: a dot on the timeline line, no card around it. */
 const THREAD_ENTRY = "thread-entry";
@@ -260,10 +263,29 @@ export function CommentPanel(p: Props) {
                 <Check className="size-3.5" strokeWidth={2.5} />
               </button>
             </div>
-            <blockquote className="bg-background text-muted-foreground m-0 mb-2 line-clamp-3 rounded-lg px-2.5 py-1 text-[12.5px]" title={c.quote.exact}>
-              {squash(c.quote.exact)}
-            </blockquote>
-            {c.orphaned ? <p className="text-warn m-0 mb-1.5 text-xs">Passage no longer in the doc</p> : null}
+            {c.code ? (
+              <p className="m-0 mb-2 flex flex-wrap items-center gap-1.5">
+                <a
+                  className="comment-chip"
+                  data-testid="code-chip"
+                  href={fileHref(c.code.path, { start: c.code.startLine, end: c.code.startLine })}
+                  title={`${c.code.path}:${rowKey(c.code)}`}
+                >
+                  {anchorLabel(c.code)}
+                </a>
+                {c.orphaned ? (
+                  <span className="cc-orphan" data-testid="code-chip-orphan">
+                    {rowKey(c.code)}
+                    {c.movedTo ? " ↦ 现 L" + c.movedTo : ""}
+                  </span>
+                ) : null}
+              </p>
+            ) : c.quote ? (
+              <blockquote className="bg-background text-muted-foreground m-0 mb-2 line-clamp-3 rounded-lg px-2.5 py-1 text-[12.5px]" title={c.quote.exact}>
+                {squash(c.quote.exact)}
+              </blockquote>
+            ) : null}
+            {c.orphaned && !c.code ? <p className="text-warn m-0 mb-1.5 text-xs">Passage no longer in the doc</p> : null}
             <ol data-testid="thread" className="thread mt-2 flex list-none flex-col gap-3 p-0">
               <li data-testid="thread-entry" data-kind="comment" className={THREAD_ENTRY}>
                 <Body key={c.body} text={c.body} html={c.html} editing={editing === c.id} onSave={(v) => p.onEdit(c.id, v)} onCancel={() => setEditing(null)} />

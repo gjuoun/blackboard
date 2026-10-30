@@ -99,6 +99,26 @@ describe("comment file", () => {
     expect(readComments(fileIn(demo)).docs).toEqual({});
   });
 
+  test("a code anchor round-trips beside the passage anchors, in the same v1 file", async () => {
+    const demo = fresh();
+    const code = { path: "lib/residency.ts", startLine: 3, endLine: 3, side: "new" as const, lineText: "  return gate;" };
+    const byCode = await mutate(fileIn(demo), (f) => addComment(f, "design.md", { code, body: "why here?", author: "agent" }));
+    const byQuote = await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "and here", author: "jun" }));
+    const stored = readComments(fileIn(demo)).docs["design.md"];
+    expect(stored.find((c) => c.id === byCode.id)?.code).toEqual(code);
+    expect(stored.find((c) => c.id === byCode.id)?.quote).toBeUndefined();
+    expect(stored.find((c) => c.id === byQuote.id)?.quote).toEqual(quote);
+    expect(stored.find((c) => c.id === byQuote.id)?.code).toBeUndefined();
+    expect(JSON.parse(readFileSync(fileIn(demo), "utf8")).version).toBe(1);
+  });
+
+  test("a comment without an anchor is refused by the store", async () => {
+    const demo = fresh();
+    await expect(
+      mutate(fileIn(demo), (f) => addComment(f, "design.md", { body: "no anchor", author: "jun" } as Parameters<typeof addComment>[2])),
+    ).rejects.toThrow(/quote or a code anchor/);
+  });
+
   test("errors on an unknown reply id", async () => {
     const demo = fresh();
     const c = await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "x", author: "jun" }));

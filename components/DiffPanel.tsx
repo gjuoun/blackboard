@@ -1,7 +1,8 @@
 import { GitBranch, GitCompareArrows } from "lucide-react";
 import type { DiffSnapshot } from "@/lib/diff-index";
 import { fileHref, prAllHref, prListHref, type SelectedFile } from "@/lib/file-refs";
-import { renderFileDiff, renderSnippet } from "@/lib/snippet";
+import { renderFileDiff, renderSnippet, type ThreadLookup } from "@/lib/snippet";
+import { CodeComments } from "./CodeComments";
 import { DiffFileList } from "./DiffFileList";
 
 /**
@@ -18,11 +19,17 @@ export function DiffPanel({
   selected,
   refs = [],
   showAll = false,
+  threads,
+  session,
 }: {
   index: DiffSnapshot | null;
   selected: SelectedFile | null;
   refs?: readonly string[];
   showAll?: boolean;
+  /** Code-comment threads grouped by the page; the pane only renders them. */
+  threads?: ThreadLookup;
+  /** The session the comment island posts to; without it the pane stays purely static. */
+  session?: string;
 }) {
   if (!index) {
     return (
@@ -33,8 +40,8 @@ export function DiffPanel({
   }
   const totals = index.totals;
   const range = selected && selected.start !== null ? { start: selected.start, end: selected.end ?? selected.start } : null;
-  const snippet = selected && range ? renderSnippet(index, selected.path, range) : null;
-  const whole = selected && !range ? renderFileDiff(index, selected.path) : null;
+  const snippet = selected && range ? renderSnippet(index, selected.path, range, threads) : null;
+  const whole = selected && !range ? renderFileDiff(index, selected.path, threads) : null;
 
   // A document with no changed-file reference keeps the whole list. Only snapshot files can match,
   // because `refs` was collected from this same index.
@@ -76,7 +83,9 @@ export function DiffPanel({
               <b className="na">+{snippet.additions}</b> <b className="nd">−{snippet.deletions}</b> in range
             </span>
           </div>
-          <div dangerouslySetInnerHTML={{ __html: snippet.html }} />
+          <CodeComments session={session}>
+            <div dangerouslySetInnerHTML={{ __html: snippet.html }} />
+          </CodeComments>
           <div className="snip-actions">
             <a href={fileHref(snippet.path, null)} data-testid="snippet-whole-file">entire file diff ›</a>
           </div>
@@ -92,7 +101,9 @@ export function DiffPanel({
               <b className="na">+{whole.additions}</b> <b className="nd">−{whole.deletions}</b>
             </span>
           </div>
-          <div dangerouslySetInnerHTML={{ __html: whole.html }} />
+          <CodeComments session={session}>
+            <div dangerouslySetInnerHTML={{ __html: whole.html }} />
+          </CodeComments>
         </div>
       ) : (
         <DiffFileList index={index} selected={null} files={files} showAllHref={showAllHref} />

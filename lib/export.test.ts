@@ -30,6 +30,23 @@ describe("exportComments", () => {
     expect(md).toContain("> Old line one\n> old line two\n\n_(passage no longer in the doc)_\n\n**jun:** Still relevant?");
   });
 
+  test("a code-anchored comment exports its path:line instead of a quote", () => {
+    const md = exportComments("Design", "/d.md", [
+      { ...base, id: "c9", code: { path: "lib/residency.ts", startLine: 12, endLine: 12, side: "new", lineText: "  return gate;" }, body: "why the gate?", status: "open", orphaned: false },
+    ]);
+    expect(md).toContain("Anchored at `lib/residency.ts:L12`");
+    expect(md).toContain("**jun:** why the gate?");
+    expect(md).not.toContain("no longer in the doc");
+  });
+
+  test("a drifted code anchor says the line moved instead of calling it a lost passage", () => {
+    const md = exportComments("Design", "/d.md", [
+      { ...base, id: "c9", code: { path: "lib/residency.ts", startLine: 12, endLine: 12, side: "new", lineText: "  return gate;" }, body: "still here?", status: "open", orphaned: true },
+    ]);
+    expect(md).toContain("_(line drifted; anchored by its stored text)_");
+    expect(md).not.toContain("passage no longer");
+  });
+
   test("says so when nothing is open", () => {
     expect(exportComments("Design", "/d.md", [comments[1]])).toBe("## Design — no open comments\n\nFile: `/d.md`\n");
   });
