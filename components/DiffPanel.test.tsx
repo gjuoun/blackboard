@@ -1,4 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
+
+// The pane wraps its snippet in the code-comment island, whose only router use is refresh().
+mock.module("next/navigation", () => ({ useRouter: () => ({ refresh() {} }) }));
+
 import { renderToStaticMarkup } from "react-dom/server";
 import { DiffFileList } from "@/components/DiffFileList";
 import { DiffPanel } from "@/components/DiffPanel";

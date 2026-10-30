@@ -1,3 +1,4 @@
+import { anchorLabel } from "./code-anchor";
 import type { Comment } from "./comments-store";
 
 const quoteLines = (s: string) =>
@@ -17,8 +18,8 @@ export function exportComments(title: string, path: string, comments: (Comment &
   const head = `## ${title} — ${open.length === 0 ? "no" : open.length} open comment${open.length === 1 ? "" : "s"}\n\nFile: \`${path}\``;
   if (open.length === 0) return head + "\n";
   const blocks = open.map((c) => {
-    const parts = [quoteLines(c.quote.exact)];
-    if (c.orphaned) parts.push("_(passage no longer in the doc)_");
+    const parts = [c.code ? "Anchored at `" + anchorLabel(c.code) + "`" : quoteLines(c.quote!.exact)];
+    if (c.orphaned) parts.push(c.code ? "_(line drifted; anchored by its stored text)_" : "_(passage no longer in the doc)_");
     parts.push([`**${c.author}:** ${c.body}`, ...c.replies.map((r) => `- **${r.author}:** ${r.body}`)].join("\n"));
     return parts.join("\n\n");
   });

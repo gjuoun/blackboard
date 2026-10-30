@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
+import { anchorLabel, codeStateFromLines, parseCodeRef, type CodeState } from "./code-anchor";
 import { addComment, addReply, mutate, readComments, setStatus, type Comment, type CommentFile } from "./comments-store";
+import { docMeta } from "./doc-meta";
 import { renderPlainText } from "./markdown";
 import { selectorFor } from "./selector";
 import { closeSession, openSession, resolveSession, SessionError, sessionCommentsPath, sessionRows, type Session, type SessionRow } from "./sessions";
@@ -12,7 +14,7 @@ export class CliError extends Error {
   }
 }
 
-export type DocComment = Comment & { doc: string };
+export type DocComment = Comment & { doc: string; codeState?: CodeState };
 
 const DEFAULT_URL = "http://127.0.0.1:38770";
 
@@ -61,10 +63,69 @@ export function close(home: string, ref: string, cwd = process.cwd()): Session {
   return closeSession(home, find(home, ref, cwd).session.id);
 }
 
-/** Every comment in a session, resolved ones included, each with its replies, in creation order. */
+const linesOfFile = (raw: string): string[] => {
+  const lines = raw.split(/\r?\n/);
+  if (lines.at(-1) === "") lines.pop();
+  return lines;
+};
+
+/**
+ * Every comment in a session, resolved ones included, each with its replies, in creation order.
+ * A code anchor also carries its drift state: the anchored file is read once, on demand, so an
+ * agent sees `L12 ↦ 现 L14` without the anchor ever being rewritten.
+ */
 export function comments(home: string, ref: string, cwd = process.cwd()): DocComment[] {
-  const { file } = find(home, ref, cwd);
-  return Object.entries(readComments(file).docs).flatMap(([doc, list]) => list.map((c) => ({ ...c, doc })));
+  const { session, file } = find(home, ref, cwd);
+  const repo = docMeta(session.path).repo;
+  const cache = new Map<string, readonly string[] | null>();
+  const read = (path: string): readonly string[] | null => {
+    if (!repo) return null;
+    const hit = cache.get(path);
+    if (hit !== undefined) return hit;
+    let lines: readonly string[] | null = null;
+    try {
+      lines = linesOfFile(readFileSync(join(repo.root, path), "utf8"));
+    } catch {
+      lines = null;
+    }
+    cache.set(path, lines);
+    return lines;
+  };
+  return Object.entries(readComments(file).docs).flatMap(([doc, list]) =>
+    list.map((c) => ({
+      ...c,
+      doc,
+      ...(c.code && c.code.side === "new" ? { codeState: codeStateFromLines(c.code, read(c.code.path)) } : {}),
+    })),
+  );
+}
+
+/** Comment on one line of a repo file, n-th line counted from the worktree: `lib/a.ts:L12`. */
+export async function commentOnCode(
+  home: string,
+  ref: string,
+  codeRef: string,
+  note: string,
+  author: string,
+  cwd = process.cwd(),
+): Promise<DocComment> {
+  if (!note.trim()) throw new CliError("comment text is empty", 2);
+  const parsed = parseCodeRef(codeRef);
+  if (!parsed) throw new CliError(`--code takes <repo-relative-path>:L<n> (got "${codeRef}")`, 2);
+  const { session, file, doc } = find(home, ref, cwd);
+  const repo = docMeta(session.path).repo;
+  if (!repo) throw new CliError(`${session.path} is not inside a git repository`);
+  let lines: string[];
+  try {
+    lines = linesOfFile(readFileSync(join(repo.root, parsed.path), "utf8"));
+  } catch {
+    throw new CliError(`no such file in ${repo.name}: ${parsed.path}`);
+  }
+  const lineText = lines[parsed.start - 1];
+  if (lineText === undefined) throw new CliError(`${parsed.path} has no line ${parsed.start}`);
+  if (parsed.end > lines.length) throw new CliError(`${parsed.path} has no line ${parsed.end}`);
+  const code = { path: parsed.path, startLine: parsed.start, endLine: parsed.end, side: "new" as const, lineText };
+  return { ...(await mutate(file, (f) => addComment(f, doc, { code, body: note.trim(), author }))), doc };
 }
 
 /**
@@ -117,7 +178,15 @@ export function formatComments(list: DocComment[]): string {
   if (list.length === 0) return "no comments";
   return list
     .map((c) => {
-      const lines = [`${c.id}  ${c.doc}  ${c.status}  ${c.author}  ${c.createdAt}`, `  > ${squash(c.quote.exact)}`, `  ${c.body.replace(/\n/g, "\n  ")}`];
+      const drift = c.codeState
+        ? c.codeState.orphaned
+          ? c.codeState.movedTo
+            ? ` \u21a6 \u73b0 L${c.codeState.movedTo}`
+            : "  (line drifted)"
+          : ""
+        : "";
+      const where = c.quote ? "  > " + squash(c.quote.exact) : `  @ ${anchorLabel(c.code!)}` + drift;
+      const lines = [`${c.id}  ${c.doc}  ${c.status}  ${c.author}  ${c.createdAt}`, where, `  ${c.body.replace(/\n/g, "\n  ")}`];
       for (const r of c.replies) lines.push(`    ↳ ${r.id}  ${r.author}: ${r.body.replace(/\n/g, "\n      ")}`);
       return lines.join("\n");
     })

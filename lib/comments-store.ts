@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { QuoteSelector } from "./anchor";
+import type { CodeAnchor } from "./code-anchor";
 import { withFileLock } from "./lock";
 
 /**
@@ -12,7 +13,9 @@ export type Reply = { id: string; body: string; author: string; createdAt: strin
 export type CommentStatus = "open" | "resolved";
 export type Comment = {
   id: string;
-  quote: QuoteSelector;
+  /** Exactly one anchor kind: a passage in the doc, or a line of the Local PR diff. */
+  quote?: QuoteSelector;
+  code?: CodeAnchor;
   body: string;
   author: string;
   createdAt: string;
@@ -71,8 +74,13 @@ function find(file: CommentFile, doc: string, id: string): Comment {
   return c;
 }
 
-export function addComment(file: CommentFile, doc: string, input: { quote: QuoteSelector; body: string; author: string }): Comment {
-  const c: Comment = { id: newId("c"), quote: input.quote, body: input.body, author: input.author, createdAt: now(), status: "open", replies: [] };
+export type CommentAnchor = { quote: QuoteSelector; code?: undefined } | { code: CodeAnchor; quote?: undefined };
+
+/** A new comment on exactly one anchor kind: a passage of the doc, or a line of the diff. */
+export function addComment(file: CommentFile, doc: string, input: CommentAnchor & { body: string; author: string }): Comment {
+  const anchor = input.quote ? { quote: input.quote } : input.code ? { code: input.code } : null;
+  if (!anchor) throw new Error("a comment needs a quote or a code anchor");
+  const c: Comment = { id: newId("c"), ...anchor, body: input.body, author: input.author, createdAt: now(), status: "open", replies: [] };
   (file.docs[doc] ??= []).push(c);
   return c;
 }

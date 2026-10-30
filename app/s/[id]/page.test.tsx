@@ -1,7 +1,12 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
+
+// DiffPanel's snippet is wrapped in the code-comment island, whose only router use is refresh().
+mock.module("next/navigation", () => ({ useRouter: () => ({ refresh() {} }) }));
+
 import { renderToStaticMarkup } from "react-dom/server";
 import { DiffPanel } from "@/components/DiffPanel";
 import { fileHref, parseSelectedFile, parseShowAll } from "@/lib/file-refs";
+import { groupCodeThreads } from "@/lib/code-anchor";
 import { renderMarkdown } from "@/lib/markdown";
 import { planFile, snapshot } from "@/lib/test-diff";
 
@@ -52,6 +57,27 @@ describe("session page server render", () => {
     expect(md).toContain("href=\"?tab=pr&#x26;file=docs%2Fplan.md&#x26;L=L2-L5\"");
     expect(md).toContain("aria-current=\"true\"");
     expect(md).toContain("href=\"?tab=pr&#x26;file=docs%2Fplan.md&#x26;L=L3-L9\"");
+  });
+
+  test("a code-comment thread reaches the pane from the page's grouping", () => {
+    const index = snapshot();
+    const rendered = [
+      {
+        id: "c_1",
+        code: { path: "docs/plan.md", startLine: 3, endLine: 3, side: "new" as const, lineText: "line 3" },
+        body: "why?",
+        html: "<p>why?</p>",
+        author: "jun",
+        createdAt: "2026-10-29T12:00:00.000Z",
+        status: "open" as const,
+        replies: [],
+      },
+    ];
+    const panel = renderToStaticMarkup(<DiffPanel index={index} selected={{ path: "docs/plan.md", start: 2, end: 5 }} threads={groupCodeThreads(rendered, index).byRow} />);
+    expect(panel).toContain('data-testid="code-thread"');
+    expect(panel).toContain('data-anchor="L3"');
+    expect(panel).toContain('data-testid="code-add"');
+    expect(panel).not.toContain("<script");
   });
 
   test("a document outside git still renders the comments rail without a snapshot", () => {

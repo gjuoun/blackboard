@@ -10,6 +10,7 @@ import { DocChip } from "@/components/DocChip";
 import { DocView } from "@/components/DocView";
 import { RegisterTab } from "@/components/RegisterTab";
 import { Toc } from "@/components/Toc";
+import { groupCodeThreads } from "@/lib/code-anchor";
 import { renderComments } from "@/lib/comment-markdown";
 import { readComments } from "@/lib/comments-store";
 import { getDiffSnapshot } from "@/lib/diff-index";
@@ -128,6 +129,10 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   });
   const showAll = parseShowAll(search.all);
   const doc = basename(file);
+  // One render of the stored comments feeds both panes: the list the client keeps, and the threads
+  // the diff box prints. The grouping resolves each code anchor against the same request snapshot.
+  const renderedComments = renderComments(readComments(sessionCommentsPath(home, session.id)).docs[doc] ?? []);
+  const codeThreads = groupCodeThreads(renderedComments, snapshot);
   return (
     <>
       <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 1} />
@@ -137,14 +142,15 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
         title={row.title}
         path={session.path}
         html={html}
-        initialComments={renderComments(readComments(sessionCommentsPath(home, session.id)).docs[doc] ?? [])}
+        initialComments={renderedComments}
         header={header}
         toc={toc.length > 1 ? <Toc toc={toc} /> : null}
         rightTab={rightTab}
+        codeState={codeThreads.state}
         diff={
           snapshot
             ? {
-                panel: <DiffPanel index={snapshot} selected={selected} refs={fileRefs} showAll={showAll} />,
+                panel: <DiffPanel index={snapshot} selected={selected} refs={fileRefs} showAll={showAll} threads={codeThreads.byRow} session={session.id} />,
                 commentHref: tabHref("comments"),
                 prHref,
                 additions: snapshot.totals.additions,

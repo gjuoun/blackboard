@@ -30,7 +30,7 @@ const DIFF = {
   deletions: 1,
 };
 
-function render(over: { rightTab?: "comments" | "pr"; noDiff?: boolean; comments?: RenderedComment[] } = {}) {
+function render(over: { rightTab?: "comments" | "pr"; noDiff?: boolean; comments?: RenderedComment[]; codeState?: Record<string, { orphaned: boolean; movedTo: number | null }> } = {}) {
   return renderToStaticMarkup(
     <DocView
       session="abc"
@@ -42,6 +42,7 @@ function render(over: { rightTab?: "comments" | "pr"; noDiff?: boolean; comments
       toc={<nav data-testid="toc">Contents</nav>}
       rightTab={over.rightTab ?? "comments"}
       diff={over.noDiff ? undefined : DIFF}
+      codeState={over.codeState}
     />,
   );
 }
@@ -78,6 +79,31 @@ describe("DocView right rail", () => {
     const html = render({ noDiff: true });
     expect(html).not.toContain('data-testid="right-tab-pr"');
     expect(html).toContain('data-testid="comments-pane"');
+  });
+
+  test("a code-anchored comment lists as a path:line chip that links back to the diff", () => {
+    const codeComment: RenderedComment = {
+      ...comment("c9", "open"),
+      quote: undefined,
+      code: { path: "lib/residency.ts", startLine: 12, endLine: 12, side: "new", lineText: "  return gate;" },
+    };
+    const html = render({ comments: [codeComment], codeState: { c9: { orphaned: false, movedTo: null } } });
+    expect(html).toContain('data-testid="code-chip"');
+    expect(html).toContain("lib/residency.ts:L12");
+    expect(html).toContain('href="?tab=pr&amp;file=lib%2Fresidency.ts&amp;L=L12"');
+    expect(html).not.toContain("Passage no longer in the doc");
+    expect(html).not.toContain('data-orphaned="true"');
+  });
+
+  test("a drifted code anchor names the line it reads on today", () => {
+    const codeComment: RenderedComment = {
+      ...comment("c9", "open"),
+      quote: undefined,
+      code: { path: "lib/residency.ts", startLine: 12, endLine: 12, side: "new", lineText: "  return gate;" },
+    };
+    const html = render({ comments: [codeComment], codeState: { c9: { orphaned: true, movedTo: 14 } } });
+    expect(html).toContain('data-testid="code-chip-orphan"');
+    expect(html).toContain("L12 ↦ 现 L14");
   });
 
   test("the comments pane still lists the resolved flag and the comment body", () => {
