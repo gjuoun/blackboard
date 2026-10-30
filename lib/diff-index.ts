@@ -11,7 +11,9 @@ export { normalizeRepoPath } from "./repo-path";
  * hands the immutable index to the link visitor, so no visitor ever touches the filesystem or git.
  *
  * The diff base is the merge-base of HEAD and origin/main (falling back to HEAD when the remote
- * ref does not exist), compared to the worktree: tracked, staged and standard untracked files.
+ * ref does not exist) unless a caller pins a commit: a document's front matter does, so its diff
+ * does not move when the branch does. Either way the comparison is against the worktree:
+ * tracked, staged and standard untracked files.
  */
 
 export type DiffStatus = "added" | "modified" | "deleted" | "renamed" | "untracked";
@@ -47,7 +49,12 @@ export type GitRun = (cwd: string, args: string[]) => string | null;
 /** file-read seam: unit tests inject a reader to prove each relevant file is read at most once. */
 export type FileRead = (abs: string) => string | null;
 
-export type DiffOptions = { git?: GitRun; readFile?: FileRead; baseRef?: string };
+/**
+ * baseRef names the branch the chip shows; base pins one commit to diff against. A pinned base is
+ * used verbatim (no merge-base lookup): the document that carries the pin keeps showing the change
+ * it was written against, even after the branch moves.
+ */
+export type DiffOptions = { git?: GitRun; readFile?: FileRead; baseRef?: string; base?: string };
 
 const GIT_TIMEOUT_MS = 2000;
 const MAX_FILE_BYTES = 1024 * 1024;
@@ -237,18 +244,22 @@ function worktreeSignature(top: string, status: string): string {
   return out.join("|");
 }
 
-function probe(root: string, git: GitRun, baseRef: string): Probe | null {
+function probe(root: string, git: GitRun, baseRef: string, pinned?: string): Probe | null {
   const at = resolve(root);
   const top = git(at, ["rev-parse", "--show-toplevel"])?.trim();
   if (!top) return null;
   const head = git(top, ["rev-parse", "HEAD"])?.trim() ?? "";
   const remote = git(top, ["rev-parse", "--verify", "--quiet", "origin/main"])?.trim() ?? "";
   const status = git(top, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames"]) ?? "";
-  // Without a HEAD (an uncommitted repository) there is no diff to show.
-  const mergeBase = head ? git(top, ["merge-base", "HEAD", baseRef])?.trim() ?? "" : "";
-  const signature = createHash("sha1").update([head, remote, status, worktreeSignature(top, status)].join("\0")).digest("hex");
   const label = baseRef === "origin/main" ? "main" : baseRef;
-  return { top, head, remote, status, base: mergeBase || head, baseRef: mergeBase ? label : "HEAD", signature };
+  // A pin replaces the merge-base lookup (same call count: one rev-parse instead of merge-base).
+  // An unresolvable pin stays empty rather than silently floating to a newer base.
+  const pin = pinned ? git(top, ["rev-parse", "--verify", "--quiet", pinned + "^{commit}"])?.trim() ?? "" : "";
+  // Without a HEAD (an uncommitted repository) there is no diff to show.
+  const mergeBase = !pinned && head ? git(top, ["merge-base", "HEAD", baseRef])?.trim() ?? "" : "";
+  const base = pinned ? pin : mergeBase || head;
+  const signature = createHash("sha1").update([head, remote, status, worktreeSignature(top, status), pinned ?? "", base].join("\0")).digest("hex");
+  return { top, head, remote, status, base, baseRef: pinned ? label : mergeBase ? label : "HEAD", signature };
 }
 
 function untrackedPaths(status: string): string[] {
@@ -342,7 +353,7 @@ function assemble(probe: Probe, opts: DiffOptions): DiffSnapshot {
 
 /** Build a snapshot without the module cache; the unit-test entry point. */
 export function buildDiffSnapshot(root: string, opts: DiffOptions = {}): DiffSnapshot | null {
-  const p = probe(root, opts.git ?? gitRun, opts.baseRef ?? "origin/main");
+  const p = probe(root, opts.git ?? gitRun, opts.baseRef ?? "origin/main", opts.base);
   return p ? assemble(p, opts) : null;
 }
 
@@ -360,7 +371,7 @@ export function resetDiffCache(): void {
  * same immutable snapshot is reused across requests.
  */
 export function getDiffSnapshot(root: string, opts: DiffOptions = {}): DiffSnapshot | null {
-  const p = probe(root, opts.git ?? gitRun, opts.baseRef ?? "origin/main");
+  const p = probe(root, opts.git ?? gitRun, opts.baseRef ?? "origin/main", opts.base);
   if (!p) return null;
   const hit = CACHE.get(p.top);
   if (hit?.signature === p.signature) return hit.snapshot;

@@ -181,6 +181,49 @@ describe("code-anchored comments", () => {
   });
 });
 
+describe("open --kind pr", () => {
+  test("fills the front matter once, pins the merge-base and reports the pin", () => {
+    const { home, repo, design } = repoSetup();
+    const first = open(home, design, repo, "pr");
+    expect(first.pr?.base).toBe("main");
+    expect(first.pr?.sha).toMatch(/^[0-9a-f]{40}$/);
+    expect(first.pr?.filled).toBe(true);
+    const written = readFileSync(design, "utf8");
+    expect(written).toContain("kind: pr");
+    expect(written).toContain("  base: main");
+    expect(written).toContain("  base_sha: " + first.pr!.sha);
+
+    const second = open(home, design, repo, "pr");
+    expect(second.pr?.filled).toBe(false);
+    expect(second.pr?.sha).toBe(first.pr!.sha);
+    expect(readFileSync(design, "utf8")).toBe(written);
+    expect(sessions(home).find((s) => s.id === first.session.id)?.kind).toBe("pr");
+  });
+
+  test("refuses a base_sha git cannot resolve", () => {
+    const { home, repo, design } = repoSetup();
+    writeFileSync(design, "---\ntitle: Review\nkind: pr\npr:\n  base: main\n  base_sha: deadbeef\n---\n\n# Review\n");
+    expect(() => open(home, design, repo, "pr")).toThrow(/base_sha/);
+  });
+
+  test("refuses a pr doc outside a git repository", () => {
+    const { home, design } = setup();
+    expect(() => open(home, design, process.cwd(), "pr")).toThrow(/not inside a git repository/);
+  });
+
+  test("the binary accepts --kind pr and rejects any other value", () => {
+    const { home, repo, design } = repoSetup();
+    const opened = run(home, ["open", "--no-browser", "--kind", "pr", design], repo);
+    expect(opened.code).toBe(0);
+    expect(opened.out).toContain("pr base main @");
+    expect(opened.out).toContain("front matter filled");
+    const rows = JSON.parse(run(home, ["sessions", "--json"]).out);
+    expect(rows[0].kind).toBe("pr");
+    expect(run(home, ["sessions"]).out).toContain("  pr");
+    expect(run(home, ["open", "--no-browser", "--kind", "cloud", design], repo).code).toBe(2);
+  });
+});
+
 describe("blackboard binary", () => {
   test("open prints id and url; comment by a relative path from the doc's folder; exit codes follow the contract", () => {
     const { home, docs } = setup();

@@ -111,6 +111,31 @@ describe("repo snapshot", () => {
     expect(snap.baseRef).toBe("HEAD");
   });
 
+  test("a pinned base diffs that commit instead of chasing the merge-base", () => {
+    const root = repo();
+    // Roll the whole branch change into one commit, then leave one new file uncommitted.
+    git(root, "add", "-A");
+    git(root, "commit", "-qm", "branch work");
+    const tip = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root }).toString().trim();
+    writeFileSync(join(root, "after.txt"), "one\n");
+    const pinned = buildDiffSnapshot(root, { base: tip })!;
+    expect(pinned.files.map((f) => f.path)).toEqual(["after.txt"]);
+    expect(pinned.baseRef).toBe("main");
+    expect(pinned.baseSha).toBe(tip.slice(0, 7));
+    // The floating merge-base also sees the commit the pin skips.
+    const floating = buildDiffSnapshot(root)!;
+    expect(floating.files.length).toBeGreaterThan(pinned.files.length);
+  });
+
+  test("an unresolvable pin yields no committed diff, never a floating base", () => {
+    const root = repo();
+    const snap = buildDiffSnapshot(root, { base: "deadbeef" })!;
+    expect(snap.files.every((f) => f.status === "untracked")).toBe(true);
+    expect(snap.files.some((f) => f.path === "keep.txt")).toBe(false);
+    expect(snap.baseSha).toBe("");
+    expect(snap.baseRef).toBe("main");
+  });
+
   test("no git is a stable empty answer, never a throw", () => {
     const nothing: GitRun = () => null;
     expect(buildDiffSnapshot("/tmp", { git: nothing })).toBeNull();
@@ -120,6 +145,21 @@ describe("repo snapshot", () => {
 });
 
 describe("cache", () => {
+  test("two pinned bases never share a snapshot", () => {
+    const root = repo();
+    git(root, "add", "-A");
+    git(root, "commit", "-qm", "branch work");
+    const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: root }).toString().trim();
+    const base = execFileSync("git", ["rev-parse", "refs/remotes/origin/main"], { cwd: root }).toString().trim();
+    writeFileSync(join(root, "after.txt"), "one\n");
+    resetDiffCache();
+    const pinnedToHead = getDiffSnapshot(root, { base: head })!;
+    expect(getDiffSnapshot(root, { base: head })).toBe(pinnedToHead);
+    const pinnedToBase = getDiffSnapshot(root, { base })!;
+    expect(pinnedToBase).not.toBe(pinnedToHead);
+    expect(pinnedToBase.files.length).not.toBe(pinnedToHead.files.length);
+  });
+
   test("an unchanged repository returns the same snapshot; a worktree change rebuilds it", () => {
     const root = repo();
     resetDiffCache();

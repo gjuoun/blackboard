@@ -30,7 +30,7 @@ const DIFF = {
   deletions: 1,
 };
 
-function render(over: { rightTab?: "comments" | "pr"; noDiff?: boolean; comments?: RenderedComment[]; codeState?: Record<string, { orphaned: boolean; movedTo: number | null }> } = {}) {
+function render(over: { rightTab?: "comments" | "pr"; noDiff?: boolean; showPr?: boolean; comments?: RenderedComment[]; codeState?: Record<string, { orphaned: boolean; movedTo: number | null }> } = {}) {
   return renderToStaticMarkup(
     <DocView
       session="abc"
@@ -41,7 +41,7 @@ function render(over: { rightTab?: "comments" | "pr"; noDiff?: boolean; comments
       header={null}
       toc={<nav data-testid="toc">Contents</nav>}
       rightTab={over.rightTab ?? "comments"}
-      diff={over.noDiff ? undefined : DIFF}
+      diff={over.noDiff ? undefined : over.showPr === undefined ? DIFF : { ...DIFF, showPr: over.showPr }}
       codeState={over.codeState}
     />,
   );
@@ -73,6 +73,14 @@ describe("DocView right rail", () => {
     expect(html).toContain('data-testid="resize-toc"');
     expect(html).toContain('data-testid="resize-cm"');
     expect(html).toContain('data-testid="comments-panel"');
+  });
+
+  test("a plain document keeps one Comments tab and no Local PR entry", () => {
+    const html = render({ showPr: false });
+    expect(html).toContain('data-testid="right-tabs"');
+    expect(html).toContain('data-testid="right-tab-comments"');
+    expect(html).not.toContain('data-testid="right-tab-pr"');
+    expect(html).not.toContain("Local PR");
   });
 
   test("without a snapshot the rail stays a comments-only panel", () => {

@@ -61,6 +61,25 @@ describe("openSession", () => {
     const onDisk = JSON.parse(readFileSync(join(home, "sessions.json"), "utf8"));
     expect(onDisk).toEqual({ version: 1, sessions: [s] });
   });
+
+  test("records the kind, defaults to plain, and keeps it when a re-open omits it", () => {
+    const { home, docs } = fixture();
+    const plain = openSession(home, join(docs, "design.md"));
+    expect(plain.kind).toBe("plain");
+    const pr = openSession(home, join(docs, "design.md"), process.cwd(), "pr");
+    expect(pr.kind).toBe("pr");
+    expect(openSession(home, join(docs, "design.md")).kind).toBe("pr");
+    expect(openSession(home, join(docs, "design.md"), process.cwd(), "plain").kind).toBe("plain");
+  });
+
+  test("a legacy entry without kind reads as undefined (plain)", () => {
+    const { home, docs } = fixture();
+    const s = openSession(home, join(docs, "design.md"));
+    const reg = JSON.parse(readFileSync(join(home, "sessions.json"), "utf8"));
+    delete reg.sessions[0].kind;
+    writeFileSync(join(home, "sessions.json"), JSON.stringify(reg));
+    expect(getSession(home, s.id)?.kind).toBeUndefined();
+  });
 });
 
 describe("resolveSession", () => {
