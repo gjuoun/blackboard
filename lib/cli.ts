@@ -5,12 +5,12 @@ import { addComment, addReply, mutate, readComments, reviewRound, setStatus, typ
 import { docMeta } from "./doc-meta";
 import { docType } from "./doc-type";
 import { exportStream, parseStream, type StreamAction } from "./stream-doc";
-import { appendBlock as storeAppend, rewriteBlock as storeRewrite } from "./stream-store";
+import { appendBlock as storeAppend, createStream, rewriteBlock as storeRewrite, writeStreamMeta, type HeaderResult } from "./stream-store";
 import { renderPlainText } from "./markdown";
 import { ensurePrDoc } from "./pr-kind";
 import { prStatus, type PrStatus } from "./pr-status";
 import { selectorFor } from "./selector";
-import { closeSession, openSession, realDoc, resolveSession, SessionError, sessionCommentsPath, sessionRows, type Session, type SessionKind, type SessionRow } from "./sessions";
+import { closeSession, openSession, realDoc, resolveSession, SessionError, sessionCommentsPath, sessionRow, sessionRows, type Session, type SessionKind, type SessionRow } from "./sessions";
 
 /** A failure the CLI reports on stderr. code 1 = the command failed, 2 = bad usage. */
 export class CliError extends Error {
@@ -56,8 +56,17 @@ export type PrPin = { base: string; sha: string; filled: boolean };
  * Register a markdown file as a session (again is fine) and give its URL. A pr session is
  * verified before it is registered: the front matter must name a hash git can resolve, and a
  * missing block is filled from the merge-base once, then written back into the doc.
+ *
+ * A stream session also gets its metadata line. `meta.title` is used when given, else the session
+ * id; a file that already has content is never rewritten (old files are migrated with `header`).
  */
-export function open(home: string, file: string, cwd = process.cwd(), kind?: SessionKind): { session: Session; url: string; pr?: PrPin } {
+export function open(
+  home: string,
+  file: string,
+  cwd = process.cwd(),
+  kind?: SessionKind,
+  meta?: { title?: string; owner?: string },
+): { session: Session; url: string; pr?: PrPin } {
   try {
     const real = realDoc(file, cwd);
     const kinded = docType(real, kind ?? "plain");
@@ -73,6 +82,9 @@ export function open(home: string, file: string, cwd = process.cwd(), kind?: Ses
       pr = { base: ensured.base, sha: ensured.sha, filled: ensured.filled };
     }
     const session = openSession(home, real, cwd, kind);
+    if ((kind ?? session.kind) === "stream") {
+      createStream(real, { title: meta?.title?.trim() || session.id, ...(meta?.owner?.trim() ? { owner: meta.owner.trim() } : {}) });
+    }
     return { session, url: sessionUrl(session.id), ...(pr ? { pr } : {}) };
   } catch (err) {
     if (err instanceof SessionError) throw new CliError(err.message);
@@ -178,10 +190,11 @@ export function appendBlock(
   input: { action: string; text: string; author: string; images?: string[]; status?: "writing" },
   cwd = process.cwd(),
 ): { id: string; n: number; file: string } {
-  const file = streamFile(home, ref, cwd);
+  const { session, file } = streamFile(home, ref, cwd);
   if (!input.text.trim()) throw new CliError("block text is empty", 2);
   try {
-    const b = storeAppend(file, { action: input.action as StreamAction, author: input.author, text: input.text, images: input.images, status: input.status });
+    // A block appended to an empty file writes the metadata line first; the title falls back to the session id.
+    const b = storeAppend(file, { action: input.action as StreamAction, author: input.author, text: input.text, images: input.images, status: input.status }, undefined, { title: session.id, owner: input.author });
     return { id: b.id, n: b.n, file };
   } catch (err) {
     throw new CliError(err instanceof Error ? err.message : String(err), 2);
@@ -190,7 +203,7 @@ export function appendBlock(
 
 /** Replaces the body (and optionally the action) of one existing block by id. Rewrites the file atomically. */
 export function editBlock(home: string, ref: string, id: string, text: string, cwd = process.cwd()): { id: string; n: number; file: string } {
-  const file = streamFile(home, ref, cwd);
+  const { file } = streamFile(home, ref, cwd);
   if (!text.trim()) throw new CliError("block text is empty", 2);
   try {
     const b = storeRewrite(file, id, (x) => ({ ...x, body: text, at: new Date().toISOString() }));
@@ -200,11 +213,27 @@ export function editBlock(home: string, ref: string, id: string, text: string, c
   }
 }
 
-/** The stream file of a session, after the kind check. */
-function streamFile(home: string, ref: string, cwd: string): string {
+/** The stream session and its file, after the kind check. */
+function streamFile(home: string, ref: string, cwd: string): { session: Session; file: string } {
   const { session } = find(home, ref, cwd);
   if (session.kind !== "stream") throw new CliError(`${session.path} is not a stream (open it with --kind stream)`, 2);
-  return session.path;
+  return { session, file: session.path };
+}
+
+/**
+ * Add or update the metadata line of an existing stream (old files have none). Every block keeps its
+ * place and bytes; the document id and `created` are kept, so running it twice with the same title is
+ * a no-op. This is the migration path for files written before the metadata line existed.
+ */
+export function setHeader(home: string, ref: string, input: { title: string; owner?: string }, cwd = process.cwd()): HeaderResult & { file: string } {
+  const { session } = streamFile(home, ref, cwd);
+  if (!input.title.trim()) throw new CliError("header needs --title <title>", 2);
+  try {
+    const out = writeStreamMeta(session.path, { title: input.title.trim(), ...(input.owner?.trim() ? { owner: input.owner.trim() } : {}) });
+    return { ...out, file: session.path };
+  } catch (err) {
+    throw new CliError(err instanceof Error ? err.message : String(err), 1);
+  }
 }
 
 const readStreamText = (path: string) => (existsSync(path) ? readFileSync(path, "utf8") : "");
@@ -213,7 +242,9 @@ const readStreamText = (path: string) => (existsSync(path) ? readFileSync(path, 
 export function exportBlocks(home: string, ref: string, cwd = process.cwd()): string {
   const { session } = find(home, ref, cwd);
   if (session.kind !== "stream") throw new CliError(`${session.path} is not a stream`, 2);
-  return exportStream(parseStream(readStreamText(session.path)).blocks, basename(session.path));
+  const parsed = parseStream(readStreamText(session.path));
+  // The document's own title wins; an old file without a metadata line falls back to the session title.
+  return exportStream(parsed.blocks, parsed.meta?.title ?? sessionRow(home, session).title);
 }
 
 /**
