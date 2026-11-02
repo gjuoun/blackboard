@@ -217,11 +217,11 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
         if (opts.edit !== undefined) {
           // Changing a block keeps its id; the file is rewritten atomically.
           const e = yield* streamsCli.editBlock(home, args[0], opts.edit, text);
-          print(e, `block ${e.id} rewritten in ${e.file}`);
+          print(e, `block ${e.id} rewritten in ${e.file}\n${e.url}`);
           return 0;
         }
         const b = yield* streamsCli.appendBlock(home, args[0], { action: opts.action ?? "", text, author, images, status: opts.status });
-        print(b, `block ${b.n} (${b.id}) appended to ${b.file}`);
+        print(b, `block ${b.n} (${b.id}) appended to ${b.file}\n${b.url}`);
         return 0;
       }
       case "review": {

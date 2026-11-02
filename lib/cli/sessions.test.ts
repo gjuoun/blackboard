@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { run } from "../../test/app";
 import { setup } from "../../test/fixtures/cli";
 import { comment } from "./comments";
-import { close, open, sessions } from "./sessions";
+import { blockUrl, close, open, sessions } from "./sessions";
 
 describe("open", () => {
   test("open is idempotent", async () => {
@@ -21,6 +21,15 @@ describe("open", () => {
     writeFileSync(join(docs, "log.jsonl"), "");
     await expect(run(open(home, join(docs, "log.jsonl")))).rejects.toThrow(/needs --kind stream/);
     expect((await run(open(home, join(docs, "log.jsonl"), docs, "stream"))).session.kind).toBe("stream");
+  });
+
+  test("blockUrl: the session URL plus the block id, base from $BLACKBOARD_URL", () => {
+    const before = process.env.BLACKBOARD_URL;
+    expect(blockUrl("1f09747876", "b-01M6EM3GQS6TXPTABZK16YT1RV")).toBe("http://127.0.0.1:38770/s/1f09747876#b-01M6EM3GQS6TXPTABZK16YT1RV");
+    process.env.BLACKBOARD_URL = "http://192.168.4.20:4000/";
+    expect(blockUrl("abc123", "b-1")).toBe("http://192.168.4.20:4000/s/abc123#b-1");
+    if (before === undefined) delete process.env.BLACKBOARD_URL;
+    else process.env.BLACKBOARD_URL = before;
   });
 
   test("open refuses what is not a markdown file", async () => {

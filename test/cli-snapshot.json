@@ -325,7 +325,7 @@
       "first block"
     ],
     "code": 0,
-    "stdout": "{\n  \"id\": \"b-<ulid>\",\n  \"n\": 1,\n  \"file\": \"<base>/docs/log.jsonl\"\n}\n",
+    "stdout": "{\n  \"id\": \"b-<ulid>\",\n  \"n\": 1,\n  \"file\": \"<base>/docs/log.jsonl\",\n  \"url\": \"http://127.0.0.1:9/s/<id>#b-<ulid>\"\n}\n",
     "stderr": ""
   },
   {
@@ -340,7 +340,7 @@
       "rewritten"
     ],
     "code": 0,
-    "stdout": "block b-<ulid> rewritten in <base>/docs/log.jsonl\n",
+    "stdout": "block b-<ulid> rewritten in <base>/docs/log.jsonl\nhttp://127.0.0.1:9/s/<id>#b-<ulid>\n",
     "stderr": ""
   },
   {

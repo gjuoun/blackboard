@@ -3,6 +3,7 @@ import { cliFailure, CliError, find } from "../cli";
 import { SessionsStore, type Session } from "../sessions";
 import { exportStream, parseStream, type StreamAction } from "../stream-doc";
 import { StreamStore, type HeaderResult } from "../stream-store";
+import { blockUrl } from "./sessions";
 
 /** The stream session and its file, after the kind check. */
 function streamFile(
@@ -26,7 +27,7 @@ export function appendBlock(
   ref: string,
   input: { action: string; text: string; author: string; images?: string[]; status?: "writing" },
   cwd = process.cwd(),
-): Effect.Effect<{ id: string; n: number; file: string }, CliError, SessionsStore | StreamStore> {
+): Effect.Effect<{ id: string; n: number; file: string; url: string }, CliError, SessionsStore | StreamStore> {
   return Effect.gen(function* () {
     const { session, file } = yield* streamFile(home, ref, cwd);
     const streams = yield* StreamStore;
@@ -40,7 +41,7 @@ export function appendBlock(
         { title: session.id, owner: input.author },
       )
       .pipe(Effect.mapError((error) => cliFailure(error, 2)));
-    return { id: block.id, n: block.n, file };
+    return { id: block.id, n: block.n, file, url: blockUrl(session.id, block.id) };
   });
 }
 
@@ -51,15 +52,15 @@ export function editBlock(
   id: string,
   text: string,
   cwd = process.cwd(),
-): Effect.Effect<{ id: string; n: number; file: string }, CliError, SessionsStore | StreamStore> {
+): Effect.Effect<{ id: string; n: number; file: string; url: string }, CliError, SessionsStore | StreamStore> {
   return Effect.gen(function* () {
-    const { file } = yield* streamFile(home, ref, cwd);
+    const { session, file } = yield* streamFile(home, ref, cwd);
     const streams = yield* StreamStore;
     if (!text.trim()) return yield* new CliError({ message: "block text is empty", code: 2 });
     const block = yield* streams.rewrite(file, id, (x) => ({ ...x, body: text, at: new Date().toISOString() })).pipe(
       Effect.mapError((error) => cliFailure(error)),
     );
-    return { id: block.id, n: block.n, file };
+    return { id: block.id, n: block.n, file, url: blockUrl(session.id, block.id) };
   });
 }
 

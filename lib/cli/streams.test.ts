@@ -46,8 +46,11 @@ describe("block writer", () => {
     const first = runCli(home, ["block", "log.jsonl", "--action", "answer", "draft", "--json"], docs);
     const made = JSON.parse(first.out);
     expect(made.id).toMatch(/^b-/);
+    // The CLI hands out the block's own address, so an agent can paste it into a chat.
+    expect(made.url).toMatch(new RegExp(`^http://127\\.0\\.0\\.1:38770/s/[0-9a-f]{10}#${made.id}$`));
     const r = runCli(home, ["block", "log.jsonl", "--edit", made.id, "final"], docs);
     expect(r.code).toBe(0);
+    expect(r.out).toContain(`#${made.id}`);
     const lines = readFileSync(join(docs, "log.jsonl"), "utf8").trim().split("\n");
     // line 1 is the metadata line open wrote; the block follows it
     expect(lines).toHaveLength(2);
@@ -64,7 +67,13 @@ describe("block writer", () => {
     const lines = readFileSync(join(docs, "log.jsonl"), "utf8").trim().split("\n");
     expect(lines).toHaveLength(2);
     expect(JSON.parse(lines[0])).toMatchObject({ type: "meta" });
-    expect(JSON.parse(lines[1])).toMatchObject({ type: "block", n: 1, action: "answer", author: "agent" });
+    const block = JSON.parse(lines[1]);
+    expect(block).toMatchObject({ type: "block", n: 1, action: "answer", author: "agent" });
+    // The second line is the address of the block just written: the chat-ready link.
+    const [first, url] = r.out.trimEnd().split("\n");
+    expect(first).toBe(`block 1 (${block.id}) appended to ${join(docs, "log.jsonl")}`);
+    expect(url).toMatch(/^http:\/\/127\.0\.0\.1:38770\/s\/[0-9a-f]{10}#b-[0-9A-HJKMNP-TV-Z]{26}$/);
+    expect(url.endsWith(`#${block.id}`)).toBe(true);
     const exp = runCli(home, ["export", "log.jsonl"], docs);
     expect(exp.out).toContain("## 1. 长答 · agent");
   }, 30_000);

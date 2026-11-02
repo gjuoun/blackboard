@@ -20,7 +20,7 @@ import { WorkspaceTree } from "@/components/WorkspaceTree";
 import { StreamTimeline } from "@/components/StreamTimeline";
 import { FileView } from "@/components/FileView";
 import { changedAgainstHead } from "@/lib/file-source";
-import { parseStream, type StreamBlock } from "@/lib/stream-doc";
+import { parseStream } from "@/lib/stream-doc";
 import { renderStream } from "@/lib/stream-html";
 import type { WorkspacePane } from "@/lib/workspace-pane";
 import { renderMarkdown } from "@/lib/markdown";
@@ -55,8 +55,6 @@ function leftPane(
   requested: string | string[] | undefined,
   toc: React.ReactNode,
   workspace: WorkspacePane,
-  blocks: readonly StreamBlock[] = [],
-  streamTitle = "",
 ): React.ReactNode {
   const tabs = LEFT_TABS_BY_TYPE[type];
   const active: LeftTab = parseLeftTab(typeof requested === "string" ? requested : undefined, type);
@@ -68,7 +66,7 @@ function leftPane(
     ) : (
       <div className="p-3"><WorkspaceTree nodes={workspace.tree} current={workspace.current} sessionByPath={workspace.sessionByPath} /></div>
     );
-  } else pane = <StreamTimeline blocks={blocks} title={streamTitle} />;
+  } else pane = null; // a stream's timeline is not a pane: it opens as a sheet on a phone, so DocView renders it
   return (
     <>
       <LeftRail tabs={tabs} active={active} hrefFor={(t) => `/s/${id}?left=${t}`} />
@@ -208,7 +206,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     return (
       <>
         <RegisterTab id={session.id} title={title} path={session.path} readable={false} hasToc={false} kind="stream" streamHref={`/s/${session.id}`} />
-        <DocView key={session.id} session={session.id} title={title} path={session.path} html={streamHtml} initialComments={renderComments(streamFile.docs[basename(file)] ?? [])} reviews={streamReviews} header={header} toc={leftPane(id, "stream", search.left, null, { state: "outside-git" }, blocks, title)} rightTab={parseRightTab(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
+        <DocView key={session.id} session={session.id} title={title} path={session.path} html={streamHtml} initialComments={renderComments(streamFile.docs[basename(file)] ?? [])} reviews={streamReviews} header={header} toc={leftPane(id, "stream", search.left, null, { state: "outside-git" })} timeline={<StreamTimeline blocks={blocks} title={title} />} rightTab={parseRightTab(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
       </>
     );
   }
