@@ -1,7 +1,7 @@
 import { basename } from "node:path";
 import { connection } from "next/server";
 import { getHome } from "@/lib/home";
-import { drawable, ogCard, OG_SIZE, OG_TYPE } from "@/lib/og";
+import { drawable, ogCard, OG_SIZE, OG_TYPE } from "@/app/_og/render";
 import { getSession, SCRATCHPAD_ID, scratchpadSession, sessionRow } from "@/lib/sessions";
 
 export const alt = "A document on Blackboard";
