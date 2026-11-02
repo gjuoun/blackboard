@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { Effect, FileSystem } from "effect";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NextRequest } from "next/server";
@@ -10,12 +10,18 @@ import { GET, PATCH, POST } from "./route";
 
 /** A temp Blackboard home and one doc. The route reads the home from BLACKBOARD_HOME on each call. */
 async function setup() {
-  const base = realpathSync(mkdtempSync(join(tmpdir(), "bb-route-")));
+  const { base, design } = await run(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const base = yield* fs.realPath(yield* fs.makeTempDirectory({ directory: tmpdir(), prefix: "bb-route-" }));
+      const docs = join(base, "docs");
+      yield* fs.makeDirectory(docs, { recursive: true });
+      const design = join(docs, "design.md");
+      yield* fs.writeFileString(design, "# Design\n\nLater text. More text.\n");
+      return { base, design };
+    }),
+  );
   const home = join(base, "home");
-  const docs = join(base, "docs");
-  mkdirSync(docs, { recursive: true });
-  const design = join(docs, "design.md");
-  writeFileSync(design, "# Design\n\nLater text. More text.\n");
   process.env.BLACKBOARD_HOME = home;
   process.env.BLACKBOARD_NO_BROWSER = "1";
   const { session } = await run(open(home, design));
