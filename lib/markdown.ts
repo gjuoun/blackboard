@@ -19,7 +19,7 @@ import { rehypeFileRefs, type FileLinkOptions } from "./file-refs";
 import { remarkSingleDollarMath } from "./math";
 
 export type TocEntry = { depth: number; id: string; text: string };
-export type Frontmatter = Record<string, unknown>;
+type Frontmatter = Record<string, unknown>;
 /** `fileRefs` is what the link visitor already resolved: the changed files this document opens. */
 export type Rendered = { html: string; toc: TocEntry[]; frontmatter: Frontmatter | null; fileRefs: readonly string[] };
 

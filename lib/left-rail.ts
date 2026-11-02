@@ -5,8 +5,7 @@
  */
 import type { DocType } from "./doc-type";
 
-export const LEFT_TABS = ["contents", "workspace", "timeline"] as const;
-export type LeftTab = (typeof LEFT_TABS)[number];
+export type LeftTab = "contents" | "workspace" | "timeline";
 
 /** The tabs a document type offers, in the order they show. */
 export const LEFT_TABS_BY_TYPE: Record<DocType, readonly LeftTab[]> = {

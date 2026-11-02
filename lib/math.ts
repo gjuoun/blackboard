@@ -111,7 +111,7 @@ function tokenizeSingleDollar(this: Ctx, effects: Effects, ok: State, nok: State
 }
 
 /** The construct, for micromark's `text` hook on code 36 (`$`). */
-export function singleDollarMathText(): Construct {
+function singleDollarMathText(): Construct {
   return { name: "singleDollarMathText", tokenize: tokenizeSingleDollar, previous };
 }
 

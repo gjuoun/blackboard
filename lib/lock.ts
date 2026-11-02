@@ -1,6 +1,6 @@
 import { closeSync, openSync, readFileSync, rmSync, statSync, writeSync } from "node:fs";
 
-export const LOCK_WAIT_MS = 5_000;
+const LOCK_WAIT_MS = 5_000;
 export const STALE_MS = 10_000;
 
 const sleepSync = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);

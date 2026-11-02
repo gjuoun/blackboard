@@ -22,7 +22,7 @@ import { useLiveDoc } from "./useLiveDoc";
 const AUTHOR_KEY = "bb-author";
 type Draft = { selector: QuoteSelector; top: number; left: number };
 /** The Local PR half of the shared right column, rendered by the server page. */
-export type DiffRail = {
+type DiffRail = {
   panel: ReactNode;
   commentHref: string;
   prHref: string;

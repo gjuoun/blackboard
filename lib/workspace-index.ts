@@ -5,14 +5,14 @@
  */
 import { execFileSync } from "node:child_process";
 
-export type WorkspaceIndex = { head: string; files: readonly string[] };
+type WorkspaceIndex = { head: string; files: readonly string[] };
 
 /** Keeps at most this many repos. Each entry is one path list; the oldest is dropped first. */
 export const INDEX_CAP = 8;
 const cache = new Map<string, WorkspaceIndex>();
 
 /** Injected for tests: counts git invocations. Default runs git. */
-export let gitRunner: (root: string, args: string[]) => string = (root, args) =>
+let gitRunner: (root: string, args: string[]) => string = (root, args) =>
   execFileSync("git", args, { cwd: root, stdio: ["ignore", "pipe", "ignore"], maxBuffer: 16 * 1024 * 1024 }).toString();
 export function setGitRunner(fn: typeof gitRunner) {
   gitRunner = fn;

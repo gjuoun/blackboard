@@ -3,7 +3,7 @@ import { mkdirSync, existsSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { acceptImage, IMAGE_ID } from "./comment-images";
 
-export const imageDir = (home: string) => join(home, "comment-images");
+const imageDir = (home: string) => join(home, "comment-images");
 
 /** Stores a valid image and returns its id. Same bytes, same id, so a second upload is a no-op. */
 export function saveImage(home: string, bytes: Uint8Array): { ok: true; id: string; mime: string } | { ok: false; error: string } {

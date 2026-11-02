@@ -17,7 +17,7 @@ export type FontEntry<Id extends string> = {
   note?: string;
 };
 
-export type MonoEntry = FontEntry<MonoId> & {
+type MonoEntry = FontEntry<MonoId> & {
   /** A Latin mono and a CJK mono that share the 2:1 grid, so mixed code stays in columns. */
   aligned: boolean;
 };

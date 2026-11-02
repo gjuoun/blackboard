@@ -26,7 +26,7 @@ export type HomeRow = {
 };
 
 /** Filter value for files outside any git repo. */
-export const NO_REPO = "__none";
+const NO_REPO = "__none";
 
 const SORTS: { value: HomeSort; label: string }[] = [
   { value: "updated", label: "Newest first" },
@@ -34,7 +34,7 @@ const SORTS: { value: HomeSort; label: string }[] = [
   { value: "title", label: "Title" },
 ];
 
-export function filterRows(rows: HomeRow[], q: string, repo: string, sort: HomeSort): HomeRow[] {
+function filterRows(rows: HomeRow[], q: string, repo: string, sort: HomeSort): HomeRow[] {
   const needle = q.trim().toLowerCase();
   return rows
     .filter((r) => !repo || (repo === NO_REPO ? r.repo === null : r.repo === repo))

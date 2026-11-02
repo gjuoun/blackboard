@@ -17,7 +17,7 @@ export const STREAM_ACTIONS = ["answer", "edit", "append"] as const;
 export type StreamAction = (typeof STREAM_ACTIONS)[number];
 
 /** Schema version written into the metadata line. Readers ignore unknown keys and accept newer integers. */
-export const STREAM_META_VERSION = 1;
+const STREAM_META_VERSION = 1;
 
 /** The document itself: stable id, title, kind and creation time. Later versions may add keys. */
 export type StreamMeta = {
@@ -45,7 +45,7 @@ export type StreamBlock = {
   status?: "writing";
 };
 
-export type ParsedStream = {
+type ParsedStream = {
   /** The document's metadata, or null for an old file with no metadata line. */
   meta: StreamMeta | null;
   /** True when the file has no metadata line (old files and empty files). */
@@ -63,7 +63,7 @@ const nonEmpty = (v: unknown): v is string => typeof v === "string" && v.trim().
  * One parsed metadata line, or null when the shape is not usable. A missing or non-string title is
  * exactly why a line is refused: the line is counted in `skipped` and the blocks still parse.
  */
-export function parseMeta(v: unknown): StreamMeta | null {
+function parseMeta(v: unknown): StreamMeta | null {
   if (!v || typeof v !== "object" || Array.isArray(v)) return null;
   const o = v as Record<string, unknown>;
   if (o.type !== "meta") return null;
