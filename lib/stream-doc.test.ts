@@ -1,10 +1,78 @@
 import { describe, expect, test } from "bun:test";
-import { exportStream, parseStream } from "./stream-doc";
+import { exportStream, parseStream, type StreamMeta } from "./stream-doc";
 import { renderStream } from "./stream-html";
 
 const line = (o: Record<string, unknown>) => JSON.stringify(o);
 
+const META: StreamMeta = {
+  type: "meta",
+  v: 1,
+  id: "s-01JXXXXXXXXXXXXXXXXXXXXXXX",
+  title: "JW-341 三种文档类型 · 时间线收尾",
+  kind: "stream",
+  created: "2026-11-02T14:03:11.482Z",
+  owner: "pi #j7x2",
+};
+const block = (o: Record<string, unknown>) => ({ type: "block", author: "agent", at: "t", ...o });
+
 describe("stream doc", () => {
+  test("stream: the first line is metadata and is never a block", () => {
+    const text = [line(META), line(block({ id: "b1", n: 1, action: "answer", body: "a" })), line(block({ id: "b2", n: 2, action: "append", body: "b" }))].join("\n") + "\n";
+    const { meta, legacy, blocks, skipped } = parseStream(text);
+    expect(meta).toEqual(META);
+    expect(legacy).toBe(false);
+    expect(blocks.map((b) => b.id)).toEqual(["b1", "b2"]);
+    expect(skipped).toBe(0);
+    expect(blocks.every((b) => b.type === "block")).toBe(true);
+    // the metadata object is not in the block list, and a block lacks the meta keys
+    expect(JSON.stringify(blocks)).not.toContain('"kind":"stream"');
+  });
+
+  test("stream: a file without metadata is legacy and keeps its blocks", () => {
+    // Old lines have no `type`: the first one is a block, so there is no metadata line at all.
+    const text = [
+      line({ id: "b1", n: 1, action: "answer", author: "agent", at: "t1", body: "one" }),
+      line({ id: "b2", n: 2, action: "append", author: "agent", at: "t2", body: "two" }),
+    ].join("\n");
+    const { meta, legacy, blocks, skipped } = parseStream(text);
+    expect(meta).toBeNull();
+    expect(legacy).toBe(true);
+    expect(blocks.map((b) => b.id)).toEqual(["b1", "b2"]);
+    expect(skipped).toBe(0);
+  });
+
+  test("stream: an unusable metadata title is skipped and the blocks still parse", () => {
+    const text = [
+      line({ ...META, title: 42 }),
+      line(block({ id: "b1", n: 1, action: "answer", body: "still here" })),
+    ].join("\n");
+    const { meta, legacy, blocks, skipped } = parseStream(text);
+    expect(meta).toBeNull();
+    expect(legacy).toBe(true);
+    expect(blocks.map((b) => b.id)).toEqual(["b1"]);
+    expect(skipped).toBe(1);
+  });
+
+  test("stream: a broken metadata line is skipped and the blocks still parse", () => {
+    const text = ["{\"type\":\"meta\",\"title\":", line(block({ id: "b1", n: 1, action: "answer", body: "b" }))].join("\n");
+    const { meta, blocks, skipped } = parseStream(text);
+    expect(meta).toBeNull();
+    expect(blocks).toHaveLength(1);
+    expect(skipped).toBe(1);
+  });
+
+  test("stream: metadata off the first line is not a block and is not adopted", () => {
+    const text = [
+      line({ id: "b1", n: 1, action: "answer", author: "agent", at: "t", body: "first" }),
+      line(META),
+    ].join("\n");
+    const { meta, legacy, blocks, skipped } = parseStream(text);
+    expect(meta).toBeNull();
+    expect(legacy).toBe(true);
+    expect(blocks.map((b) => b.id)).toEqual(["b1"]);
+    expect(skipped).toBe(1);
+  });
+
   test("stream: blocks parse in file order", () => {
     const text = [
       line({ id: "b3", n: 3, action: "append", author: "agent", at: "t3", body: "c" }),
