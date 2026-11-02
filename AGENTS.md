@@ -69,6 +69,22 @@ edits: one in each.
   `bin/blackboard.ts` for the CLI, tests for assertions. Anywhere else is a leak.
 - Sync data-plane code (reducers, lookups, value objects passed around inside an Effect) stays plain.
 
+### Files: `FileSystem` at the edges, sync inside the stores
+
+- **Every request and CLI edge uses `FileSystem`** from `effect`: serving an asset, storing an
+  uploaded image, watching a doc folder. `FileSystem.watch` is a `Stream<WatchEvent>` whose
+  watcher is released when the stream is cancelled, so a disconnected browser cannot leak one.
+- **The stores keep `node:fs` sync calls on purpose.** A comment file, the session registry and a
+  stream's JSONL are read, changed and written back as one synchronous step under `<file>.lock`
+  (lock, temp file, rename, all inside `Effect.try`). A `FileSystem` call yields to the scheduler,
+  so another writer could enter between the read and the write — still holding the lock, still
+  losing the first change.
+- **The render path reads metadata synchronously.** `docMeta` and `app/s/[id]/page.tsx` need a
+  title, a branch and an mtime while composing JSX, once per doc. Converting them makes every
+  caller async and pays an `await` per doc on first paint, for no correctness gain.
+- **The CLI's process supervisor stays sync** (`lib/server-ctl.ts`): rename `modules`, open the log
+  fd, spawn, record the pid — once around the spawn, not per request.
+
 ## No `try`/`catch`
 
 Inside Effect code, `try`/`catch`/`try`-`finally` are banned — tests included. Use `Effect.try` for
