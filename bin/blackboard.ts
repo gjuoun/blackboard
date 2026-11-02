@@ -84,6 +84,7 @@ async function main(argv: string[]): Promise<number> {
       images: { type: "string" },
       status: { type: "string" },
       general: { type: "boolean" },
+      round: { type: "string" },
       occurrence: { type: "string" },
       "no-browser": { type: "boolean" },
       "no-server": { type: "boolean" },
@@ -198,6 +199,14 @@ async function main(argv: string[]): Promise<number> {
       if (o.status !== undefined && o.status !== "writing") throw new cli.CliError('--status takes "writing"', 2);
       const b = cli.appendBlock(home, args[0], { action, text, author, images, status: o.status === "writing" ? "writing" : undefined });
       print(b, `block ${b.n} (${b.id}) appended to ${b.file}`);
+      return 0;
+    }
+    case "review": {
+      need(1, "review <session> --round <n> <body>");
+      const n = Number(o.round);
+      if (!Number.isInteger(n) || n < 1) throw new cli.CliError("--round must be a whole number from 1", 2);
+      const r = await cli.review(home, args[0], n, args.slice(1).join(" "), author);
+      print(r, `review ${r.id} for round ${r.round} on ${r.doc}: ${r.verdict}`);
       return 0;
     }
     case "export": {

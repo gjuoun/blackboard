@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { anchorLabel, codeStateFromLines, parseCodeRef, type CodeState } from "./code-anchor";
-import { addComment, addReply, mutate, readComments, setStatus, type Comment, type CommentFile } from "./comments-store";
+import { addComment, addReply, mutate, readComments, reviewRound, setStatus, type Comment, type CommentFile } from "./comments-store";
 import { docMeta } from "./doc-meta";
 import { docType } from "./doc-type";
 import { exportStream, parseStream, STREAM_ACTIONS, type StreamAction } from "./stream-doc";
@@ -122,6 +122,17 @@ export function comments(home: string, ref: string, cwd = process.cwd()): DocCom
       ...(c.code && c.code.side === "new" ? { codeState: codeStateFromLines(c.code, read(c.code.path)) } : {}),
     })),
   );
+}
+
+/** Close a round for a session's doc. The store refuses while an open comment has no agent reply. */
+export async function review(home: string, ref: string, round: number, body: string, author: string, cwd = process.cwd()) {
+  if (!body.trim()) throw new CliError("review text is empty", 2);
+  const { file, doc } = find(home, ref, cwd);
+  try {
+    return await mutate(file, (f) => reviewRound(f, doc, { round, body: body.trim(), author }));
+  } catch (err) {
+    throw new CliError(err instanceof Error ? err.message : String(err), 1);
+  }
 }
 
 /** An independent comment: no passage and no line. It joins the same store and list as the other kinds. */

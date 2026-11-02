@@ -7,6 +7,8 @@ import type { RenderedComment } from "@/lib/comment-markdown";
 import { fileHref } from "@/lib/hrefs";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import type { Review } from "@/lib/comments-store";
+import { ReviewCard } from "./ReviewCard";
 
 const TEXTAREA = "border-input bg-background focus-visible:ring-ring/40 w-full resize-y rounded-lg border p-2 text-[13.5px] outline-none focus-visible:ring-[3px]";
 
@@ -126,6 +128,8 @@ type Props = {
   title: string;
   path: string;
   comments: PanelComment[];
+  /** Round reviews: listed after the anchored comments, before the independent (general) ones. */
+  reviews?: Review[];
   activeId: string | null;
   flashId: string | null;
   onActivate: (id: string) => void;
@@ -165,6 +169,8 @@ export function CommentPanel(p: Props) {
       <ol className="m-0 flex list-none flex-col gap-2.5 p-0">
         {visible.map((c, i) => (
           <Fragment key={c.id}>
+          {/* reviews sit between the anchored comments and the independent ones */}
+          {!c.general && (i + 1 === visible.length || visible[i + 1].general) ? (p.reviews ?? []).map((r) => <ReviewCard key={r.id} review={r} />) : null}
           {c.general && !(i > 0 && visible[i - 1].general) ? (
             <li aria-hidden className="text-muted-foreground flex items-center gap-2 text-[11px] uppercase tracking-wide" data-testid="general-divider">
               <span className="bg-border h-px flex-1" />general<span className="bg-border h-px flex-1" />

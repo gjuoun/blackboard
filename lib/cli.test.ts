@@ -189,6 +189,20 @@ describe("code-anchored comments", () => {
 });
 
 describe("block writer", () => {
+  test("review: CLI refuses while a comment has no agent reply, then stores the round", () => {
+    const { home, design } = setup();
+    expect(run(home, ["open", "--no-browser", design]).code).toBe(0);
+    expect(run(home, ["comment", design, "--quote", "Later text.", "why?"]).code).toBe(0);
+    const refused = run(home, ["review", design, "--round", "1", "all done"]);
+    expect(refused.code).toBe(1);
+    expect(refused.err).toContain("no reply from agent");
+    const id = JSON.parse(run(home, ["comments", design, "--json"]).out)[0].id;
+    expect(run(home, ["reply", design, id, "answered"]).code).toBe(0);
+    const ok = run(home, ["review", design, "--round", "1", "all done"]);
+    expect(ok.code).toBe(0);
+    expect(ok.out).toContain("commented");
+  });
+
   test("general: CLI creates one", () => {
     const { home, design } = setup();
     expect(run(home, ["open", "--no-browser", design]).code).toBe(0);

@@ -224,7 +224,9 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   const doc = basename(file);
   // One render of the stored comments feeds both panes: the list the client keeps, and the threads
   // the diff box prints. The grouping resolves each code anchor against the same request snapshot.
-  const renderedComments = renderComments(readComments(sessionCommentsPath(home, session.id)).docs[doc] ?? []);
+  const commentFile = readComments(sessionCommentsPath(home, session.id));
+  const renderedComments = renderComments(commentFile.docs[doc] ?? []);
+  const reviews = (commentFile.reviews ?? []).filter((r) => r.doc === doc);
   const codeThreads = groupCodeThreads(renderedComments, snapshot);
   return (
     <>
@@ -236,6 +238,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
         path={session.path}
         html={html}
         initialComments={renderedComments}
+        reviews={reviews}
         header={header}
         toc={leftPane(id, "doc", search.left, toc.length > 1 ? <Toc toc={toc} /> : null, workspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home))}
         rightTab={rightTab}

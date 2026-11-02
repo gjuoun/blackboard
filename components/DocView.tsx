@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { anchor, makeSelector, type QuoteSelector, type TextRange } from "@/lib/anchor";
 import type { CodeState } from "@/lib/code-anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
+import type { Review } from "@/lib/comments-store";
+import { ReviewCard } from "./ReviewCard";
 import { cn } from "@/lib/utils";
 import { buildTextMap, offsetOf, rangeOf } from "@/lib/text-map";
 import { clampPanels, type PanelKey, type RightTab } from "@/lib/prefs";
@@ -34,6 +36,8 @@ export type DiffRail = {
 export type FileRail = { panel: ReactNode; href: string; commentHref: string };
 type DocViewProps = {
   session: string;
+  /** This doc's review rounds, listed after the anchored comments. */
+  reviews?: Review[];
   /** Set on every document with source (doc, code, stream): the right rail gets a File tab. */
   fileRail?: FileRail;
   title: string;
@@ -56,7 +60,7 @@ const highlights = () => (typeof CSS !== "undefined" && "highlights" in CSS ? CS
  * stored selector is anchored back to text offsets and drawn with the CSS Custom Highlight API,
  * which leaves the page DOM untouched.
  */
-export function DocView({ session, title, path, html, initialComments, header, toc, rightTab = "comments", diff, codeState, fileRail }: DocViewProps) {
+export function DocView({ session, reviews = [], title, path, html, initialComments, header, toc, rightTab = "comments", diff, codeState, fileRail }: DocViewProps) {
   const bodyRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [author, setAuthor] = useState("jun");
@@ -311,6 +315,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
 
   const panel = (
     <CommentPanel
+      reviews={reviews}
       title={title}
       path={path}
       comments={panelComments}

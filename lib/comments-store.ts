@@ -31,7 +31,9 @@ export type Comment = {
   reopenedBy?: string;
   replies: Reply[];
 };
-export type CommentFile = { version: 1; docs: Record<string, Comment[]> };
+/** One round's review: the agent has answered each open comment and closes the round. The verdict has one value. */
+export type Review = { id: string; doc: string; round: number; body: string; author: string; createdAt: string; verdict: "commented" };
+export type CommentFile = { version: 1; docs: Record<string, Comment[]>; reviews?: Review[] };
 
 const now = () => new Date().toISOString();
 const newId = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
@@ -76,6 +78,20 @@ function find(file: CommentFile, doc: string, id: string): Comment {
   const c = file.docs[doc]?.find((x) => x.id === id);
   if (!c) throw new Error(`comment ${id} not found in ${doc}`);
   return c;
+}
+
+/**
+ * Closes a round for one doc. Refused while any open comment on the doc has no reply from `agent`; a comment
+ * answered in an earlier round is settled, so only comments created after the last review count.
+ */
+export function reviewRound(file: CommentFile, doc: string, input: { round: number; body: string; author: string }): Review {
+  if (!Number.isInteger(input.round) || input.round < 1) throw new Error("round must be a whole number from 1");
+  const last = (file.reviews ?? []).filter((r) => r.doc === doc).reduce((m, r) => Math.max(m, Date.parse(r.createdAt)), 0);
+  const pending = (file.docs[doc] ?? []).filter((c) => c.status === "open" && Date.parse(c.createdAt) > last && !c.replies.some((r) => r.author === "agent"));
+  if (pending.length > 0) throw new Error(`no reply from agent on ${pending.length} open comment(s), e.g. ${pending[0].id}`);
+  const review: Review = { id: newId("v"), doc, round: input.round, body: input.body, author: input.author, createdAt: now(), verdict: "commented" };
+  (file.reviews ??= []).push(review);
+  return review;
 }
 
 export type CommentAnchor = { quote: QuoteSelector; code?: undefined; general?: undefined } | { code: CodeAnchor; quote?: undefined; general?: undefined } | { general: true; quote?: undefined; code?: undefined };
