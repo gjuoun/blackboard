@@ -355,7 +355,9 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
     <div className="doc-grid grid min-h-[calc(100vh-var(--bar-h))] transition-[grid-template-columns] duration-200 [html[data-resizing]_&]:transition-none" style={vars as React.CSSProperties}>
       {desktop ? (
         <aside className={cn("hidden border-border relative overflow-x-clip border-r md:block", chrome.tocOpen && toc ? "" : "invisible border-0")} aria-hidden={!chrome.tocOpen} data-testid="toc-panel">
-          <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto p-3">{toc}</div>
+          {/* No top padding: the left rail's tab strip must sit flush under the top bar, exactly like the
+              right rail's. A p-3 wrapper here put 12px above the tabs and read as a stray gap. */}
+          <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto px-3 pb-3">{toc}</div>
           <PanelResizer
             which="toc"
             width={tocW}
