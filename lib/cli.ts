@@ -3,6 +3,7 @@ import { basename, join } from "node:path";
 import { anchorLabel, codeStateFromLines, parseCodeRef, type CodeState } from "./code-anchor";
 import { addComment, addReply, mutate, readComments, setStatus, type Comment, type CommentFile } from "./comments-store";
 import { docMeta } from "./doc-meta";
+import { docType } from "./doc-type";
 import { renderPlainText } from "./markdown";
 import { ensurePrDoc } from "./pr-kind";
 import { prStatus, type PrStatus } from "./pr-status";
@@ -57,6 +58,8 @@ export type PrPin = { base: string; sha: string; filled: boolean };
 export function open(home: string, file: string, cwd = process.cwd(), kind?: SessionKind): { session: Session; url: string; pr?: PrPin } {
   try {
     const real = realDoc(file, cwd);
+    const kinded = docType(real, kind ?? "plain");
+    if (!kinded.ok) throw new CliError(kinded.error, 2);
     let pr: PrPin | undefined;
     if (kind === "pr") {
       const repo = docMeta(real).repo;

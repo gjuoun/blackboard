@@ -31,7 +31,7 @@ Usage:
 <id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).
 
 Options:
-  --kind <k>       open: plain (default) or pr; pr pins the diff baseline in the doc's front matter
+  --kind <k>       open: plain (default), pr (pins the diff baseline in the doc's front matter) or stream (a .jsonl block file)
   --code <ref>     comment: anchor on <repo-relative-path>:L<n> instead of a quoted passage
   --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)
   --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or "agent")
@@ -107,9 +107,9 @@ async function main(argv: string[]): Promise<number> {
 
   switch (cmd) {
     case "open": {
-      need(1, "open <file> [--kind plain|pr] [--no-browser]");
-      if (o.kind !== undefined && o.kind !== "plain" && o.kind !== "pr") {
-        throw new cli.CliError('--kind takes "plain" or "pr"', 2);
+      need(1, "open <file> [--kind plain|pr|stream] [--no-browser]");
+      if (o.kind !== undefined && o.kind !== "plain" && o.kind !== "pr" && o.kind !== "stream") {
+        throw new cli.CliError('--kind takes "plain", "pr" or "stream"', 2);
       }
       if (!o["no-server"] && process.env.BLACKBOARD_NO_SERVER !== "1") await ensureServer(home);
       const { session, url, pr } = cli.open(home, args[0], process.cwd(), o.kind);

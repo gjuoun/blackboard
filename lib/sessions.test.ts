@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { closeSession, getSession, listSessions, openSession, resolveSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath } from "./sessions";
+import { closeSession, getSession, listSessions, openSession, realDoc, resolveSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath } from "./sessions";
 
 /** A temp home plus a few docs: one in a nested folder, a non-markdown file, a symlink to a doc. */
 function fixture() {
@@ -19,6 +19,38 @@ function fixture() {
   symlinkSync(join(base, "secret.txt"), join(docs, "sneaky.md"));
   return { base, home, docs };
 }
+
+describe("realDoc", () => {
+  test("realDoc: txt still refused", () => {
+    const { docs } = fixture();
+    expect(() => realDoc(join(docs, "notes.txt"))).toThrow(/not a markdown file/);
+  });
+
+  test("realDoc: symlink escape refused", () => {
+    const { docs } = fixture();
+    expect(() => realDoc(join(docs, "sneaky.md"))).toThrow(/not a markdown file/);
+  });
+
+  test("realDoc: jsonl and code are servable", () => {
+    const { docs } = fixture();
+    writeFileSync(join(docs, "log.jsonl"), "{}\n");
+    writeFileSync(join(docs, "app.tsx"), "export {};\n");
+    expect(realDoc(join(docs, "log.jsonl"))).toBe(join(docs, "log.jsonl"));
+    expect(realDoc(join(docs, "app.tsx"))).toBe(join(docs, "app.tsx"));
+  });
+
+  test("realDoc: stream over 1 MB still servable", () => {
+    const { docs } = fixture();
+    writeFileSync(join(docs, "big.jsonl"), "x".repeat(1024 * 1024 + 1));
+    expect(realDoc(join(docs, "big.jsonl"))).toBe(join(docs, "big.jsonl"));
+  });
+
+  test("realDoc: source over 1 MB refused", () => {
+    const { docs } = fixture();
+    writeFileSync(join(docs, "big.ts"), "x".repeat(1024 * 1024 + 1));
+    expect(() => realDoc(join(docs, "big.ts"))).toThrow(/over 1 MB/);
+  });
+});
 
 describe("openSession", () => {
   test("opening the same file twice returns one session", () => {

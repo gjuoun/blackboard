@@ -3,6 +3,7 @@ import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSyn
 import { dirname, join, resolve } from "node:path";
 import { readComments } from "./comments-store";
 import { docMeta, type DocMeta } from "./doc-meta";
+import { CODE_EXTENSIONS, CODE_MAX_BYTES, extOf, servableExtension } from "./doc-type";
 import { expandHome } from "./home";
 import { withFileLock } from "./lock";
 
@@ -10,8 +11,8 @@ import { withFileLock } from "./lock";
  * A session is one markdown file, anywhere on disk, that someone opened for review.
  * The registry is <home>/sessions.json — plain JSON, so an agent can read it from disk.
  */
-export type SessionKind = "plain" | "pr";
-/** A session is one markdown file; pr sessions carry the diff pane's front-matter baseline. */
+export type SessionKind = "plain" | "pr" | "stream";
+/** A session is one registered file; pr sessions carry the diff pane's front-matter baseline, stream sessions are .jsonl blocks. */
 export type Session = { id: string; path: string; createdAt: string; openedAt: string; kind?: SessionKind };
 type Registry = { version: 1; sessions: Session[] };
 
@@ -66,7 +67,11 @@ export function realDoc(file: string, cwd = process.cwd()): string {
   // Docs live anywhere on disk by design; the ignore comments keep the build from tracing the whole project.
   if (!existsSync(/*turbopackIgnore: true*/ abs)) throw new SessionError(isLink ? `dangling symlink: ${abs}` : `no such file: ${abs}`);
   const real = realpathSync(/*turbopackIgnore: true*/ abs);
-  if (!statSync(real).isFile() || !real.toLowerCase().endsWith(".md")) throw new SessionError(`not a markdown file: ${abs}`);
+  const isFile = statSync(real).isFile();
+  if (!isFile || !servableExtension(real)) throw new SessionError(`not a markdown file: ${abs}`);
+  // The 1 MB cap is for source files only: a stream grows by appending, and is not capped here.
+  const isCode = (CODE_EXTENSIONS as readonly string[]).includes(extOf(real));
+  if (isCode && statSync(real).size > CODE_MAX_BYTES) throw new SessionError(`over 1 MB: ${abs}`);
   return real;
 }
 

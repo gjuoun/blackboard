@@ -57,6 +57,13 @@ describe("cli commands", () => {
     expect(sessions(home).map((s) => s.title)).toEqual(["Design"]);
   });
 
+  test("open: jsonl needs --kind stream", () => {
+    const { home, docs } = setup();
+    writeFileSync(join(docs, "log.jsonl"), "");
+    expect(() => open(home, join(docs, "log.jsonl"))).toThrow(/needs --kind stream/);
+    expect(open(home, join(docs, "log.jsonl"), docs, "stream").session.kind).toBe("stream");
+  });
+
   test("open refuses what is not a markdown file", () => {
     const { home, docs } = setup();
     expect(() => open(home, docs)).toThrow(/not a markdown file/);
