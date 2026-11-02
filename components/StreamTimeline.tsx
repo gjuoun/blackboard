@@ -1,3 +1,4 @@
+import { blockTitle } from "@/lib/block-title";
 import type { StreamBlock } from "@/lib/stream-doc";
 
 /**
@@ -21,8 +22,3 @@ export function StreamTimeline({ blocks }: { blocks: readonly StreamBlock[] }) {
   );
 }
 
-/** The entry title: the block's first heading, else its n-th position. */
-export function blockTitle(b: StreamBlock): string {
-  const h = /^ {0,3}#{1,6}[ \t]+(.+?)[ \t#]*$/m.exec(b.body);
-  return h ? h[1] : `第 ${b.n} 块`;
-}

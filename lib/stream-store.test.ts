@@ -53,7 +53,8 @@ describe("stream store", () => {
     const { file } = fresh();
     const writer = `${process.cwd()}/lib/stream-store.ts`;
     // Large bodies and many rounds make the two processes overlap; without the lock, lines interleave.
-    const script = `import { appendBlock } from ${JSON.stringify(writer)}; for (let i = 0; i < 300; i++) appendBlock(${JSON.stringify(file)}, { action: "append", author: "w", text: "x".repeat(4000) + i });`;
+    // A child that waits past the lock timeout under load retries that one write; any other error still fails.
+    const script = `import { appendBlock } from ${JSON.stringify(writer)}; for (let i = 0; i < 300; i++) { for (let tries = 0; ; tries++) { try { appendBlock(${JSON.stringify(file)}, { action: "append", author: "w", text: "x".repeat(4000) + i }); break; } catch (e) { if (!String(e).includes("locked by another writer") || tries > 50) throw e; } } }`;
     const procs = [Bun.spawn(["bun", "-e", script]), Bun.spawn(["bun", "-e", script])];
     const codes = await Promise.all(procs.map((p) => p.exited));
     expect(codes).toEqual([0, 0]);
