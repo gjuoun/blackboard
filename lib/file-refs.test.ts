@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { DiffFile, DiffSnapshot } from "./diff-index";
+import type { DiffSnapshot } from "./diff-index";
+import type { DiffFile } from "./diff-parse";
 import { fileHref, normalizeRange, parseFileRef, parseSelectedFile, prListHref, tabHref } from "./file-refs";
 import { renderMarkdown } from "./markdown";
 

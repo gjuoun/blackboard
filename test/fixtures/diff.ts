@@ -1,4 +1,5 @@
-import type { DiffFile, DiffSnapshot } from "@/lib/diff-index";
+import type { DiffSnapshot } from "@/lib/diff-index";
+import type { DiffFile } from "@/lib/diff-parse";
 
 export const ADD = (text: string, newLine: number) => ({ kind: "add" as const, text, oldLine: null, newLine });
 export const DEL = (text: string, oldLine: number) => ({ kind: "del" as const, text, oldLine, newLine: null });

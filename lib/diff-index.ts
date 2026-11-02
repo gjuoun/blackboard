@@ -1,35 +1,18 @@
-import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { lstatSync, readFileSync, statSync } from "node:fs";
-import { join, relative, resolve, sep } from "node:path";
-import { normalizeRepoPath } from "./repo-path";
-
-export { normalizeRepoPath } from "./repo-path";
-
 /**
  * One repository snapshot per render request. The page builds it before markdown rendering and
  * hands the immutable index to the link visitor, so no visitor ever touches the filesystem or git.
  *
  * The diff base is the merge-base of HEAD and origin/main (falling back to HEAD when the remote
- * ref does not exist) unless a caller pins a commit: a document's front matter does, so its diff
- * does not move when the branch does. Either way the comparison is against the worktree:
+ * ref does not exist) unless a caller pins a commit: a document front matter does, so its diff
+ * does not move when the branch moves. Either way the comparison is against the worktree:
  * tracked, staged and standard untracked files.
  */
+import { lstatSync } from "node:fs";
+import { join, relative, sep } from "node:path";
+import { gitRun, probe, readUtf8, untrackedPaths, type DiffOptions, type Probe } from "./diff-git";
+import { parseUnifiedDiff, type DiffFile, type DiffHunk } from "./diff-parse";
+import { normalizeRepoPath } from "./repo-path";
 
-export type DiffStatus = "added" | "modified" | "deleted" | "renamed" | "untracked";
-export type DiffLineKind = "add" | "del" | "ctx";
-export type DiffLine = { kind: DiffLineKind; text: string; oldLine: number | null; newLine: number | null };
-export type DiffHunk = { header: string; oldStart: number; oldLines: number; newStart: number; newLines: number; lines: readonly DiffLine[] };
-export type DiffFile = {
-  /** Normalized repository-relative path. For a rename this is the new path. */
-  path: string;
-  oldPath: string | null;
-  status: DiffStatus;
-  additions: number;
-  deletions: number;
-  binary: boolean;
-  hunks: readonly DiffHunk[];
-};
 export type DiffTotals = { files: number; additions: number; deletions: number };
 
 export type DiffSnapshot = {
@@ -44,59 +27,6 @@ export type DiffSnapshot = {
   content(path: string): readonly string[] | null;
 };
 
-/** git subprocess seam: unit tests inject a runner to count calls or simulate a missing git. */
-export type GitRun = (cwd: string, args: string[]) => string | null;
-/** file-read seam: unit tests inject a reader to prove each relevant file is read at most once. */
-export type FileRead = (abs: string) => string | null;
-
-/**
- * baseRef names the branch the chip shows; base pins one commit to diff against. A pinned base is
- * used verbatim (no merge-base lookup): the document that carries the pin keeps showing the change
- * it was written against, even after the branch moves.
- */
-export type DiffOptions = { git?: GitRun; readFile?: FileRead; baseRef?: string; base?: string };
-
-const GIT_TIMEOUT_MS = 2000;
-const MAX_FILE_BYTES = 1024 * 1024;
-const MAX_PATCH_BYTES = 64 * 1024 * 1024;
-
-const gitRun: GitRun = (cwd, args) => {
-  try {
-    return execFileSync("git", args, {
-      cwd,
-      timeout: GIT_TIMEOUT_MS,
-      maxBuffer: MAX_PATCH_BYTES,
-      stdio: ["ignore", "pipe", "ignore"],
-    }).toString();
-  } catch {
-    return null;
-  }
-};
-
-const readUtf8: FileRead = (abs) => {
-  try {
-    const st = statSync(abs);
-    if (!st.isFile() || st.size > MAX_FILE_BYTES) return null;
-    return readFileSync(abs, "utf8");
-  } catch {
-    return null;
-  }
-};
-
-/** Absolute path inside the root for a normalized relative path, or null for a symlink/escape. */
-function safeAbsolute(root: string, path: string): string | null {
-  const rel = normalizeRepoPath(path);
-  if (!rel) return null;
-  const abs = join(root, rel);
-  if (relative(root, abs).split(sep).join("/") !== rel) return null;
-  try {
-    if (lstatSync(abs).isSymbolicLink()) return null;
-  } catch {
-    return null;
-  }
-  return abs;
-}
-
 const isBinary = (text: string) => text.includes("\0");
 const linesOf = (text: string) => {
   if (text === "") return [] as string[];
@@ -105,7 +35,7 @@ const linesOf = (text: string) => {
   return lines;
 };
 
-function emptySnapshot(root: string): DiffSnapshot {
+export function emptySnapshot(root: string): DiffSnapshot {
   const files: readonly DiffFile[] = [];
   const byPath = new Map<string, DiffFile>();
   return {
@@ -119,157 +49,18 @@ function emptySnapshot(root: string): DiffSnapshot {
   };
 }
 
-type MutableFile = {
-  path: string;
-  oldPath: string | null;
-  status: DiffStatus;
-  additions: number;
-  deletions: number;
-  binary: boolean;
-  hunks: DiffHunk[];
-};
-
-/** Parse a unified diff into per-file hunks. Paths come from the +++/--- or rename headers. */
-export function parseUnifiedDiff(patch: string): DiffFile[] {
-  const files: DiffFile[] = [];
-  let cur: MutableFile | null = null;
-  let hunk: { header: string; oldStart: number; oldLines: number; newStart: number; newLines: number; lines: DiffLine[] } | null = null;
-  let oldNo = 0;
-  let newNo = 0;
-  let newPath = "";
-  let oldPath = "";
-
-  const flush = () => {
-    if (!cur) return;
-    const path = newPath || oldPath;
-    if (path) {
-      files.push({
-        path,
-        oldPath: oldPath && oldPath !== path ? oldPath : null,
-        status: cur.status,
-        additions: cur.additions,
-        deletions: cur.deletions,
-        binary: cur.binary,
-        hunks: cur.hunks,
-      });
-    }
-    cur = null;
-    hunk = null;
-    newPath = "";
-    oldPath = "";
-  };
-
-  for (const raw of patch.split("\n")) {
-    if (raw.startsWith("diff --git ")) {
-      flush();
-      cur = { path: "", oldPath: null, status: "modified", additions: 0, deletions: 0, binary: false, hunks: [] };
-      continue;
-    }
-    if (!cur) continue;
-    if (raw.startsWith("@@ ")) {
-      const m = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(raw);
-      if (!m) {
-        hunk = null;
-        continue;
-      }
-      const next = {
-        header: raw.replace(/^@@ [^@]*@@ ?/, "").trim(),
-        oldStart: Number(m[1]),
-        oldLines: m[2] === undefined ? 1 : Number(m[2]),
-        newStart: Number(m[3]),
-        newLines: m[4] === undefined ? 1 : Number(m[4]),
-        lines: [] as DiffLine[],
-      };
-      cur.hunks.push(next);
-      hunk = next;
-      oldNo = next.oldStart;
-      newNo = next.newStart;
-      continue;
-    }
-    if (!hunk) {
-      if (raw.startsWith("new file mode")) cur.status = "added";
-      else if (raw.startsWith("deleted file mode")) cur.status = "deleted";
-      else if (raw.startsWith("rename from ")) {
-        cur.status = "renamed";
-        oldPath = raw.slice("rename from ".length).trim();
-      } else if (raw.startsWith("rename to ")) newPath = raw.slice("rename to ".length).trim();
-      else if (raw.startsWith("Binary files ")) cur.binary = true;
-      else if (raw.startsWith("--- ")) {
-        const p = raw.slice(4).trim();
-        if (p !== "/dev/null") oldPath = p.replace(/^a\//, "");
-      } else if (raw.startsWith("+++ ")) {
-        const p = raw.slice(4).trim();
-        if (p !== "/dev/null") newPath = p.replace(/^b\//, "");
-      }
-      continue;
-    }
-    if (raw.startsWith("\\ No newline")) continue;
-    if (raw === "") continue;
-    const marker = raw[0];
-    const text = raw.slice(1);
-    if (marker === "+") {
-      hunk.lines.push({ kind: "add", text, oldLine: null, newLine: newNo });
-      cur.additions += 1;
-      newNo += 1;
-    } else if (marker === "-") {
-      hunk.lines.push({ kind: "del", text, oldLine: oldNo, newLine: null });
-      cur.deletions += 1;
-      oldNo += 1;
-    } else if (marker === " ") {
-      hunk.lines.push({ kind: "ctx", text, oldLine: oldNo, newLine: newNo });
-      oldNo += 1;
-      newNo += 1;
-    }
+/** Absolute path inside the root for a normalized relative path, or null for a symlink/escape. */
+function safeAbsolute(root: string, path: string): string | null {
+  const rel = normalizeRepoPath(path);
+  if (!rel) return null;
+  const abs = join(root, rel);
+  if (relative(root, abs).split(sep).join("/") !== rel) return null;
+  try {
+    if (lstatSync(abs).isSymbolicLink()) return null;
+  } catch {
+    return null;
   }
-  flush();
-  return files;
-}
-
-type Probe = { top: string; head: string; remote: string; status: string; base: string; baseRef: string; signature: string };
-
-/** Size + mtime of every path status names, so a worktree edit invalidates the cache even when the
- *  path-level status line is unchanged. Only changed files are stat'ed, never the tree. */
-function worktreeSignature(top: string, status: string): string {
-  const out: string[] = [];
-  for (const entry of status.split("\0")) {
-    if (entry.length < 4) continue;
-    const path = entry.slice(3);
-    try {
-      const st = statSync(join(top, path));
-      out.push(path + ":" + st.size + ":" + st.mtimeMs + ":" + st.ino);
-    } catch {
-      out.push(path + ":missing");
-    }
-  }
-  return out.join("|");
-}
-
-function probe(root: string, git: GitRun, baseRef: string, pinned?: string): Probe | null {
-  const at = resolve(root);
-  const top = git(at, ["rev-parse", "--show-toplevel"])?.trim();
-  if (!top) return null;
-  const head = git(top, ["rev-parse", "HEAD"])?.trim() ?? "";
-  const remote = git(top, ["rev-parse", "--verify", "--quiet", "origin/main"])?.trim() ?? "";
-  const status = git(top, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames"]) ?? "";
-  const label = baseRef === "origin/main" ? "main" : baseRef;
-  // A pin replaces the merge-base lookup (same call count: one rev-parse instead of merge-base).
-  // An unresolvable pin stays empty rather than silently floating to a newer base.
-  const pin = pinned ? git(top, ["rev-parse", "--verify", "--quiet", pinned + "^{commit}"])?.trim() ?? "" : "";
-  // Without a HEAD (an uncommitted repository) there is no diff to show.
-  const mergeBase = !pinned && head ? git(top, ["merge-base", "HEAD", baseRef])?.trim() ?? "" : "";
-  const base = pinned ? pin : mergeBase || head;
-  const signature = createHash("sha1").update([head, remote, status, worktreeSignature(top, status), pinned ?? "", base].join("\0")).digest("hex");
-  return { top, head, remote, status, base, baseRef: pinned ? label : mergeBase ? label : "HEAD", signature };
-}
-
-function untrackedPaths(status: string): string[] {
-  const out: string[] = [];
-  for (const entry of status.split("\0")) {
-    if (!entry.startsWith("?? ")) continue;
-    const path = normalizeRepoPath(entry.slice(3));
-    if (path) out.push(path);
-  }
-  return out;
+  return abs;
 }
 
 function assemble(probe: Probe, opts: DiffOptions): DiffSnapshot {
@@ -380,5 +171,3 @@ export function getDiffSnapshot(root: string, opts: DiffOptions = {}): DiffSnaps
   CACHE.set(p.top, { signature: p.signature, snapshot });
   return snapshot;
 }
-
-export { emptySnapshot };
