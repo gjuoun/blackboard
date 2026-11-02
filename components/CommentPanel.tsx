@@ -155,27 +155,8 @@ export function CommentPanel(p: Props) {
   const open = p.comments.filter((c) => c.status === "open").length;
   const resolved = p.comments.length - open;
   const visible = p.comments.filter((c) => p.showResolved || c.status === "open");
-  return (
-    <div data-testid="comment-panel" aria-label="Comments" role="region" className="text-sm">
-      {/* No title row: the tab strip carries the count. The composer is the one write point. */}
-      {p.error ? <p className="text-destructive text-[13px]">{p.error}</p> : null}
-      {p.composer}
-      <div className="mb-2 flex justify-end">
-        <Button size="xs" variant="ghost" data-testid="show-resolved" aria-pressed={p.showResolved} onClick={() => p.onShowResolved(!p.showResolved)} className={p.showResolved ? "text-foreground" : "text-muted-foreground"}>
-          {p.showResolved ? <Eye /> : <EyeOff />} {p.showResolved ? "Hide" : "Show"} resolved ({resolved})
-        </Button>
-      </div>
-      {visible.length === 0 && !p.composer ? <p className="text-muted-foreground text-[13px]">Select text in the doc to comment.</p> : null}
-      <ol className="m-0 flex list-none flex-col gap-2.5 p-0">
-        {visible.map((c, i) => (
-          <Fragment key={c.id}>
-          {/* reviews sit between the anchored comments and the independent ones */}
-          {!c.general && (i + 1 === visible.length || visible[i + 1].general) ? (p.reviews ?? []).map((r) => <ReviewCard key={r.id} review={r} />) : null}
-          {c.general && !(i > 0 && visible[i - 1].general) ? (
-            <li aria-hidden className="text-muted-foreground flex items-center gap-2 text-[11px] uppercase tracking-wide" data-testid="general-divider">
-              <span className="bg-border h-px flex-1" />general<span className="bg-border h-px flex-1" />
-            </li>
-          ) : null}
+  /** One comment: its thread, its resolve toggle and its reply box. Kept as it was; only where it renders moved. */
+  const renderItem = (c: PanelComment) => (
           <li
             data-testid="comment-item"
             data-kind={c.general ? "general" : c.code ? "code" : "quote"}
@@ -274,7 +255,35 @@ export function CommentPanel(p: Props) {
               <ReplyBox onReply={(body) => p.onReply(c.id, body)} />
             </div>
           </li>
-          </Fragment>
+  );
+
+  return (
+    <div data-testid="comment-panel" aria-label="Comments" role="region" className="text-sm">
+      {/* No title row: the tab strip carries the count. The composer is the one write point. */}
+      {p.error ? <p className="text-destructive text-[13px]">{p.error}</p> : null}
+      {p.composer}
+      <div className="mb-2 flex justify-end">
+        <Button size="xs" variant="ghost" data-testid="show-resolved" aria-pressed={p.showResolved} onClick={() => p.onShowResolved(!p.showResolved)} className={p.showResolved ? "text-foreground" : "text-muted-foreground"}>
+          {p.showResolved ? <Eye /> : <EyeOff />} {p.showResolved ? "Hide" : "Show"} resolved ({resolved})
+        </Button>
+      </div>
+      {visible.length === 0 && !p.composer ? <p className="text-muted-foreground text-[13px]">Select text in the doc to comment.</p> : null}
+      {/* Three groups in order: anchored comments, then round reviews, then independent (general) comments.
+          The reviews are their own group, so they render with or without comments. */}
+      <ol className="m-0 flex list-none flex-col gap-2.5 p-0">
+        {visible.filter((c) => !c.general).map((c) => (
+          <Fragment key={c.id}>{renderItem(c)}</Fragment>
+        ))}
+        {(p.reviews ?? []).map((r) => (
+          <ReviewCard key={r.id} review={r} />
+        ))}
+        {visible.some((c) => c.general) ? (
+          <li aria-hidden className="text-muted-foreground flex items-center gap-2 text-[11px] uppercase tracking-wide" data-testid="general-divider">
+            <span className="bg-border h-px flex-1" />general<span className="bg-border h-px flex-1" />
+          </li>
+        ) : null}
+        {visible.filter((c) => c.general).map((c) => (
+          <Fragment key={c.id}>{renderItem(c)}</Fragment>
         ))}
       </ol>
     </div>

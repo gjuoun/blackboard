@@ -7,7 +7,6 @@ import { anchor, makeSelector, type QuoteSelector, type TextRange } from "@/lib/
 import type { CodeState } from "@/lib/code-anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
 import type { Review } from "@/lib/comments-store";
-import { ReviewCard } from "./ReviewCard";
 import { cn } from "@/lib/utils";
 import { buildTextMap, offsetOf, rangeOf } from "@/lib/text-map";
 import { clampPanels, type PanelKey, type RightTab } from "@/lib/prefs";

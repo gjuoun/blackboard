@@ -196,10 +196,13 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     // happens in the comments rail, so the body ends at its last block.
     const blocks = parseStream(readFileSync(file, "utf8")).blocks;
     const streamHtml = await renderStream(blocks);
+    // Same comment file read as the doc branch: this stream's comments and its round reviews.
+    const streamFile = readComments(sessionCommentsPath(home, session.id));
+    const streamReviews = (streamFile.reviews ?? []).filter((r) => r.doc === basename(file));
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} kind="stream" streamHref={`/s/${session.id}`} />
-        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={streamHtml} initialComments={renderComments(readComments(sessionCommentsPath(home, session.id)).docs[basename(file)] ?? [])} header={header} toc={leftPane(id, "stream", search.left, null, { state: "outside-git" }, blocks)} rightTab={rightOf(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
+        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={streamHtml} initialComments={renderComments(streamFile.docs[basename(file)] ?? [])} reviews={streamReviews} header={header} toc={leftPane(id, "stream", search.left, null, { state: "outside-git" }, blocks)} rightTab={rightOf(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
       </>
     );
   }
