@@ -27,7 +27,7 @@
       "design.md"
     ],
     "code": 0,
-    "stdout": "<id>  http://127.0.0.1:38770/s/<id>\n",
+    "stdout": "<id>  http://127.0.0.1:9/s/<id>\n",
     "stderr": ""
   },
   {
@@ -39,7 +39,7 @@
       "design.md"
     ],
     "code": 0,
-    "stdout": "<id>  http://127.0.0.1:38770/s/<id>\n",
+    "stdout": "<id>  http://127.0.0.1:9/s/<id>\n",
     "stderr": ""
   },
   {
@@ -311,7 +311,7 @@
       "log.jsonl"
     ],
     "code": 0,
-    "stdout": "<id>  http://127.0.0.1:38770/s/<id>\n",
+    "stdout": "<id>  http://127.0.0.1:9/s/<id>\n",
     "stderr": ""
   },
   {
@@ -418,7 +418,7 @@
       "docs/review.md"
     ],
     "code": 0,
-    "stdout": "<id>  http://127.0.0.1:38770/s/<id>\npr base main @ <sha>  (front matter filled)\n",
+    "stdout": "<id>  http://127.0.0.1:9/s/<id>\npr base main @ <sha>  (front matter filled)\n",
     "stderr": ""
   },
   {
@@ -486,8 +486,8 @@
       "serve",
       "status"
     ],
-    "code": 0,
-    "stdout": "running at http://127.0.0.1:38770 (not started by this command)\n",
+    "code": 3,
+    "stdout": "not running (http://127.0.0.1:9)\n",
     "stderr": ""
   },
   {

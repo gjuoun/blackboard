@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { isAbsolute, join, relative } from "node:path";
 
 /**
  * The CLI snapshot: the real binary, one call per subcommand and failure mode, recorded as
@@ -15,6 +15,15 @@ const SNAPSHOT = join(import.meta.dir, "cli-snapshot.json");
 const BIN = new URL("../bin/blackboard.ts", import.meta.url).pathname;
 
 type Call = { argv: string[]; code: number; stdout: string; stderr: string };
+
+/** git with none of the machine's own config: no signing, no hooks, no excluded patterns, no prompts. */
+const GIT_ENV = {
+  ...process.env,
+  GIT_CONFIG_GLOBAL: "/dev/null",
+  GIT_CONFIG_SYSTEM: "/dev/null",
+  GIT_CONFIG_NOSYSTEM: "1",
+  GIT_TERMINAL_PROMPT: "0",
+};
 
 /** A temp home, a docs folder outside git, and a git repo with one source file and one doc. */
 function fixture() {
@@ -33,7 +42,7 @@ function fixture() {
   writeFileSync(join(repo, "lib", "a.ts"), "export const a = 1;\n");
   writeFileSync(join(repo, "docs", "review.md"), "# Review\n\nA doc.\n");
   const git = (...args: string[]) =>
-    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@e", ...args], { cwd: repo, stdio: ["ignore", "pipe", "ignore"] });
+    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@e", ...args], { cwd: repo, env: GIT_ENV, stdio: ["ignore", "pipe", "ignore"] });
   git("init", "-q", "-b", "main");
   git("add", "-A");
   git("commit", "-qm", "fixture");
@@ -45,11 +54,16 @@ function fixture() {
 
 const ULID = /\b[bs]-[0-9A-HJKMNP-TV-Z]{26}\b/g;
 
-/** Everything volatile (the temp folder, ids, git shas, clock) becomes a placeholder. */
+/**
+ * Everything volatile (the temp folder, ids, git shas, clock) becomes a placeholder. A fixture that
+ * happens to live under $HOME is printed there as "~/...", so that spelling of the same folder is
+ * normalized too.
+ */
 function normalize(text: string, base: string): string {
-  return text
-    .split(base)
-    .join("<base>")
+  const under = relative(homedir(), base);
+  const homes = under && !under.startsWith("..") && !isAbsolute(under) ? [base, join("~", under)] : [base];
+  return homes
+    .reduce((t, home) => t.split(home).join("<base>"), text)
     .replace(/\b[0-9a-f]{64}\b/g, "<sha256>")
     .replace(/\b[0-9a-f]{40}\b/g, "<sha>")
     .replace(/@ [0-9a-f]{7}\b/g, "@ <sha>")
@@ -62,13 +76,22 @@ function normalize(text: string, base: string): string {
 describe("the CLI answers the same thing after every refactor", () => {
   test("every subcommand and failure mode matches the committed snapshot", () => {
     const { base, home, docs, repo } = fixture();
+    /**
+     * Nothing here may read the machine it runs on. A fresh home hides any state a real run left
+     * behind, the no-browser/no-server flags stop a case from starting the app, and BLACKBOARD_URL
+     * names a port nothing can be listening on (9, the discard port): "is a server up on 38770?"
+     * is not a property of this product, so the snapshot must not answer it either. The ceiling
+     * stops git's upward search at the fixture, so a temp folder that happens to sit inside some
+     * checkout does not lend the snapshot that checkout's repo and branch.
+     */
     const env = {
       ...process.env,
       BLACKBOARD_HOME: home,
       BLACKBOARD_NO_BROWSER: "1",
       BLACKBOARD_NO_SERVER: "1",
       BLACKBOARD_AUTHOR: "agent",
-      BLACKBOARD_URL: "",
+      BLACKBOARD_URL: "http://127.0.0.1:9",
+      GIT_CEILING_DIRECTORIES: base,
     };
     const calls: { label: string; call: Call }[] = [];
 

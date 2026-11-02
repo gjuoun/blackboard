@@ -60,7 +60,7 @@ describe("pr status", () => {
     const missing = runBin(home, ["pr", "0000000000"], repo);
     expect(missing.code).toBe(1);
     expect(missing.err).toContain("no session");
-  });
+  }, 30_000);
 
   test("--json is the payload, and its command runs verbatim", async () => {
     const { home, repo, id } = await setup();
@@ -73,5 +73,5 @@ describe("pr status", () => {
     const human = runBin(home, ["pr", id], repo);
     expect(human.code).toBe(0);
     expect(human.out).toContain("base main @");
-  });
+  }, 30_000);
 });

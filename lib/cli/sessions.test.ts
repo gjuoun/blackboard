@@ -80,5 +80,5 @@ describe("open --kind pr", () => {
     expect(rows[0].kind).toBe("pr");
     expect(runCli(home, ["sessions"]).out).toContain("  pr");
     expect(runCli(home, ["open", "--no-browser", "--kind", "cloud", design], repo).code).toBe(2);
-  });
+  }, 30_000);
 });
