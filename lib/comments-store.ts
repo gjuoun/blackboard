@@ -13,10 +13,14 @@ export type Reply = { id: string; body: string; author: string; createdAt: strin
 export type CommentStatus = "open" | "resolved";
 export type Comment = {
   id: string;
-  /** Exactly one anchor kind: a passage in the doc, or a line of the Local PR diff. */
+  /** Exactly one anchor kind: a passage in the doc (`quote`), a line of a repo file (`code`), or none (`general`). */
   quote?: QuoteSelector;
   code?: CodeAnchor;
+  /** An independent comment: no passage and no line. Listed at the bottom of the Comments pane. */
+  general?: true;
   body: string;
+  /** Stored comment image ids (`<sha256>.<ext>`), shown as thumbnails under the body. */
+  images?: string[];
   author: string;
   createdAt: string;
   editedAt?: string;
@@ -27,7 +31,9 @@ export type Comment = {
   reopenedBy?: string;
   replies: Reply[];
 };
-export type CommentFile = { version: 1; docs: Record<string, Comment[]> };
+/** One round's review: the agent has answered each open comment and closes the round. The verdict has one value. */
+export type Review = { id: string; doc: string; round: number; body: string; author: string; createdAt: string; verdict: "commented" };
+export type CommentFile = { version: 1; docs: Record<string, Comment[]>; reviews?: Review[] };
 
 const now = () => new Date().toISOString();
 const newId = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
@@ -74,13 +80,28 @@ function find(file: CommentFile, doc: string, id: string): Comment {
   return c;
 }
 
-export type CommentAnchor = { quote: QuoteSelector; code?: undefined } | { code: CodeAnchor; quote?: undefined };
+/**
+ * Closes a round for one doc. Refused while any open comment on the doc has no reply from `agent`; a comment
+ * answered in an earlier round is settled, so only comments created after the last review count.
+ */
+export function reviewRound(file: CommentFile, doc: string, input: { round: number; body: string; author: string }): Review {
+  if (!Number.isInteger(input.round) || input.round < 1) throw new Error("round must be a whole number from 1");
+  const last = (file.reviews ?? []).filter((r) => r.doc === doc).reduce((m, r) => Math.max(m, Date.parse(r.createdAt)), 0);
+  const pending = (file.docs[doc] ?? []).filter((c) => c.status === "open" && Date.parse(c.createdAt) > last && !c.replies.some((r) => r.author === "agent"));
+  if (pending.length > 0) throw new Error(`no reply from agent on ${pending.length} open comment(s), e.g. ${pending[0].id}`);
+  const review: Review = { id: newId("v"), doc, round: input.round, body: input.body, author: input.author, createdAt: now(), verdict: "commented" };
+  (file.reviews ??= []).push(review);
+  return review;
+}
+
+export type CommentAnchor = { quote: QuoteSelector; code?: undefined; general?: undefined } | { code: CodeAnchor; quote?: undefined; general?: undefined } | { general: true; quote?: undefined; code?: undefined };
 
 /** A new comment on exactly one anchor kind: a passage of the doc, or a line of the diff. */
-export function addComment(file: CommentFile, doc: string, input: CommentAnchor & { body: string; author: string }): Comment {
-  const anchor = input.quote ? { quote: input.quote } : input.code ? { code: input.code } : null;
-  if (!anchor) throw new Error("a comment needs a quote or a code anchor");
-  const c: Comment = { id: newId("c"), ...anchor, body: input.body, author: input.author, createdAt: now(), status: "open", replies: [] };
+export function addComment(file: CommentFile, doc: string, input: CommentAnchor & { body: string; author: string; images?: string[] }): Comment {
+  const kinds = [input.quote ? 1 : 0, input.code ? 1 : 0, input.general ? 1 : 0].reduce((a, b) => a + b, 0);
+  if (kinds !== 1) throw new Error("exactly one anchor (quote, code or general) is required");
+  const anchor = input.quote ? { quote: input.quote } : input.code ? { code: input.code } : { general: true as const };
+  const c: Comment = { id: newId("c"), ...anchor, body: input.body, ...(input.images?.length ? { images: input.images } : {}), author: input.author, createdAt: now(), status: "open", replies: [] };
   (file.docs[doc] ??= []).push(c);
   return c;
 }

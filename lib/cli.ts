@@ -1,8 +1,11 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { anchorLabel, codeStateFromLines, parseCodeRef, type CodeState } from "./code-anchor";
-import { addComment, addReply, mutate, readComments, setStatus, type Comment, type CommentFile } from "./comments-store";
+import { addComment, addReply, mutate, readComments, reviewRound, setStatus, type Comment, type CommentFile } from "./comments-store";
 import { docMeta } from "./doc-meta";
+import { docType } from "./doc-type";
+import { exportStream, parseStream, type StreamAction } from "./stream-doc";
+import { appendBlock as storeAppend, rewriteBlock as storeRewrite } from "./stream-store";
 import { renderPlainText } from "./markdown";
 import { ensurePrDoc } from "./pr-kind";
 import { prStatus, type PrStatus } from "./pr-status";
@@ -57,6 +60,8 @@ export type PrPin = { base: string; sha: string; filled: boolean };
 export function open(home: string, file: string, cwd = process.cwd(), kind?: SessionKind): { session: Session; url: string; pr?: PrPin } {
   try {
     const real = realDoc(file, cwd);
+    const kinded = docType(real, kind ?? "plain");
+    if (!kinded.ok) throw new CliError(kinded.error, 2);
     let pr: PrPin | undefined;
     if (kind === "pr") {
       const repo = docMeta(real).repo;
@@ -120,6 +125,24 @@ export function comments(home: string, ref: string, cwd = process.cwd()): DocCom
   );
 }
 
+/** Close a round for a session's doc. The store refuses while an open comment has no agent reply. */
+export async function review(home: string, ref: string, round: number, body: string, author: string, cwd = process.cwd()) {
+  if (!body.trim()) throw new CliError("review text is empty", 2);
+  const { file, doc } = find(home, ref, cwd);
+  try {
+    return await mutate(file, (f) => reviewRound(f, doc, { round, body: body.trim(), author }));
+  } catch (err) {
+    throw new CliError(err instanceof Error ? err.message : String(err), 1);
+  }
+}
+
+/** An independent comment: no passage and no line. It joins the same store and list as the other kinds. */
+export async function commentGeneral(home: string, ref: string, note: string, author: string, cwd = process.cwd()): Promise<DocComment> {
+  if (!note.trim()) throw new CliError("comment text is empty", 2);
+  const { file, doc } = find(home, ref, cwd);
+  return { ...(await mutate(file, (f) => addComment(f, doc, { general: true, body: note.trim(), author }))), doc };
+}
+
 /** Comment on one line of a repo file, n-th line counted from the worktree: `lib/a.ts:L12`. */
 export async function commentOnCode(
   home: string,
@@ -146,6 +169,51 @@ export async function commentOnCode(
   if (parsed.end > lines.length) throw new CliError(`${parsed.path} has no line ${parsed.end}`);
   const code = { path: parsed.path, startLine: parsed.start, endLine: parsed.end, side: "new" as const, lineText };
   return { ...(await mutate(file, (f) => addComment(f, doc, { code, body: note.trim(), author }))), doc };
+}
+
+/** Appends one block to a stream session under the file lock, with a ULID id. */
+export function appendBlock(
+  home: string,
+  ref: string,
+  input: { action: string; text: string; author: string; images?: string[]; status?: "writing" },
+  cwd = process.cwd(),
+): { id: string; n: number; file: string } {
+  const file = streamFile(home, ref, cwd);
+  if (!input.text.trim()) throw new CliError("block text is empty", 2);
+  try {
+    const b = storeAppend(file, { action: input.action as StreamAction, author: input.author, text: input.text, images: input.images, status: input.status });
+    return { id: b.id, n: b.n, file };
+  } catch (err) {
+    throw new CliError(err instanceof Error ? err.message : String(err), 2);
+  }
+}
+
+/** Replaces the body (and optionally the action) of one existing block by id. Rewrites the file atomically. */
+export function editBlock(home: string, ref: string, id: string, text: string, cwd = process.cwd()): { id: string; n: number; file: string } {
+  const file = streamFile(home, ref, cwd);
+  if (!text.trim()) throw new CliError("block text is empty", 2);
+  try {
+    const b = storeRewrite(file, id, (x) => ({ ...x, body: text, at: new Date().toISOString() }));
+    return { id: b.id, n: b.n, file };
+  } catch (err) {
+    throw new CliError(err instanceof Error ? err.message : String(err), 1);
+  }
+}
+
+/** The stream file of a session, after the kind check. */
+function streamFile(home: string, ref: string, cwd: string): string {
+  const { session } = find(home, ref, cwd);
+  if (session.kind !== "stream") throw new CliError(`${session.path} is not a stream (open it with --kind stream)`, 2);
+  return session.path;
+}
+
+const readStreamText = (path: string) => (existsSync(path) ? readFileSync(path, "utf8") : "");
+
+/** The stream as markdown, one section per block. The cloud mirror reads this export. */
+export function exportBlocks(home: string, ref: string, cwd = process.cwd()): string {
+  const { session } = find(home, ref, cwd);
+  if (session.kind !== "stream") throw new CliError(`${session.path} is not a stream`, 2);
+  return exportStream(parseStream(readStreamText(session.path)).blocks, basename(session.path));
 }
 
 /**
@@ -205,7 +273,7 @@ export function formatComments(list: DocComment[]): string {
             : "  (line drifted)"
           : ""
         : "";
-      const where = c.quote ? "  > " + squash(c.quote.exact) : `  @ ${anchorLabel(c.code!)}` + drift;
+      const where = c.quote ? "  > " + squash(c.quote.exact) : c.code ? `  @ ${anchorLabel(c.code)}` + drift : "  (general)";
       const lines = [`${c.id}  ${c.doc}  ${c.status}  ${c.author}  ${c.createdAt}`, where, `  ${c.body.replace(/\n/g, "\n  ")}`];
       for (const r of c.replies) lines.push(`    ↳ ${r.id}  ${r.author}: ${r.body.replace(/\n/g, "\n      ")}`);
       return lines.join("\n");

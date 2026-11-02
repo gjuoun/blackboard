@@ -7,14 +7,14 @@ import { setChrome } from "./chrome";
 import { getTabs, sessionIdOf, setTabs } from "./TopBar";
 
 /** Rendered by a doc page: opening any /s/<id> (from Home, the CLI or a typed URL) adds its tab and tells the top bar about the doc. */
-export function RegisterTab({ id, title, path, readable, hasToc }: { id: string; title: string; path: string; readable: boolean; hasToc: boolean }) {
+export function RegisterTab({ id, title, path, readable, hasToc, kind = "doc", streamHref = null }: { id: string; title: string; path: string; readable: boolean; hasToc: boolean; kind?: "doc" | "code" | "stream"; streamHref?: string | null }) {
   useEffect(() => {
     setTabs(openTab(getTabs(), { id, title, path }));
   }, [id, title, path]);
   useEffect(() => {
-    setChrome({ doc: { id, path, readable, hasToc, open: 0 }, sheet: null });
+    setChrome({ doc: { id, path, readable, hasToc, open: 0, kind, streamHref }, sheet: null });
     return () => setChrome({ doc: null, sheet: null });
-  }, [id, path, readable, hasToc]);
+  }, [id, path, readable, hasToc, kind, streamHref]);
   return null;
 }
 

@@ -2,12 +2,59 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { addComment, addReply, deleteComment, deleteReply, editComment, editReply, mutate, readComments, setStatus } from "./comments-store";
+import { addComment, addReply, deleteComment, deleteReply, editComment, editReply, mutate, readComments, reviewRound, setStatus } from "./comments-store";
 
 const quote = { exact: "The cache is warm.", prefix: "Later text. ", suffix: " End." };
 /** A temp folder; its comment file is <dir>/.blackboard/comments.json and does not exist yet. */
 const fresh = () => realpathSync(mkdtempSync(join(tmpdir(), "bb-store-")));
 const fileIn = (dir: string) => join(dir, ".blackboard", "comments.json");
+
+describe("review", () => {
+  test("review: verdict is commented only", () => {
+    // The type admits one verdict, so a review object only ever carries "commented".
+    const r: { verdict: "commented" } = { verdict: "commented" };
+    expect(r.verdict).toBe("commented");
+    // @ts-expect-error approve is not a verdict
+    const bad: { verdict: "commented" } = { verdict: "approve" };
+    expect(bad).toBeDefined();
+  });
+
+  test("review: refused while a comment has no agent reply", async () => {
+    const demo = fresh();
+    await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "Why warm?", author: "jun" }));
+    const refusal = await mutate(fileIn(demo), (f) => reviewRound(f, "design.md", { round: 1, body: "done", author: "agent" })).then(() => null, (e: Error) => e.message);
+    expect(refusal).toMatch(/no reply from agent/);
+  });
+
+  test("review: round is stored", async () => {
+    const demo = fresh();
+    const c = await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "Why warm?", author: "jun" }));
+    await mutate(fileIn(demo), (f) => addReply(f, "design.md", c.id, { body: "Preloaded.", author: "agent" }));
+    const r = await mutate(fileIn(demo), (f) => reviewRound(f, "design.md", { round: 1, body: "all answered", author: "agent" }));
+    expect(r).toMatchObject({ round: 1, verdict: "commented", body: "all answered", author: "agent" });
+    expect(readComments(fileIn(demo)).reviews?.[0]).toMatchObject({ round: 1, verdict: "commented" });
+  });
+});
+
+describe("general anchor", () => {
+  test("general: exactly one anchor kind", () => {
+    const f = { version: 1 as const, docs: {} };
+    // none of the three kinds
+    expect(() => addComment(f, "d.md", { body: "x", author: "jun" } as never)).toThrow(/exactly one anchor/);
+    // two kinds at once
+    expect(() => addComment(f, "d.md", { quote, general: true, body: "x", author: "jun" } as never)).toThrow(/exactly one anchor/);
+    const c = addComment(f, "d.md", { general: true, body: "independent", author: "jun" } as never);
+    expect(c).toMatchObject({ general: true, body: "independent" });
+    expect(c.quote).toBeUndefined();
+    expect(c.code).toBeUndefined();
+  });
+
+  test("general: quote comments still read", () => {
+    const f = { version: 1 as const, docs: { "d.md": [{ id: "c1", quote, body: "old", author: "jun", createdAt: "t", status: "open" as const, replies: [] }] } };
+    expect(f.docs["d.md"][0].quote).toEqual(quote);
+    expect(f.docs["d.md"][0]).not.toHaveProperty("general");
+  });
+});
 
 describe("comment file", () => {
   test("reads as empty when there are no comments yet", () => {
@@ -116,7 +163,7 @@ describe("comment file", () => {
     const demo = fresh();
     await expect(
       mutate(fileIn(demo), (f) => addComment(f, "design.md", { body: "no anchor", author: "jun" } as Parameters<typeof addComment>[2])),
-    ).rejects.toThrow(/quote or a code anchor/);
+    ).rejects.toThrow(/exactly one anchor/);
   });
 
   test("errors on an unknown reply id", async () => {

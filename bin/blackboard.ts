@@ -31,7 +31,7 @@ Usage:
 <id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).
 
 Options:
-  --kind <k>       open: plain (default) or pr; pr pins the diff baseline in the doc's front matter
+  --kind <k>       open: plain (default), pr (pins the diff baseline in the doc's front matter) or stream (a .jsonl block file)
   --code <ref>     comment: anchor on <repo-relative-path>:L<n> instead of a quoted passage
   --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)
   --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or "agent")
@@ -80,6 +80,12 @@ async function main(argv: string[]): Promise<number> {
       quote: { type: "string" },
       code: { type: "string" },
       kind: { type: "string" },
+      action: { type: "string" },
+      images: { type: "string" },
+      status: { type: "string" },
+      general: { type: "boolean" },
+      round: { type: "string" },
+      edit: { type: "string" },
       occurrence: { type: "string" },
       "no-browser": { type: "boolean" },
       "no-server": { type: "boolean" },
@@ -107,9 +113,9 @@ async function main(argv: string[]): Promise<number> {
 
   switch (cmd) {
     case "open": {
-      need(1, "open <file> [--kind plain|pr] [--no-browser]");
-      if (o.kind !== undefined && o.kind !== "plain" && o.kind !== "pr") {
-        throw new cli.CliError('--kind takes "plain" or "pr"', 2);
+      need(1, "open <file> [--kind plain|pr|stream] [--no-browser]");
+      if (o.kind !== undefined && o.kind !== "plain" && o.kind !== "pr" && o.kind !== "stream") {
+        throw new cli.CliError('--kind takes "plain", "pr" or "stream"', 2);
       }
       if (!o["no-server"] && process.env.BLACKBOARD_NO_SERVER !== "1") await ensureServer(home);
       const { session, url, pr } = cli.open(home, args[0], process.cwd(), o.kind);
@@ -184,9 +190,48 @@ async function main(argv: string[]): Promise<number> {
       print(c, `${cmd === "resolve" ? "resolved" : "reopened"} ${c.id} on ${c.doc}`);
       return 0;
     }
+    case "block": {
+      // Text is the rest of the argv, or stdin when the text is `-`.
+      need(1, "block <session> --action answer|edit|append [--status writing] [--images a,b] <text|->");
+      const action = o.action ?? "";
+      const raw = args.slice(1).join(" ");
+      const text = raw === "-" ? await new Response(Bun.stdin.stream()).text() : raw;
+      const images = o.images ? o.images.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+      if (o.status !== undefined && o.status !== "writing") throw new cli.CliError('--status takes "writing"', 2);
+      if (o.edit !== undefined) {
+        // Changing a block keeps its id; the file is rewritten atomically.
+        const e = cli.editBlock(home, args[0], o.edit, text);
+        print(e, `block ${e.id} rewritten in ${e.file}`);
+        return 0;
+      }
+      const b = cli.appendBlock(home, args[0], { action, text, author, images, status: o.status === "writing" ? "writing" : undefined });
+      print(b, `block ${b.n} (${b.id}) appended to ${b.file}`);
+      return 0;
+    }
+    case "review": {
+      need(1, "review <session> --round <n> <body>");
+      const n = Number(o.round);
+      if (!Number.isInteger(n) || n < 1) throw new cli.CliError("--round must be a whole number from 1", 2);
+      const r = await cli.review(home, args[0], n, args.slice(1).join(" "), author);
+      print(r, `review ${r.id} for round ${r.round} on ${r.doc}: ${r.verdict}`);
+      return 0;
+    }
+    case "export": {
+      need(1, "export <session>");
+      const md = cli.exportBlocks(home, args[0]);
+      if (o.json) console.log(JSON.stringify({ markdown: md }));
+      else process.stdout.write(md);
+      return 0;
+    }
     case "comment": {
-      need(2, "comment <session> --quote <passage> | --code <path>:L<n> <note>");
+      need(2, "comment <session> --quote <passage> | --code <path>:L<n> | --general <note>");
       const note = args.slice(1).join(" ");
+      if (o.general) {
+        if (o.quote || o.code) throw new cli.CliError("comment takes --general alone, not with --quote or --code", 2);
+        const c = await cli.commentGeneral(home, args[0], note, author);
+        print(c, `commented ${c.id} (general)`);
+        return 0;
+      }
       if (o.code) {
         if (o.quote) throw new cli.CliError("comment takes --quote or --code, not both", 2);
         if (o.occurrence) throw new cli.CliError("--occurrence only applies to --quote", 2);

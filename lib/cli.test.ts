@@ -57,6 +57,13 @@ describe("cli commands", () => {
     expect(sessions(home).map((s) => s.title)).toEqual(["Design"]);
   });
 
+  test("open: jsonl needs --kind stream", () => {
+    const { home, docs } = setup();
+    writeFileSync(join(docs, "log.jsonl"), "");
+    expect(() => open(home, join(docs, "log.jsonl"))).toThrow(/needs --kind stream/);
+    expect(open(home, join(docs, "log.jsonl"), docs, "stream").session.kind).toBe("stream");
+  });
+
   test("open refuses what is not a markdown file", () => {
     const { home, docs } = setup();
     expect(() => open(home, docs)).toThrow(/not a markdown file/);
@@ -178,6 +185,68 @@ describe("code-anchored comments", () => {
     await expect(commentOnCode(home, design, "lib/residency.ts:L99", "x", "jun")).rejects.toThrow(/no line 99/);
     await expect(commentOnCode(home, design, "../outside.ts:L1", "x", "jun")).rejects.toThrow(/--code takes/);
     await expect(commentOnCode(home, design, "lib/missing.ts:L1", "x", "jun")).rejects.toThrow(/no such file/);
+  });
+});
+
+describe("block writer", () => {
+  test("review: CLI refuses while a comment has no agent reply, then stores the round", () => {
+    const { home, design } = setup();
+    expect(run(home, ["open", "--no-browser", design]).code).toBe(0);
+    expect(run(home, ["comment", design, "--quote", "Later text.", "why?"]).code).toBe(0);
+    const refused = run(home, ["review", design, "--round", "1", "all done"]);
+    expect(refused.code).toBe(1);
+    expect(refused.err).toContain("no reply from agent");
+    const id = JSON.parse(run(home, ["comments", design, "--json"]).out)[0].id;
+    expect(run(home, ["reply", design, id, "answered"]).code).toBe(0);
+    const ok = run(home, ["review", design, "--round", "1", "all done"]);
+    expect(ok.code).toBe(0);
+    expect(ok.out).toContain("commented");
+  });
+
+  test("general: CLI creates one", () => {
+    const { home, design } = setup();
+    expect(run(home, ["open", "--no-browser", design]).code).toBe(0);
+    const r = run(home, ["comment", design, "--general", "an independent note"]);
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("(general)");
+    const list = comments(home, design);
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ general: true, body: "an independent note" });
+    expect(run(home, ["comments", design]).out).toContain("(general)");
+  });
+
+  test("block: edit keeps the id and rewrites the body", () => {
+    const { home, docs } = setup();
+    writeFileSync(join(docs, "log.jsonl"), "");
+    expect(run(home, ["open", "--no-browser", "--kind", "stream", "log.jsonl"], docs).code).toBe(0);
+    const first = JSON.parse(run(home, ["block", "log.jsonl", "--action", "answer", "draft", "--json"], docs).out);
+    expect(first.id).toMatch(/^b-/);
+    const r = run(home, ["block", "log.jsonl", "--edit", first.id, "final"], docs);
+    expect(r.code).toBe(0);
+    const lines = readFileSync(join(docs, "log.jsonl"), "utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0])).toMatchObject({ id: first.id, body: "final" });
+  });
+
+  test("block: appends one line", () => {
+    const { home, docs } = setup();
+    writeFileSync(join(docs, "log.jsonl"), "");
+    expect(run(home, ["open", "--no-browser", "--kind", "stream", "log.jsonl"], docs).code).toBe(0);
+    const r = run(home, ["block", "log.jsonl", "--action", "answer", "### Heading\n\nBody"], docs);
+    expect(r.code).toBe(0);
+    const lines = readFileSync(join(docs, "log.jsonl"), "utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0])).toMatchObject({ n: 1, action: "answer", author: "agent" });
+    const exp = run(home, ["export", "log.jsonl"], docs);
+    expect(exp.out).toContain("## 1. 长答 · agent");
+  });
+
+  test("block: refused on a doc session", () => {
+    const { home, design } = setup();
+    expect(run(home, ["open", "--no-browser", design]).code).toBe(0);
+    const r = run(home, ["block", design, "--action", "answer", "x"]);
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("is not a stream");
   });
 });
 

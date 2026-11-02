@@ -85,6 +85,25 @@
 .doc-body pre { font-family: var(--font-code); font-size: 0.82rem; line-height: 1.65; margin: 1em 0; padding: 14px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; }
 .doc-body pre code { font-family: inherit; font-size: inherit; }
 [data-wrap-code] .doc-body pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* The File tab: raw source, no wrap, changed lines marked against HEAD. */
+.file-source { background: var(--code); border: 1px solid var(--border); border-radius: 10px; padding: 8px 0; }
+.file-line { display: block; padding: 0 12px; }
+.file-line.added { background: color-mix(in srgb, var(--success) 14%, transparent); box-shadow: inset 3px 0 0 var(--success); }
+.file-line.modified { background: color-mix(in srgb, var(--warn) 14%, transparent); box-shadow: inset 3px 0 0 var(--warn); }
+.file-view[data-full="1"] { position: fixed; inset: 0; z-index: 50; background: var(--background); padding: 16px; overflow: auto; }
+.file-view[data-full="1"] .file-source { min-height: calc(100vh - 80px); }
+/* A streaming document: one section per block, with a header and an optional side rule. */
+.stream-block { position: relative; padding: 0.4em 0 0.4em 1em; margin: 0 0 1.6em; scroll-margin-top: calc(var(--bar-h) + 12px); }
+.stream-block:target { outline: 1px dashed var(--border); outline-offset: 6px; border-radius: 8px; }
+.stream-head { display: flex; align-items: center; gap: 0.5em; margin-bottom: 0.4em; }
+.stream-pill { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); }
+.stream-rule-edit { border-left: 3px solid var(--warn); }
+.stream-rule-append { border-left: 3px solid var(--primary); }
+.stream-rule-edit .stream-pill { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
+.stream-timeline li a:target, .stream-timeline a[aria-current="true"] { font-weight: 600; }
+/* A source file is read as code: lines never wrap, the block scrolls sideways. */
+.code-file pre, .code-file pre code { white-space: pre; overflow-wrap: normal; }
+.code-file pre { max-width: none; }
 .doc-body blockquote { margin: 1em 0; padding: 0.6em 1em; color: var(--muted-foreground); background: var(--primary-soft); border-left: 3px solid var(--primary); border-radius: 0 12px 12px 0; }
 .doc-body blockquote > :first-child { margin-top: 0; } .doc-body blockquote > :last-child { margin-bottom: 0; }
 .doc-body img { max-width: 100%; border-radius: 8px; }

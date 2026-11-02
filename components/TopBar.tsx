@@ -1,6 +1,17 @@
 "use client";
 
 import { ChevronDown, Home, ListTree, MessageSquare, MoreHorizontal, X } from "lucide-react";
+
+/** The timeline icon: a vertical line with a filled dot at each end, same stroke grammar as the other icons. */
+function TimelineIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <circle cx="12" cy="5" r="2.2" fill="currentColor" />
+      <circle cx="12" cy="19" r="2.2" fill="currentColor" />
+      <path d="M12 7.5v9" />
+    </svg>
+  );
+}
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -194,6 +205,24 @@ export function TopBar() {
         className="md:contents max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:flex max-md:items-center max-md:gap-1 max-md:bg-background/95 max-md:border-border max-md:data-[expanded=true]:border-t max-md:px-2 max-md:pt-1.5 max-md:pb-[calc(0.375rem+env(safe-area-inset-bottom))] max-md:data-[expanded=false]:right-auto max-md:data-[expanded=false]:left-1/2 max-md:data-[expanded=false]:-translate-x-1/2 max-md:data-[expanded=false]:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:data-[expanded=false]:rounded-full max-md:data-[expanded=false]:border max-md:data-[expanded=false]:px-1 max-md:data-[expanded=false]:pt-0 max-md:data-[expanded=false]:pb-0 max-md:data-[expanded=false]:shadow-md"
       >
         <div data-testid="bar-tools" data-expanded={expanded} className="md:contents max-md:flex max-md:flex-1 max-md:items-center max-md:justify-around max-md:gap-1 max-md:data-[expanded=false]:hidden">
+        {/* The timeline is first in the icon group and shows on every page that has a stream, a stream included. */}
+        {doc?.streamHref ? (
+              <Button
+                asChild
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Streaming document timeline"
+                title="流式文档 · 时间线"
+                data-testid="open-timeline"
+                data-active={doc.kind === "stream"}
+                aria-current={doc.kind === "stream" ? "page" : undefined}
+                className={cn("shrink-0", doc.kind === "stream" ? "bg-primary-soft text-primary border-primary border" : "")}
+              >
+                <a href={doc.streamHref}>
+                  <TimelineIcon />
+                </a>
+              </Button>
+        ) : null}
         {doc?.readable ? (
           <>
             <span className="bg-border hidden h-5 w-px shrink-0 md:block" aria-hidden />

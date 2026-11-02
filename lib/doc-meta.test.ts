@@ -35,6 +35,12 @@ describe("docTitle", () => {
   });
 });
 
+describe("docTitle source file", () => {
+  test("a source file is titled by its name, never by a # line", () => {
+    expect(docTitle("# not a title\nprint(1)\n", "/x/tool.py")).toBe("tool.py");
+  });
+});
+
 describe("docStats", () => {
   test("counts ## sections and mermaid diagrams outside code fences", () => {
     const src = "# T\n\n## A\n\n```mermaid\ngraph\n```\n\n````md\n## not a section\n```mermaid\n```\n````\n\n## B\n\n```mermaid\ngraph\n```\n";

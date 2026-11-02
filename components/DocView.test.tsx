@@ -119,6 +119,7 @@ describe("DocView right rail", () => {
     expect(html).toContain('data-testid="comments-pane"');
     expect(html).toContain("note");
     expect(html).toContain("Comments");
-    expect(html).toContain('title="1 open"');
+    // The tab strip carries the open count now that the panel has no title row.
+    expect(html).toContain('<span class="count">1</span>');
   });
 });

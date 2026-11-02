@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { anchor, makeSelector, type QuoteSelector, type TextRange } from "@/lib/anchor";
 import type { CodeState } from "@/lib/code-anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
+import type { Review } from "@/lib/comments-store";
+import { ReviewCard } from "./ReviewCard";
 import { cn } from "@/lib/utils";
 import { buildTextMap, offsetOf, rangeOf } from "@/lib/text-map";
 import { clampPanels, type PanelKey, type RightTab } from "@/lib/prefs";
@@ -13,6 +15,7 @@ import { DESKTOP, patchDoc, setChrome, useChrome, useIsDesktop } from "./chrome"
 import { PanelResizer } from "./PanelResizer";
 import { RightTabs } from "./RightTabs";
 import { CommentPanel, type PanelComment } from "./CommentPanel";
+import { ComposerLine } from "./ComposerLine";
 import { DocBody } from "./DocBody";
 import { useComments } from "./useComments";
 import { useLiveDoc } from "./useLiveDoc";
@@ -29,8 +32,14 @@ export type DiffRail = {
   /** False for a plain document: the rail keeps its single Comments tab and never offers the diff. */
   showPr?: boolean;
 };
+/** The File tab: the raw source pane, and the href that selects it. */
+export type FileRail = { panel: ReactNode; href: string; commentHref: string };
 type DocViewProps = {
   session: string;
+  /** This doc's review rounds, listed after the anchored comments. */
+  reviews?: Review[];
+  /** Set on every document with source (doc, code, stream): the right rail gets a File tab. */
+  fileRail?: FileRail;
   title: string;
   path: string;
   html: string;
@@ -51,7 +60,7 @@ const highlights = () => (typeof CSS !== "undefined" && "highlights" in CSS ? CS
  * stored selector is anchored back to text offsets and drawn with the CSS Custom Highlight API,
  * which leaves the page DOM untouched.
  */
-export function DocView({ session, title, path, html, initialComments, header, toc, rightTab = "comments", diff, codeState }: DocViewProps) {
+export function DocView({ session, reviews = [], title, path, html, initialComments, header, toc, rightTab = "comments", diff, codeState, fileRail }: DocViewProps) {
   const bodyRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [author, setAuthor] = useState("jun");
@@ -65,14 +74,14 @@ export function DocView({ session, title, path, html, initialComments, header, t
     localStorage.setItem(AUTHOR_KEY, v.trim() || "jun");
   };
 
-  const { comments, error, add, reply, setResolved, reload, edit, remove, editReply, removeReply } = useComments(session, initialComments, author.trim() || "jun");
+  const { comments, error, add, addGeneral, reply, setResolved, reload, edit, remove, editReply, removeReply } = useComments(session, initialComments, author.trim() || "jun");
   const chrome = useChrome();
   const desktop = useIsDesktop();
   useLiveDoc(session, reload);
   const openCount = comments.filter((c) => c.status === "open").length;
   // A file link selects Local PR in the URL; a phone has no right rail, so open the existing
   // bottom sheet for that pane instead of inventing another panel.
-  const activeTab: RightTab = diff && rightTab === "pr" ? "pr" : "comments";
+  const activeTab: RightTab = fileRail && rightTab === "file" ? "file" : diff && rightTab === "pr" ? "pr" : "comments";
   useEffect(() => {
     if (!desktop && activeTab === "pr") setChrome({ sheet: "cm" });
   }, [desktop, activeTab]);
@@ -250,6 +259,9 @@ export function DocView({ session, title, path, html, initialComments, header, t
       };
     });
     return withPos.sort((a, b) => {
+      // independent comments always come last, in the order they were written
+      if (a.general !== b.general) return a.general ? 1 : -1;
+      if (a.general && b.general) return a.createdAt.localeCompare(b.createdAt);
       if (a.code && b.code) {
         return a.code.path.localeCompare(b.code.path) || a.code.startLine - b.code.startLine || a.createdAt.localeCompare(b.createdAt);
       }
@@ -259,6 +271,21 @@ export function DocView({ session, title, path, html, initialComments, header, t
     });
   }, [comments, anchors, codeState]);
 
+  // The one-line composer sits at the top of the Comments pane. With a passage selected it posts a passage
+  // comment; with none it posts an independent (general) comment.
+  const lineComposer = (
+    <ComposerLine
+      onSend={async (text, images) => {
+        if (composing) {
+          await add(composing, text, images);
+          setComposing(null);
+          getSelection()?.removeAllRanges();
+        } else {
+          await addGeneral(text, images);
+        }
+      }}
+    />
+  );
   const composer = composing ? (
     <div className="border-primary mb-3 rounded-xl border p-2.5">
       <blockquote className="bg-background text-muted-foreground m-0 mb-2 line-clamp-3 rounded-lg px-2.5 py-1 text-[12.5px]">{composing.exact.replace(/\s+/g, " ").trim()}</blockquote>
@@ -288,6 +315,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
 
   const panel = (
     <CommentPanel
+      reviews={reviews}
       title={title}
       path={path}
       comments={panelComments}
@@ -304,7 +332,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
       onShowResolved={setShowResolved}
       author={author}
       onAuthor={changeAuthor}
-      composer={composer}
+      composer={<>{lineComposer}{composer}</>}
       error={error}
     />
   );
@@ -360,11 +388,11 @@ export function DocView({ session, title, path, html, initialComments, header, t
         chrome.cmOpen ? (
           <aside className="hidden border-border bg-background relative border-l md:block" data-testid="comments-panel" data-tab={activeTab}>
             <div className="sticky top-[var(--bar-h)] flex max-h-[calc(100vh-var(--bar-h))] flex-col">
-              {diff ? (
-                <RightTabs active={activeTab} commentHref={diff.commentHref} prHref={diff.prHref} open={openCount} additions={diff.additions} deletions={diff.deletions} showPr={diff.showPr ?? true} />
+              {diff || fileRail ? (
+                <RightTabs active={activeTab} commentHref={diff?.commentHref ?? fileRail!.commentHref} prHref={diff?.prHref ?? ""} open={openCount} additions={diff?.additions ?? 0} deletions={diff?.deletions ?? 0} showPr={diff ? (diff.showPr ?? true) : false} fileHref={fileRail?.href} />
               ) : null}
-              <div className="min-h-0 flex-1 overflow-y-auto p-3.5" data-testid={activeTab === "pr" && diff ? "diff-pane" : "comments-pane"}>
-                {activeTab === "pr" && diff ? diff.panel : panel}
+              <div className="min-h-0 flex-1 overflow-y-auto p-3.5" data-testid={activeTab === "pr" && diff ? "diff-pane" : activeTab === "file" && fileRail ? "file-pane" : "comments-pane"}>
+                {activeTab === "file" && fileRail ? fileRail.panel : activeTab === "pr" && diff ? diff.panel : panel}
               </div>
             </div>
             <PanelResizer
