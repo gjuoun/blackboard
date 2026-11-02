@@ -1,5 +1,8 @@
 import { readFile, stat } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve } from "node:path";
+import { Effect } from "effect";
+import { errorMessage, IoFailure, SessionNotFound, type ApiFailure } from "@/lib/effect/errors";
+import { respondRaw } from "@/lib/effect/respond";
 import { getHome } from "@/lib/home";
 import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath } from "@/lib/sessions";
 
@@ -22,43 +25,52 @@ const TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
 };
 
+const missing = (message: string): Effect.Effect<never, ApiFailure> => Effect.fail(new IoFailure({ message, status: 404 }));
+
+function program(req: Request, params: Promise<{ id: string }>): Effect.Effect<Response, ApiFailure> {
+  return Effect.gen(function* () {
+    const { id } = yield* Effect.promise(() => params);
+    const home = yield* Effect.sync(() => getHome());
+    if (id === SCRATCHPAD_ID) yield* Effect.sync(() => scratchpadSession(home));
+    const session = yield* Effect.sync(() => getSession(home, id));
+    const doc = session === null ? null : yield* Effect.sync(() => servablePath(session));
+    if (!doc) return yield* Effect.fail(new SessionNotFound({ message: "no such session", status: 404 }));
+
+    const relParam = new URL(req.url).searchParams.get("p") ?? "";
+    if (relParam === "") return yield* missing("missing p");
+
+    const docDir = dirname(doc);
+    // `relative` + a prefix check is the containment test: any `..` that escapes the doc's folder
+    // (or an absolute p=) makes rel start with ".." and is refused.
+    const target = resolve(join(docDir, relParam));
+    const rel = relative(docDir, target);
+    if (rel.startsWith("..") || rel === "") return yield* missing("outside doc folder");
+
+    const type = TYPES[extname(target).toLowerCase()];
+    if (!type) return yield* missing("not an image");
+
+    const size = yield* Effect.tryPromise({
+      try: () => stat(target).then((s) => s.size),
+      catch: () => new IoFailure({ message: "no such image", status: 404 }),
+    });
+    if (size === 0) return yield* missing("empty file");
+
+    const body = yield* Effect.tryPromise({
+      try: () => readFile(target),
+      catch: (error) => new IoFailure({ message: errorMessage(error), status: 500 }),
+    });
+    // SVG can carry scripts; a CSP header keeps it inert even though it is same-origin.
+    const headers: Record<string, string> = {
+      "content-type": type,
+      "content-length": String(size),
+      "cache-control": "private, max-age=300",
+      "x-content-type-options": "nosniff",
+    };
+    if (type === "image/svg+xml") headers["content-security-policy"] = "default-src 'none'; style-src 'unsafe-inline'";
+    return new Response(new Uint8Array(body), { headers });
+  });
+}
+
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const home = getHome();
-  if (id === SCRATCHPAD_ID) scratchpadSession(home);
-  const session = getSession(home, id);
-  const doc = session ? servablePath(session) : null;
-  if (!doc) return new Response("no such session", { status: 404 });
-
-  const relParam = new URL(req.url).searchParams.get("p") ?? "";
-  if (relParam === "") return new Response("missing p", { status: 404 });
-
-  const docDir = dirname(doc);
-  // `relative` + a prefix check is the containment test: any `..` that escapes the doc's folder
-  // (or an absolute p=) makes rel start with ".." and is refused.
-  const target = resolve(join(docDir, relParam));
-  const rel = relative(docDir, target);
-  if (rel.startsWith("..") || rel === "") return new Response("outside doc folder", { status: 404 });
-
-  const type = TYPES[extname(target).toLowerCase()];
-  if (!type) return new Response("not an image", { status: 404 });
-
-  let size: number;
-  try {
-    size = (await stat(target)).size;
-    if (size === 0) return new Response("empty file", { status: 404 });
-  } catch {
-    return new Response("no such image", { status: 404 });
-  }
-
-  const body = await readFile(target);
-  // SVG can carry scripts; a CSP header keeps it inert even though it is same-origin.
-  const headers: Record<string, string> = {
-    "content-type": type,
-    "content-length": String(size),
-    "cache-control": "private, max-age=300",
-    "x-content-type-options": "nosniff",
-  };
-  if (type === "image/svg+xml") headers["content-security-policy"] = "default-src 'none'; style-src 'unsafe-inline'";
-  return new Response(new Uint8Array(body), { headers });
+  return respondRaw(program(req, params));
 }
