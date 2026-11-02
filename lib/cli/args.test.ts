@@ -29,6 +29,16 @@ describe("the option records", () => {
     expect(await Effect.runPromise(decodeArgs(BlockArgs, { status: "writing" }))).toEqual({ status: "writing" });
   });
 
+  test("comment: an empty --occurrence is not given, so the first match", async () => {
+    const empty = await Effect.runPromise(decodeArgs(CommentArgs, { quote: "Later text.", occurrence: "" }));
+    expect(empty.occurrence).toBeUndefined();
+    expect(empty.occurrence ?? 1).toBe(1);
+    expect(await refusal(decodeArgs(CommentArgs, { quote: "Later text.", occurrence: "abc" }))).toEqual({
+      message: "--occurrence must be a whole number",
+      code: 2,
+    });
+  });
+
   test("comment: exactly one anchor, and a whole --occurrence", async () => {
     const both = { message: "comment takes --general alone, not with --quote", code: 2 };
     const neither = { message: "comment needs --quote <passage> or --general", code: 2 };

@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Effect, Schema, SchemaGetter } from "effect";
 import { CliError } from "../cli";
 
 /**
@@ -51,13 +51,25 @@ const WholeNumber = Schema.NumberFromString.pipe(
 );
 
 /**
+ * `--occurrence`: a whole number, or nothing. An empty value is the flag written without one, so it
+ * means "not given" and the first match — the way the CLI read it before the options were decoded. A
+ * value that is there and is not a whole number is still bad usage.
+ */
+const Occurrence = Schema.optional(Schema.String).pipe(
+  Schema.decodeTo(Schema.optional(WholeNumber), {
+    decode: SchemaGetter.transform((text) => (text === "" ? undefined : text)),
+    encode: SchemaGetter.transform((value) => value),
+  }),
+);
+
+/**
  * `comment`: exactly one anchor. A general note and a quote are mutually exclusive, and one of them
  * must be there; the decoded record says which one it got.
  */
 export const CommentArgs = Schema.Struct({
   general: Schema.optional(Schema.Boolean),
   quote: Schema.optional(Schema.String),
-  occurrence: Schema.optional(WholeNumber),
+  occurrence: Occurrence,
 })
   .pipe(
     Schema.check(
