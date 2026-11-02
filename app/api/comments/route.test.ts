@@ -47,31 +47,6 @@ describe("comments API renders bodies", () => {
   });
 });
 
-describe("POST accepts a code anchor", () => {
-  const code = { path: "lib/residency.ts", startLine: 3, endLine: 3, side: "new" as const, lineText: "  return gate;" };
-  const post = (payload: Record<string, unknown>) =>
-    POST(new NextRequest("http://127.0.0.1/api/comments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }));
-
-  test("a code-anchored comment is stored and answered with its anchor", async () => {
-    const { home, design, session } = await setup();
-    const res = await post({ session, code, body: "why the gate?", author: "jun" });
-    expect(res.status).toBe(201);
-    const { comment: made } = await res.json();
-    expect(made.code).toEqual(code);
-    expect(made.html).toBe("<p>why the gate?</p>");
-    expect((await run(comments(home, design)))[0].code).toEqual(code);
-  });
-
-  test("both anchors, neither anchor, and a malformed anchor are all refused", async () => {
-    const { session } = await setup();
-    const both = await post({ session, quote: { exact: "More text.", prefix: "Later text. ", suffix: "" }, code, body: "x" });
-    expect(both.status).toBe(400);
-    expect((await post({ session, body: "x" })).status).toBe(400);
-    expect((await post({ session, code: { ...code, path: "../outside.ts" }, body: "x" })).status).toBe(400);
-    expect((await post({ session, code: { ...code, startLine: 0 }, body: "x" })).status).toBe(400);
-    expect((await post({ session, code, body: "" })).status).toBe(400);
-  });
-});
 
 describe("reply joins the comment thread", () => {
   test("a reply with a reply id joins that comment: one flat list, one more entry, no nesting", async () => {

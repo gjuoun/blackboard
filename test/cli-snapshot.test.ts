@@ -151,13 +151,10 @@ describe("the CLI answers the same thing after every refactor", () => {
     record("header.again", ["header", "log.jsonl", "--title", "标题", "--owner", "jun"]);
     record("export.ok", ["export", "log.jsonl"]);
 
-    // pr: the pinned baseline, the code anchor and the diff command
+    // pr: the pinned baseline and the diff command
     record("open.pr", ["open", "--no-browser", "--no-server", "--kind", "pr", "docs/review.md"], repo);
     record("pr.ok", ["pr", "docs/review.md"], repo);
     record("pr.unknown-session", ["pr", "nope"], repo);
-    record("comment.code", ["comment", "docs/review.md", "--code", "lib/a.ts:L1", "why here?"], repo);
-    record("comment.code-missing", ["comment", "docs/review.md", "--code", "lib/a.ts:L99", "x"], repo);
-    record("comment.code-bad-ref", ["comment", "docs/review.md", "--code", "lib/a.ts", "x"], repo);
 
     // the binary itself
     record("serve.status", ["serve", "status"]);

@@ -3,7 +3,6 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { dirname } from "node:path";
 import { Context, Effect, Layer, Semaphore } from "effect";
 import type { QuoteSelector } from "./anchor";
-import type { CodeAnchor } from "./code-anchor";
 import { errorMessage, IoFailure, type LockTimeout } from "./effect/errors";
 import { Lock } from "./lock";
 
@@ -15,10 +14,9 @@ export type Reply = { id: string; body: string; author: string; createdAt: strin
 type CommentStatus = "open" | "resolved";
 export type Comment = {
   id: string;
-  /** Exactly one anchor kind: a passage in the doc (`quote`), a line of a repo file (`code`), or none (`general`). */
+  /** Exactly one anchor kind: a passage in the doc (`quote`), or none (`general`). */
   quote?: QuoteSelector;
-  code?: CodeAnchor;
-  /** An independent comment: no passage and no line. Listed at the bottom of the Comments pane. */
+  /** An independent comment: no passage. Listed at the bottom of the Comments pane. */
   general?: true;
   body: string;
   /** Stored comment image ids (`<sha256>.<ext>`), shown as thumbnails under the body. */
@@ -124,13 +122,13 @@ export function reviewRound(file: CommentFile, doc: string, input: { round: numb
   return review;
 }
 
-type CommentAnchor = { quote: QuoteSelector; code?: undefined; general?: undefined } | { code: CodeAnchor; quote?: undefined; general?: undefined } | { general: true; quote?: undefined; code?: undefined };
+type CommentAnchor = { quote: QuoteSelector; general?: undefined } | { general: true; quote?: undefined };
 
-/** A new comment on exactly one anchor kind: a passage of the doc, or a line of the diff. */
+/** A new comment on exactly one anchor kind: a passage of the doc, or nothing. */
 export function addComment(file: CommentFile, doc: string, input: CommentAnchor & { body: string; author: string; images?: string[] }): Comment {
-  const kinds = [input.quote ? 1 : 0, input.code ? 1 : 0, input.general ? 1 : 0].reduce((a, b) => a + b, 0);
-  if (kinds !== 1) throw new Error("exactly one anchor (quote, code or general) is required");
-  const anchor = input.quote ? { quote: input.quote } : input.code ? { code: input.code } : { general: true as const };
+  const kinds = [input.quote ? 1 : 0, input.general ? 1 : 0].reduce((a, b) => a + b, 0);
+  if (kinds !== 1) throw new Error("exactly one anchor (quote or general) is required");
+  const anchor = input.quote ? { quote: input.quote } : { general: true as const };
   const c: Comment = { id: newId("c"), ...anchor, body: input.body, ...(input.images?.length ? { images: input.images } : {}), author: input.author, createdAt: now(), status: "open", replies: [] };
   (file.docs[doc] ??= []).push(c);
   return c;

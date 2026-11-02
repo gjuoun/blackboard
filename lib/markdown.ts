@@ -15,13 +15,11 @@ import type { PluggableList } from "unified";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
 import { parse as parseYaml } from "yaml";
-import { rehypeFileRefs, type FileLinkOptions } from "./file-refs";
 import { remarkSingleDollarMath } from "./math";
 
 export type TocEntry = { depth: number; id: string; text: string };
 type Frontmatter = Record<string, unknown>;
-/** `fileRefs` is what the link visitor already resolved: the changed files this document opens. */
-export type Rendered = { html: string; toc: TocEntry[]; frontmatter: Frontmatter | null; fileRefs: readonly string[] };
+export type Rendered = { html: string; toc: TocEntry[]; frontmatter: Frontmatter | null };
 
 /** A node remark-rehype turns into the element named by data.hName. */
 type HNode = { type: string; data: { hName: string; hProperties?: Record<string, unknown>; hChildren?: unknown[] }; children?: PhrasingContent[] };
@@ -227,15 +225,10 @@ function rehypeCollectToc(toc: TocEntry[]) {
 }
 
 /** Markdown to HTML on the server, so the text a comment anchors against is the same on every load. */
-export async function renderMarkdown(src: string, opts?: { assetBase?: string; fileLinks?: FileLinkOptions }): Promise<Rendered> {
+export async function renderMarkdown(src: string, opts?: { assetBase?: string }): Promise<Rendered> {
   const toc: TocEntry[] = [];
   const fm: { data: Frontmatter | null } = { data: null };
   const asset: PluggableList = opts?.assetBase ? [rehypeAssetImages(opts.assetBase)] : [];
-  // One accumulator per render: the visitor records each reference as it rewrites the link, so the
-  // Local PR list reuses this parse instead of scanning the markdown again.
-  const fileRefs = new Set<string>();
-  // With no snapshot the pipeline is byte-for-byte what CLI and cloud callers already get.
-  const refs: PluggableList = opts?.fileLinks ? [[rehypeFileRefs, { ...opts.fileLinks, refs: fileRefs }]] : [];
   const file = await unified()
     .use(remarkParse)
     .use(remarkFrontmatter, ["yaml"])
@@ -250,13 +243,12 @@ export async function renderMarkdown(src: string, opts?: { assetBase?: string; f
     .use(rehypeSlugOutsideMath)
     .use(rehypeCollectToc(toc))
     .use(asset)
-    .use(refs)
     .use(rehypeKatex, { output: "html" })
     .use(rehypeMathOpaque)
     .use(rehypeHighlight, { detect: false, ignoreMissing: true })
     .use(rehypeStringify)
     .process(src);
-  return { html: String(file), toc, frontmatter: fm.data, fileRefs: [...fileRefs].sort() };
+  return { html: String(file), toc, frontmatter: fm.data };
 }
 
 /** Blocks the browser draws from their source; their text is not in the comment coordinate system. */

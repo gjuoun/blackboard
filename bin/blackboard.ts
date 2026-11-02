@@ -36,7 +36,7 @@ Usage:
   blackboard resolve  <session> <comment-id>
   blackboard reopen   <session> <comment-id>
   blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>
-  blackboard comment  <session> --code <path>:L<n> <note>
+  blackboard comment  <session> --general <note>
   blackboard block    <session> --action answer|edit|append [--edit <id>] <text|->
 
 <session> is a session id or a path to the registered file.
@@ -46,7 +46,6 @@ Options:
   --kind <k>       open: plain (default), pr (pins the diff baseline in the doc's front matter) or stream (a .jsonl block file)
   --title <t>      open --kind stream / header: the document title written into the metadata line
   --owner <name>   header: the document owner written into the metadata line
-  --code <ref>     comment: anchor on <repo-relative-path>:L<n> instead of a quoted passage
   --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)
   --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or "agent")
   --json           machine-readable output
@@ -90,7 +89,6 @@ const OPTIONS = {
   author: { type: "string" },
   json: { type: "boolean" },
   quote: { type: "string" },
-  code: { type: "string" },
   kind: { type: "string" },
   title: { type: "string" },
   owner: { type: "string" },
@@ -253,22 +251,15 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
         return 0;
       }
       case "comment": {
-        yield* need(2, "comment <session> --quote <passage> | --code <path>:L<n> | --general <note>");
+        yield* need(2, "comment <session> --quote <passage> | --general <note>");
         const note = args.slice(1).join(" ");
         if (o.general) {
-          if (o.quote || o.code) return yield* new CliError({ message: "comment takes --general alone, not with --quote or --code", code: 2 });
+          if (o.quote) return yield* new CliError({ message: "comment takes --general alone, not with --quote", code: 2 });
           const c = yield* commentsCli.commentGeneral(home, args[0], note, author);
           print(c, `commented ${c.id} (general)`);
           return 0;
         }
-        if (o.code) {
-          if (o.quote) return yield* new CliError({ message: "comment takes --quote or --code, not both", code: 2 });
-          if (o.occurrence) return yield* new CliError({ message: "--occurrence only applies to --quote", code: 2 });
-          const c = yield* commentsCli.commentOnCode(home, args[0], o.code, note, author);
-          print(c, `commented ${c.id} on ${c.doc} at ${o.code}`);
-          return 0;
-        }
-        if (!o.quote) return yield* new CliError({ message: "comment needs --quote <passage> or --code <path>:L<n>", code: 2 });
+        if (!o.quote) return yield* new CliError({ message: "comment needs --quote <passage> or --general", code: 2 });
         const n = o.occurrence ? Number(o.occurrence) : 1;
         if (!Number.isInteger(n)) return yield* new CliError({ message: "--occurrence must be a whole number", code: 2 });
         const c = yield* commentsCli.comment(home, args[0], o.quote, note, author, n);

@@ -133,7 +133,7 @@ describe("the wire the routes answer today", () => {
     await record("comments.POST.unknown-session", await post({ session: "nosuchid", general: true, body: "x" }));
     await record("comments.POST.no-body", await post({ session: fx.session, general: true }));
     await record("comments.POST.no-anchor", await post({ session: fx.session, body: "x" }));
-    await record("comments.POST.two-anchors", await post({ session: fx.session, body: "x", general: true, code: { path: "lib/a.ts", startLine: 1, endLine: 1, side: "new", lineText: "x" } }));
+    await record("comments.POST.two-anchors", await post({ session: fx.session, body: "x", quote: { exact: "Later text.", prefix: "", suffix: "" }, general: true }));
     await record("comments.POST.bad-images", await post({ session: fx.session, general: true, body: "x", images: ["../etc/passwd"] }));
     await record("comments.POST.too-many-images", await post({ session: fx.session, general: true, body: "x", images: Array(5).fill("<sha256>.png") }));
     const created = await post({ session: fx.session, general: true, body: "**first** note", author: "jun" });

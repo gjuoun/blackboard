@@ -45,7 +45,7 @@ type ChromeFlags = { tocOpen: boolean; cmOpen: boolean; showResolved: boolean; w
 export type StoredChrome = Prefs & ChromeFlags;
 export const DEFAULT_CHROME: StoredChrome = { ...DEFAULT_PREFS, tocOpen: true, cmOpen: true, showResolved: false, wrapCode: false };
 
-const RIGHT_TABS = ["comments", "pr", "file"] as const;
+const RIGHT_TABS = ["comments", "file"] as const;
 export type RightTab = (typeof RIGHT_TABS)[number];
 
 /** The shared right column has two panes, selected by the URL (server-rendered), not a third panel. */

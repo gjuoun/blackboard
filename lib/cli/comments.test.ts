@@ -1,14 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { run } from "../../test/app";
-import { DESIGN, repoSetup, runCli, setup } from "../../test/fixtures/cli";
+import { DESIGN, runCli, setup } from "../../test/fixtures/cli";
 import { anchor } from "../anchor";
 import { readComments } from "../comments-store";
 import { renderPlainText } from "../markdown";
 import { sessionCommentsPath } from "../sessions";
 import { formatComments } from "../cli";
-import { comment, commentOnCode, comments, reply, status } from "./comments";
+import { comment, comments, reply, status } from "./comments";
 import { open, sessions } from "./sessions";
 
 describe("comments", () => {
@@ -78,44 +77,5 @@ describe("comments", () => {
     await expect(run(comment(home, design, "absent", "n", "a"))).rejects.toThrow("quote not found");
     await expect(run(reply(home, design, "c_nope", "t", "a"))).rejects.toThrow("no comment c_nope");
     await expect(run(reply(home, design, "r_nope", "t", "a"))).rejects.toThrow("no comment r_nope");
-  });
-});
-
-describe("code-anchored comments", () => {
-  test("comment by path:line stores the anchor and its line text", async () => {
-    const { home, design, source } = repoSetup();
-    await run(open(home, design));
-    const c = await run(commentOnCode(home, design, "lib/residency.ts:L3", "why the gate?", "agent"));
-    expect(c.code).toEqual({ path: "lib/residency.ts", startLine: 3, endLine: 3, side: "new", lineText: "  return gate;" });
-    expect(c.quote).toBeUndefined();
-    const listed = await run(comments(home, design));
-    expect(listed[0].codeState).toEqual({ orphaned: false, movedTo: null });
-    const text = formatComments(listed);
-    expect(text).toContain("lib/residency.ts:L3");
-    expect(text).toContain("why the gate?");
-    // The doc own file is untouched: the anchor is metadata, not a rewrite of the source.
-    expect(readFileSync(source, "utf8")).toContain("return gate;");
-  });
-
-  test("a drifted line reads as L3 -> L4 and the stored anchor is not rewritten", async () => {
-    const { home, design, source } = repoSetup();
-    await run(open(home, design));
-    const c = await run(commentOnCode(home, design, "lib/residency.ts:L3", "still here?", "jun"));
-    writeFileSync(source, "export function residency() {\n  // drifted\n  const gate = 1;\n  return gate;\n}\n");
-    const text = formatComments(await run(comments(home, design)));
-    expect(text).toContain("L3 \u21a6 \u73b0 L4");
-    expect(c.code?.startLine).toBe(3);
-    const stored = (await run(comments(home, design)))[0];
-    expect(stored.code?.startLine).toBe(3);
-    expect(stored.codeState).toEqual({ orphaned: true, movedTo: 4 });
-  });
-
-  test("a bad reference, a missing line and an escaping path are all refused", async () => {
-    const { home, design } = repoSetup();
-    await run(open(home, design));
-    await expect(run(commentOnCode(home, design, "lib/residency.ts", "x", "jun"))).rejects.toThrow(/--code takes/);
-    await expect(run(commentOnCode(home, design, "lib/residency.ts:L99", "x", "jun"))).rejects.toThrow(/no line 99/);
-    await expect(run(commentOnCode(home, design, "../outside.ts:L1", "x", "jun"))).rejects.toThrow(/--code takes/);
-    await expect(run(commentOnCode(home, design, "lib/missing.ts:L1", "x", "jun"))).rejects.toThrow(/no such file/);
   });
 });

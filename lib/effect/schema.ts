@@ -4,18 +4,17 @@ import { bodyRequired, InvalidInput, sessionNotFound, type ApiFailure } from "./
 /**
  * The request bodies the routes accept, decoded at the boundary. A field is typed only where the
  * route already answers a rejection with one fixed message; the fields the route coerces (author,
- * quote, code, general) stay Unknown, so a value the old hand-written check accepted is still
- * accepted and the JSON on the wire does not move.
+ * quote, general) stay Unknown, so a value the old hand-written check accepted is still accepted
+ * and the JSON on the wire does not move.
  */
 export const ACTIONS = ["reply", "resolve", "reopen", "edit", "delete", "edit-reply", "delete-reply"] as const;
 
-/** POST /api/comments: one new comment on a passage, on a diff line, or on nothing. */
+/** POST /api/comments: one new comment on a passage, or on nothing. */
 export const CommentPostBody = Schema.Struct({
   session: Schema.String,
   body: Schema.optional(Schema.String),
   images: Schema.optional(Schema.Array(Schema.String)),
   quote: Schema.optional(Schema.Unknown),
-  code: Schema.optional(Schema.Unknown),
   general: Schema.optional(Schema.Unknown),
   author: Schema.optional(Schema.Unknown),
 });

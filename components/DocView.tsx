@@ -4,7 +4,6 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, type ReactNode } from "react";
 import type { QuoteSelector } from "@/lib/anchor";
-import type { CodeState } from "@/lib/code-anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
 import type { Review } from "@/lib/comments-store";
 import { cn } from "@/lib/utils";
@@ -21,16 +20,6 @@ import { useDocAnchors } from "./useDocAnchors";
 import { useLiveDoc } from "./useLiveDoc";
 
 const AUTHOR_KEY = "bb-author";
-/** The Local PR half of the shared right column, rendered by the server page. */
-type DiffRail = {
-  panel: ReactNode;
-  commentHref: string;
-  prHref: string;
-  additions: number;
-  deletions: number;
-  /** False for a plain document: the rail keeps its single Comments tab and never offers the diff. */
-  showPr?: boolean;
-};
 /** The File tab: the raw source pane, and the href that selects it. */
 export type FileRail = { panel: ReactNode; href: string; commentHref: string };
 type DocViewProps = {
@@ -46,16 +35,13 @@ type DocViewProps = {
   header: ReactNode;
   toc: ReactNode;
   rightTab?: RightTab;
-  diff?: DiffRail;
-  /** Per code-anchored comment: whether its line still reads as it did, and where it moved to. */
-  codeState?: Record<string, CodeState>;
 };
 
 /**
  * The doc plus its comments. The anchoring and selection half lives in `useDocAnchors`; this
  * component owns the layout: the three columns on desktop, the bottom sheets on a phone.
  */
-export function DocView({ session, reviews = [], title, path, html, initialComments, header, toc, rightTab = "comments", diff, codeState, fileRail }: DocViewProps) {
+export function DocView({ session, reviews = [], title, path, html, initialComments, header, toc, rightTab = "comments", fileRail }: DocViewProps) {
   const [author, setAuthor] = useState("jun");
   useEffect(() => {
     const saved = localStorage.getItem(AUTHOR_KEY);
@@ -72,12 +58,7 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
   const desktop = useIsDesktop();
   useLiveDoc(session, reload);
   const openCount = comments.filter((c) => c.status === "open").length;
-  // A file link selects Local PR in the URL; a phone has no right rail, so open the existing
-  // bottom sheet for that pane instead of inventing another panel.
-  const activeTab: RightTab = fileRail && rightTab === "file" ? "file" : diff && rightTab === "pr" ? "pr" : "comments";
-  useEffect(() => {
-    if (!desktop && activeTab === "pr") setChrome({ sheet: "cm" });
-  }, [desktop, activeTab]);
+  const activeTab: RightTab = fileRail && rightTab === "file" ? "file" : "comments";
   useEffect(() => patchDoc({ open: openCount }), [openCount, chrome.doc?.id]);
   const [composing, setComposing] = useState<QuoteSelector | null>(null);
   const [note, setNote] = useState("");
@@ -100,7 +81,7 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
     return () => removeEventListener("resize", onResize);
   }, [chrome.tocW, chrome.cmW]);
 
-  const { bodyRef, mainRef, draft, setDraft, activeId, flashId, onDocMove, onDocLeave, onDocClick, activate, panelComments } = useDocAnchors({ comments, html, codeState });
+  const { bodyRef, mainRef, draft, setDraft, activeId, flashId, onDocMove, onDocLeave, onDocClick, activate, panelComments } = useDocAnchors({ comments, html });
 
   const startComment = () => {
     if (!draft) return;
@@ -211,11 +192,9 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
         chrome.cmOpen ? (
           <aside className="hidden border-border bg-background relative border-l md:block" data-testid="comments-panel" data-tab={activeTab}>
             <div className="sticky top-[var(--bar-h)] flex max-h-[calc(100vh-var(--bar-h))] flex-col">
-              {diff || fileRail ? (
-                <RightTabs active={activeTab} commentHref={diff?.commentHref ?? fileRail!.commentHref} prHref={diff?.prHref ?? ""} open={openCount} additions={diff?.additions ?? 0} deletions={diff?.deletions ?? 0} showPr={diff ? (diff.showPr ?? true) : false} fileHref={fileRail?.href} />
-              ) : null}
-              <div className="min-h-0 flex-1 overflow-y-auto p-3.5" data-testid={activeTab === "pr" && diff ? "diff-pane" : activeTab === "file" && fileRail ? "file-pane" : "comments-pane"}>
-                {activeTab === "file" && fileRail ? fileRail.panel : activeTab === "pr" && diff ? diff.panel : panel}
+              {fileRail ? <RightTabs active={activeTab} commentHref={fileRail.commentHref} open={openCount} fileHref={fileRail.href} /> : null}
+              <div className="min-h-0 flex-1 overflow-y-auto p-3.5" data-testid={activeTab === "file" && fileRail ? "file-pane" : "comments-pane"}>
+                {activeTab === "file" && fileRail ? fileRail.panel : panel}
               </div>
             </div>
             <PanelResizer
@@ -227,7 +206,7 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
             />
           </aside>
         ) : (
-          // Collapsed means gone: the Comments / Local PR buttons in the top bar bring it back.
+          // Collapsed means gone: the Comments button in the top bar brings it back.
           <aside aria-hidden className="hidden invisible md:block" />
         )
       ) : (
@@ -243,14 +222,9 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
           <Sheet open={chrome.sheet === "cm"} onOpenChange={(o) => setChrome({ sheet: o ? "cm" : null })}>
             <SheetContent side="bottom" showCloseButton={false} className="bg-background max-h-[80vh] overflow-y-auto rounded-t-2xl px-4 pt-2 pb-8">
               <div className="bg-border mx-auto mb-3 h-1 w-10 shrink-0 rounded-full" aria-hidden />
-              <SheetTitle className="sr-only">{activeTab === "pr" && diff ? "Local PR" : "Comments"}</SheetTitle>
-              <SheetDescription className="sr-only">Comments and local changes on this document</SheetDescription>
-              {diff ? (
-                <div className="mb-3">
-                  <RightTabs active={activeTab} commentHref={diff.commentHref} prHref={diff.prHref} open={openCount} additions={diff.additions} deletions={diff.deletions} showPr={diff.showPr ?? true} />
-                </div>
-              ) : null}
-              {activeTab === "pr" && diff ? diff.panel : panel}
+              <SheetTitle className="sr-only">Comments</SheetTitle>
+              <SheetDescription className="sr-only">Comments on this document</SheetDescription>
+              {panel}
             </SheetContent>
           </Sheet>
         </>

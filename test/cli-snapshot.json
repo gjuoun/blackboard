@@ -135,7 +135,7 @@
     ],
     "code": 2,
     "stdout": "",
-    "stderr": "blackboard: comment needs --quote <passage> or --code <path>:L<n>\n"
+    "stderr": "blackboard: comment needs --quote <passage> or --general\n"
   },
   {
     "label": "comment.bad-occurrence",
@@ -442,45 +442,6 @@
     "stderr": "blackboard: no session \"nope\" (register the file with: blackboard open <file>)\n"
   },
   {
-    "label": "comment.code",
-    "argv": [
-      "comment",
-      "docs/review.md",
-      "--code",
-      "lib/a.ts:L1",
-      "why here?"
-    ],
-    "code": 0,
-    "stdout": "commented c_<id> on review.md at lib/a.ts:L1\n",
-    "stderr": ""
-  },
-  {
-    "label": "comment.code-missing",
-    "argv": [
-      "comment",
-      "docs/review.md",
-      "--code",
-      "lib/a.ts:L99",
-      "x"
-    ],
-    "code": 1,
-    "stdout": "",
-    "stderr": "blackboard: lib/a.ts has no line 99\n"
-  },
-  {
-    "label": "comment.code-bad-ref",
-    "argv": [
-      "comment",
-      "docs/review.md",
-      "--code",
-      "lib/a.ts",
-      "x"
-    ],
-    "code": 2,
-    "stdout": "",
-    "stderr": "blackboard: --code takes <repo-relative-path>:L<n> (got \"lib/a.ts\")\n"
-  },
-  {
     "label": "serve.status",
     "argv": [
       "serve",
@@ -506,6 +467,6 @@
     ],
     "code": 2,
     "stdout": "",
-    "stderr": "blackboard: unknown command \"frobnicate\"\n\nblackboard — review markdown files and their comments, from the shell\n\nUsage:\n  blackboard open     <file> [--kind plain|pr|stream] [--title <title>] [--no-browser]\n                                                 register a file, print \"<id>  <url>\", open it\n                                                 (starts the web app first when it is not running)\n  blackboard header   <session> --title <title> [--owner <name>]\n                                                 add or update a stream's metadata line (old files)\n  blackboard pr       <session> [--json]         the pinned diff baseline, its git command and totals\n  blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)\n  blackboard sessions [--json]                   every session: id, title, location, branch, open comments\n  blackboard close    <session>                  forget a session (its comments are kept)\n  blackboard comments <session> [--json]         every comment and its replies, resolved ones too\n  blackboard reply    <session> <id> <text>\n  blackboard resolve  <session> <comment-id>\n  blackboard reopen   <session> <comment-id>\n  blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>\n  blackboard comment  <session> --code <path>:L<n> <note>\n  blackboard block    <session> --action answer|edit|append [--edit <id>] <text|->\n\n<session> is a session id or a path to the registered file.\n<id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).\n\nOptions:\n  --kind <k>       open: plain (default), pr (pins the diff baseline in the doc's front matter) or stream (a .jsonl block file)\n  --title <t>      open --kind stream / header: the document title written into the metadata line\n  --owner <name>   header: the document owner written into the metadata line\n  --code <ref>     comment: anchor on <repo-relative-path>:L<n> instead of a quoted passage\n  --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)\n  --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or \"agent\")\n  --json           machine-readable output\n  --no-browser     open: do not launch the browser (or set BLACKBOARD_NO_BROWSER=1)\n  --no-server      open: do not start the web app (or set BLACKBOARD_NO_SERVER=1)\n  --port <n>       serve start / restart: port to listen on (default: from $BLACKBOARD_URL, else 38770)\n  --foreground     serve start: run in this terminal until Ctrl-C\n  --version        print the version\n\nExit codes: 0 ok, 1 command failed, 2 bad usage, 3 serve status: not running.\n"
+    "stderr": "blackboard: unknown command \"frobnicate\"\n\nblackboard — review markdown files and their comments, from the shell\n\nUsage:\n  blackboard open     <file> [--kind plain|pr|stream] [--title <title>] [--no-browser]\n                                                 register a file, print \"<id>  <url>\", open it\n                                                 (starts the web app first when it is not running)\n  blackboard header   <session> --title <title> [--owner <name>]\n                                                 add or update a stream's metadata line (old files)\n  blackboard pr       <session> [--json]         the pinned diff baseline, its git command and totals\n  blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)\n  blackboard sessions [--json]                   every session: id, title, location, branch, open comments\n  blackboard close    <session>                  forget a session (its comments are kept)\n  blackboard comments <session> [--json]         every comment and its replies, resolved ones too\n  blackboard reply    <session> <id> <text>\n  blackboard resolve  <session> <comment-id>\n  blackboard reopen   <session> <comment-id>\n  blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>\n  blackboard comment  <session> --general <note>\n  blackboard block    <session> --action answer|edit|append [--edit <id>] <text|->\n\n<session> is a session id or a path to the registered file.\n<id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).\n\nOptions:\n  --kind <k>       open: plain (default), pr (pins the diff baseline in the doc's front matter) or stream (a .jsonl block file)\n  --title <t>      open --kind stream / header: the document title written into the metadata line\n  --owner <name>   header: the document owner written into the metadata line\n  --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)\n  --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or \"agent\")\n  --json           machine-readable output\n  --no-browser     open: do not launch the browser (or set BLACKBOARD_NO_BROWSER=1)\n  --no-server      open: do not start the web app (or set BLACKBOARD_NO_SERVER=1)\n  --port <n>       serve start / restart: port to listen on (default: from $BLACKBOARD_URL, else 38770)\n  --foreground     serve start: run in this terminal until Ctrl-C\n  --version        print the version\n\nExit codes: 0 ok, 1 command failed, 2 bad usage, 3 serve status: not running.\n"
   }
 ]

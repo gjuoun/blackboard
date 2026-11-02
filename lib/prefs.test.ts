@@ -134,9 +134,10 @@ test("boot: a throwing storage never breaks the page", () => {
   expect(root.attrs.size).toBe(0);
 });
 
-test("right tab: the URL selects Comments or Local PR, anything else falls back", () => {
-  expect(parseRightTab("pr")).toBe("pr");
+test("right tab: the URL selects Comments or File, anything else falls back", () => {
+  expect(parseRightTab("file")).toBe("file");
   expect(parseRightTab("comments")).toBe("comments");
+  expect(parseRightTab("pr")).toBe("comments");
   expect(parseRightTab("drawers")).toBe("comments");
   expect(parseRightTab(undefined)).toBe("comments");
 });

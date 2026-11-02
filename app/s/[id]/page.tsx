@@ -5,17 +5,12 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Folder, FolderGit2, FolderTree, GitBranch, GitCommitHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { DiffPanel } from "@/components/DiffPanel";
 import { DocChip } from "@/components/DocChip";
 import { DocView, type FileRail } from "@/components/DocView";
 import { RegisterTab } from "@/components/RegisterTab";
 import { Toc } from "@/components/Toc";
-import { groupCodeThreads } from "@/lib/code-anchor";
 import { renderComments } from "@/lib/comment-markdown";
 import { readComments } from "@/lib/comments-store";
-import { getDiffSnapshot } from "@/lib/diff-index";
-import { LOCAL_PR } from "@/lib/features";
-import { fileHref, parseSelectedFile, parseShowAll, tabHref } from "@/lib/file-refs";
 import { getHome } from "@/lib/home";
 import { renderCode } from "@/lib/code-view";
 import { docType, type DocType } from "@/lib/doc-type";
@@ -29,8 +24,7 @@ import { parseStream, type StreamBlock } from "@/lib/stream-doc";
 import { renderStream } from "@/lib/stream-html";
 import type { WorkspacePane } from "@/lib/workspace-pane";
 import { renderMarkdown } from "@/lib/markdown";
-import { parsePrFrontmatter } from "@/lib/pr-kind";
-import { parseRightTab, type RightTab } from "@/lib/prefs";
+import { parseRightTab } from "@/lib/prefs";
 import { servablePath, sessionCommentsPath, tildify } from "@/lib/sessions";
 import { loadSession as load, loadWorkspacePane, streamHref as streamHrefFor } from "@/lib/session-view";
 
@@ -40,11 +34,6 @@ import { loadSession as load, loadWorkspacePane, streamHref as streamHrefFor } f
  * filled in by later steps and show a short placeholder until then.
  */
 
-
-/** The `tab` query selects the right pane; anything but `file` and `pr` is the comments pane. */
-function rightOf(tab: string | string[] | undefined): RightTab {
-  return tab === "file" ? "file" : tab === "pr" ? "pr" : "comments";
-}
 
 /** The File rail for every document with source. `view=full` opens the full-window reader. */
 function fileRailFor(id: string, file: string, row: { repo: { root: string } | null }, view: string | string[] | undefined): FileRail {
@@ -202,7 +191,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} kind="code" streamHref={await streamHrefFor(home)} />
-        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={left} rightTab={rightOf(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
+        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={left} rightTab={parseRightTab(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
       </>
     );
   }
@@ -219,41 +208,17 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     return (
       <>
         <RegisterTab id={session.id} title={title} path={session.path} readable={false} hasToc={false} kind="stream" streamHref={`/s/${session.id}`} />
-        <DocView key={session.id} session={session.id} title={title} path={session.path} html={streamHtml} initialComments={renderComments(streamFile.docs[basename(file)] ?? [])} reviews={streamReviews} header={header} toc={leftPane(id, "stream", search.left, null, { state: "outside-git" }, blocks, title)} rightTab={rightOf(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
+        <DocView key={session.id} session={session.id} title={title} path={session.path} html={streamHtml} initialComments={renderComments(streamFile.docs[basename(file)] ?? [])} reviews={streamReviews} header={header} toc={leftPane(id, "stream", search.left, null, { state: "outside-git" }, blocks, title)} rightTab={parseRightTab(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
       </>
     );
   }
-  // The doc is read once: its front matter decides the rail and the pinned diff base, and the same
-  // string feeds the markdown pass that collects this document's file links.
+  // The doc is read once: the same string feeds the markdown pass and the comments pane.
   const src = readFileSync(file, "utf8");
-  const prDoc = parsePrFrontmatter(src);
-  // Explicit, checkable activation: the session says pr and the doc carries a pin git can read.
-  // LOCAL_PR is off (see lib/features.ts): the pin diffs the DOC's repo, not the code repo a plan
-  // wants to read, so the whole rail + `file:` links stay dormant until the base can name one.
-  const pr = LOCAL_PR && session.kind === "pr" && prDoc.baseSha !== null;
-  // One snapshot for the whole request: the link visitor and the diff pane read this index, never
-  // the filesystem or git. A pr doc pins the commit its front matter names; a plain doc keeps the
-  // floating base only for its code-comment threads and never shows the diff.
-  const docPath = row.repo?.relPath ?? null;
-  const snapshot = row.repo ? getDiffSnapshot(row.repo.root, pr ? { baseRef: prDoc.base ?? "main", base: prDoc.baseSha! } : {}) : null;
-  const selected = snapshot ? parseSelectedFile(search, docPath) : null;
-  const rightTab: RightTab = pr && snapshot && parseRightTab(search.tab) === "pr" ? "pr" : rightOf(search.tab) === "file" ? "file" : "comments";
-  const prHref = selected
-    ? fileHref(selected.path, selected.start !== null ? { start: selected.start, end: selected.end ?? selected.start } : null)
-    : tabHref("pr");
-  // A plain document's file: links stay literal text, so the visitor is not installed for it.
-  const { html, toc, fileRefs } = await renderMarkdown(src, {
-    assetBase: `/api/asset/${id}`,
-    fileLinks: pr && snapshot ? { index: snapshot, docPath, selected } : undefined,
-  });
-  const showAll = parseShowAll(search.all);
+  const { html, toc } = await renderMarkdown(src, { assetBase: `/api/asset/${id}` });
   const doc = basename(file);
-  // One render of the stored comments feeds both panes: the list the client keeps, and the threads
-  // the diff box prints. The grouping resolves each code anchor against the same request snapshot.
   const commentFile = readComments(sessionCommentsPath(home, session.id));
   const renderedComments = renderComments(commentFile.docs[doc] ?? []);
   const reviews = (commentFile.reviews ?? []).filter((r) => r.doc === doc);
-  const codeThreads = groupCodeThreads(renderedComments, snapshot);
   return (
     <>
       <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 1} streamHref={await streamHrefFor(home)} />
@@ -267,21 +232,8 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
         reviews={reviews}
         header={header}
         toc={leftPane(id, "doc", search.left, toc.length > 1 ? <Toc toc={toc} /> : null, await loadWorkspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home))}
-        rightTab={rightTab}
+        rightTab={parseRightTab(search.tab)}
         fileRail={fileRailFor(id, file, row, search.view)}
-        codeState={codeThreads.state}
-        diff={
-          snapshot
-            ? {
-                panel: pr ? <DiffPanel index={snapshot} selected={selected} refs={fileRefs} showAll={showAll} threads={codeThreads.byRow} session={session.id} /> : null,
-                commentHref: tabHref("comments"),
-                prHref,
-                additions: snapshot.totals.additions,
-                deletions: snapshot.totals.deletions,
-                showPr: pr,
-              }
-            : undefined
-        }
       />
     </>
   );

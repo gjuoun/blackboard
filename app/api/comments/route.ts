@@ -2,7 +2,6 @@ import { basename } from "node:path";
 import { Effect } from "effect";
 import type { NextRequest } from "next/server";
 import type { QuoteSelector } from "@/lib/anchor";
-import { normalizeCodeAnchor, type CodeAnchor } from "@/lib/code-anchor";
 import { IMAGE_ID } from "@/lib/comment-images";
 import { renderComments, type RenderedComment } from "@/lib/comment-markdown";
 import {
@@ -47,8 +46,6 @@ function quote(v: unknown): QuoteSelector | null {
   if (!text(q.exact, MAX_BODY) || typeof q.prefix !== "string" || typeof q.suffix !== "string") return null;
   return { exact: q.exact as string, prefix: q.prefix.slice(-64), suffix: q.suffix.slice(0, 64) };
 }
-
-const code = (v: unknown): CodeAnchor | null => (v === undefined ? null : normalizeCodeAnchor(v));
 
 /** The request body as a value; a body that is not JSON is null, exactly as the old catch returned. */
 const bodyOf = (req: NextRequest): Effect.Effect<unknown | null> =>
@@ -105,23 +102,22 @@ export async function GET(req: NextRequest) {
   );
 }
 
-/** POST {session, quote | code | general, body, author} — a new comment on a passage or on a diff line. */
+/** POST {session, quote | general, body, author} — a new comment on a passage or on nothing. */
 export async function POST(req: NextRequest) {
   return respond(
     Effect.gen(function* () {
       const comments = yield* CommentsStore;
       const { body: b, file, doc } = yield* postTarget(req);
       const q = quote(b.quote);
-      const anchor = code(b.code);
       const body = text(b.body, MAX_BODY);
       if (!body) return yield* Effect.fail(bodyRequired());
       const general = b.general === true;
-      const kinds = Number(Boolean(q)) + Number(Boolean(anchor)) + Number(general);
-      if (kinds !== 1) return yield* Effect.fail(new InvalidInput({ message: "exactly one of quote, code or general is required", status: 400, field: "quote" }));
+      const kinds = Number(Boolean(q)) + Number(general);
+      if (kinds !== 1) return yield* Effect.fail(new InvalidInput({ message: "exactly one of quote or general is required", status: 400, field: "quote" }));
       // Images are stored ids: each must be a valid stored name, so a client cannot point a comment at any file.
       const images = b.images === undefined ? [] : b.images.every((x) => IMAGE_ID.test(x)) ? [...b.images] : null;
       if (images === null || images.length > 4) return yield* Effect.fail(new InvalidInput({ message: "images must be up to 4 stored image ids", status: 400, field: "images" }));
-      const kind = q ? { quote: q } : anchor ? { code: anchor } : { general: true as const };
+      const kind = q ? { quote: q } : { general: true as const };
       const comment = yield* storeCall(comments.mutate(file, (f) => addComment(f, doc, { ...kind, body, author: author(b.author), images })));
       return { comment: one(comment) };
     }),
