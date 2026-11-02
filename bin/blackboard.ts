@@ -7,7 +7,7 @@
 import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
 import { Cause, Effect, Exit, Result } from "effect";
-import { CliError, cliFailure, formatComments, formatPr, formatSessions } from "../lib/cli";
+import { CliError, cliFailure, formatComments, formatSessions } from "../lib/cli";
 import * as commentsCli from "../lib/cli/comments";
 import * as sessionsCli from "../lib/cli/sessions";
 import * as streamsCli from "../lib/cli/streams";
@@ -22,12 +22,11 @@ import * as server from "../lib/server-ctl";
 const HELP = `blackboard — review markdown files and their comments, from the shell
 
 Usage:
-  blackboard open     <file> [--kind plain|pr|stream] [--title <title>] [--no-browser]
+  blackboard open     <file> [--kind plain|stream] [--title <title>] [--no-browser]
                                                  register a file, print "<id>  <url>", open it
                                                  (starts the web app first when it is not running)
   blackboard header   <session> --title <title> [--owner <name>]
                                                  add or update a stream's metadata line (old files)
-  blackboard pr       <session> [--json]         the pinned diff baseline, its git command and totals
   blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)
   blackboard sessions [--json]                   every session: id, title, location, branch, open comments
   blackboard close    <session>                  forget a session (its comments are kept)
@@ -43,7 +42,7 @@ Usage:
 <id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).
 
 Options:
-  --kind <k>       open: plain (default), pr (pins the diff baseline in the doc's front matter) or stream (a .jsonl block file)
+  --kind <k>       open: plain (default) or stream (a .jsonl block file)
   --title <t>      open --kind stream / header: the document title written into the metadata line
   --owner <name>   header: the document owner written into the metadata line
   --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)
@@ -133,14 +132,13 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
 
     switch (cmd) {
       case "open": {
-        yield* need(1, "open <file> [--kind plain|pr|stream] [--no-browser]");
-        if (o.kind !== undefined && o.kind !== "plain" && o.kind !== "pr" && o.kind !== "stream") {
-          return yield* new CliError({ message: String.raw`--kind takes "plain", "pr" or "stream"`, code: 2 });
+        yield* need(1, "open <file> [--kind plain|stream] [--no-browser]");
+        if (o.kind !== undefined && o.kind !== "plain" && o.kind !== "stream") {
+          return yield* new CliError({ message: String.raw`--kind takes "plain" or "stream"`, code: 2 });
         }
         if (!o["no-server"] && process.env.BLACKBOARD_NO_SERVER !== "1") yield* ensureServer(home);
         const opened = yield* sessionsCli.open(home, args[0], process.cwd(), o.kind as SessionKind | undefined, o.kind === "stream" ? { title: o.title, owner: author } : undefined);
-        const pin = opened.pr ? `\npr base ${opened.pr.base} @ ${opened.pr.sha.slice(0, 7)}${opened.pr.filled ? "  (front matter filled)" : ""}` : "";
-        print({ ...opened.session, url: opened.url, ...(opened.pr ? { pr: opened.pr } : {}) }, `${opened.session.id}  ${opened.url}${pin}`);
+        print({ ...opened.session, url: opened.url }, `${opened.session.id}  ${opened.url}`);
         if (!o["no-browser"] && process.env.BLACKBOARD_NO_BROWSER !== "1") yield* launch(opened.url);
         return 0;
       }
@@ -180,12 +178,6 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
       case "sessions": {
         const rows = yield* sessionsCli.sessions(home);
         print(rows, formatSessions(rows));
-        return 0;
-      }
-      case "pr": {
-        yield* need(1, "pr <session> [--json]");
-        const status = yield* sessionsCli.pr(home, args[0]);
-        print(status, formatPr(status));
         return 0;
       }
       case "close": {

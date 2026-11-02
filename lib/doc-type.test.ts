@@ -4,7 +4,7 @@ import { CODE_MAX_BYTES, docType, servableExtension } from "./doc-type";
 describe("doc type", () => {
   test("classify: md is doc", () => {
     expect(docType("notes/design.md")).toEqual({ ok: true, type: "doc" });
-    expect(docType("notes/design.md", "pr")).toEqual({ ok: true, type: "doc" });
+    expect(docType("notes/design.md", "plain")).toEqual({ ok: true, type: "doc" });
   });
 
   test("classify: tsx is code", () => {
@@ -18,8 +18,8 @@ describe("doc type", () => {
     expect(docType("log/notes.md", "stream").ok).toBe(false);
   });
 
-  test("classify: code kind refused for md", () => {
-    expect(docType("a/b.ts", "pr").ok).toBe(false);
+  test("classify: a source file cannot be registered as a stream", () => {
+    expect(docType("a/b.ts", "stream").ok).toBe(false);
   });
 
   test("servable: txt and binaries never servable", () => {

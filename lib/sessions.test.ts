@@ -115,9 +115,9 @@ describe("openSession", () => {
     const { home, docs } = fixture();
     const plain = openSession(home, join(docs, "design.md"));
     expect(plain.kind).toBe("plain");
-    const pr = openSession(home, join(docs, "design.md"), process.cwd(), "pr");
-    expect(pr.kind).toBe("pr");
-    expect(openSession(home, join(docs, "design.md")).kind).toBe("pr");
+    const stream = openSession(home, join(docs, "design.md"), process.cwd(), "stream");
+    expect(stream.kind).toBe("stream");
+    expect(openSession(home, join(docs, "design.md")).kind).toBe("stream");
     expect(openSession(home, join(docs, "design.md"), process.cwd(), "plain").kind).toBe("plain");
   });
 

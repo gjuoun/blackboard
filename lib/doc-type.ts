@@ -2,13 +2,13 @@
  * What kind of document a registered file is. Pure: no filesystem access, so the rule can be
  * tested without a browser or a temp home.
  *
- * - `doc`: a Markdown file opened as a plain or PR document (today's behaviour).
+ * - `doc`: a Markdown file opened as a plain document.
  * - `code`: a source file from the allowlist below, shown as its own text with a workspace rail.
  * - `stream`: a `.jsonl` file with one block per line, written by agents with `blackboard block`.
  */
 
 export type DocType = "doc" | "code" | "stream";
-type RegisterKind = "plain" | "pr" | "stream";
+type RegisterKind = "plain" | "stream";
 
 export const CODE_EXTENSIONS = ["ts", "tsx", "js", "jsx", "mjs", "cjs", "json", "css", "sh", "py", "go", "rs", "yml", "toml"] as const;
 

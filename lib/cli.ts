@@ -2,7 +2,6 @@ import { basename } from "node:path";
 import { Data, Effect } from "effect";
 import { type Comment, type CommentFile } from "./comments-store";
 import { SessionsStore, sessionCommentsPath, type Session, type SessionRow } from "./sessions";
-import type { PrStatus } from "./pr-status";
 
 /** A failure the CLI reports on stderr. code 1 = the command failed, 2 = bad usage. */
 export class CliError extends Data.TaggedError("CliError")<{ message: string; code: 1 | 2 }> {}
@@ -62,19 +61,6 @@ export function formatComments(list: DocComment[]): string {
       return lines.join("\n");
     })
     .join("\n\n");
-}
-
-/** Human form of a session pr state: the front matter baseline and the command to run. */
-export function formatPr(status: PrStatus): string {
-  const lines = [`${status.session}  ${status.path}  ${status.kind}`];
-  if (status.base && status.command) {
-    const totals = status.totals ?? { files: 0, additions: 0, deletions: 0 };
-    lines.push(`base ${status.base.ref} @ ${status.base.sha}`, status.command);
-    lines.push(`${totals.files} files  +${totals.additions} -${totals.deletions}  ${status.comments.open} open`);
-  } else {
-    lines.push("no pinned base: open the doc with --kind pr");
-  }
-  return lines.join("\n");
 }
 
 /** One line per session: id, title, where it is, branch, open comments, kind. */

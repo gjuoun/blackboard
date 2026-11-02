@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, relative } from "node:path";
@@ -16,40 +15,18 @@ const BIN = new URL("../bin/blackboard.ts", import.meta.url).pathname;
 
 type Call = { argv: string[]; code: number; stdout: string; stderr: string };
 
-/** git with none of the machine's own config: no signing, no hooks, no excluded patterns, no prompts. */
-const GIT_ENV = {
-  ...process.env,
-  GIT_CONFIG_GLOBAL: "/dev/null",
-  GIT_CONFIG_SYSTEM: "/dev/null",
-  GIT_CONFIG_NOSYSTEM: "1",
-  GIT_TERMINAL_PROMPT: "0",
-};
-
-/** A temp home, a docs folder outside git, and a git repo with one source file and one doc. */
+/** A temp home and a docs folder outside git. */
 function fixture() {
   const base = realpathSync(mkdtempSync(join(tmpdir(), "bb-cli-snap-")));
   const home = join(base, "home");
   const docs = join(base, "docs");
-  const repo = join(base, "repo");
   mkdirSync(docs, { recursive: true });
-  mkdirSync(join(repo, "lib"), { recursive: true });
-  mkdirSync(join(repo, "docs"), { recursive: true });
   mkdirSync(join(home, "sessions"), { recursive: true });
   writeFileSync(join(docs, "design.md"), "# Design\n\nThe cache is warm. Later text. The cache is warm. End.\n");
   writeFileSync(join(docs, "other.md"), "# Other\n");
   writeFileSync(join(docs, "log.jsonl"), "");
   writeFileSync(join(docs, "notes.txt"), "not markdown\n");
-  writeFileSync(join(repo, "lib", "a.ts"), "export const a = 1;\n");
-  writeFileSync(join(repo, "docs", "review.md"), "# Review\n\nA doc.\n");
-  const git = (...args: string[]) =>
-    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@e", ...args], { cwd: repo, env: GIT_ENV, stdio: ["ignore", "pipe", "ignore"] });
-  git("init", "-q", "-b", "main");
-  git("add", "-A");
-  git("commit", "-qm", "fixture");
-  git("update-ref", "refs/remotes/origin/main", "HEAD");
-  git("checkout", "-qb", "feat/x");
-  writeFileSync(join(repo, "lib", "a.ts"), "export const a = 2;\n");
-  return { base, home, docs, repo };
+  return { base, home, docs };
 }
 
 const ULID = /\b[bs]-[0-9A-HJKMNP-TV-Z]{26}\b/g;
@@ -75,7 +52,7 @@ function normalize(text: string, base: string): string {
 
 describe("the CLI answers the same thing after every refactor", () => {
   test("every subcommand and failure mode matches the committed snapshot", () => {
-    const { base, home, docs, repo } = fixture();
+    const { base, home, docs } = fixture();
     /**
      * Nothing here may read the machine it runs on. A fresh home hides any state a real run left
      * behind, the no-browser/no-server flags stop a case from starting the app, and BLACKBOARD_URL
@@ -150,11 +127,6 @@ describe("the CLI answers the same thing after every refactor", () => {
     record("header.first", ["header", "log.jsonl", "--title", "标题", "--owner", "jun"]);
     record("header.again", ["header", "log.jsonl", "--title", "标题", "--owner", "jun"]);
     record("export.ok", ["export", "log.jsonl"]);
-
-    // pr: the pinned baseline and the diff command
-    record("open.pr", ["open", "--no-browser", "--no-server", "--kind", "pr", "docs/review.md"], repo);
-    record("pr.ok", ["pr", "docs/review.md"], repo);
-    record("pr.unknown-session", ["pr", "nope"], repo);
 
     // the binary itself
     record("serve.status", ["serve", "status"]);
