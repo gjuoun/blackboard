@@ -8,7 +8,7 @@ import { DiffPanel } from "@/components/DiffPanel";
 import { fileHref, parseSelectedFile, parseShowAll } from "@/lib/file-refs";
 import { groupCodeThreads } from "@/lib/code-anchor";
 import { renderMarkdown } from "@/lib/markdown";
-import { planFile, snapshot } from "@/lib/test-diff";
+import { planFile, snapshot } from "@/test/fixtures/diff";
 
 /** The page's server assembly: one snapshot -> link rewriting -> the Local PR pane. */
 async function pageHtml(search: { file?: string; L?: string }, tab: "pr" | "comments" = "pr") {
