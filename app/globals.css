@@ -85,6 +85,9 @@
 .doc-body pre { font-family: var(--font-code); font-size: 0.82rem; line-height: 1.65; margin: 1em 0; padding: 14px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; }
 .doc-body pre code { font-family: inherit; font-size: inherit; }
 [data-wrap-code] .doc-body pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* A source file is read as code: lines never wrap, the block scrolls sideways. */
+.code-file pre, .code-file pre code { white-space: pre; overflow-wrap: normal; }
+.code-file pre { max-width: none; }
 .doc-body blockquote { margin: 1em 0; padding: 0.6em 1em; color: var(--muted-foreground); background: var(--primary-soft); border-left: 3px solid var(--primary); border-radius: 0 12px 12px 0; }
 .doc-body blockquote > :first-child { margin-top: 0; } .doc-body blockquote > :last-child { margin-bottom: 0; }
 .doc-body img { max-width: 100%; border-radius: 8px; }

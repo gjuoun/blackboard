@@ -17,6 +17,8 @@ import { getDiffSnapshot } from "@/lib/diff-index";
 import { LOCAL_PR } from "@/lib/features";
 import { fileHref, parseSelectedFile, parseShowAll, tabHref } from "@/lib/file-refs";
 import { getHome } from "@/lib/home";
+import { renderCode } from "@/lib/code-view";
+import { docType } from "@/lib/doc-type";
 import { renderMarkdown } from "@/lib/markdown";
 import { parsePrFrontmatter } from "@/lib/pr-kind";
 import { parseRightTab } from "@/lib/prefs";
@@ -114,6 +116,29 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     );
   }
 
+  // A source file is its own page: the text is shown as one highlighted block, with no front matter,
+  // no TOC and no file links. A stream is shown by its own renderer (step 6); until then it is a placeholder.
+  const type = docType(file, session.kind ?? "plain");
+  if (type.ok && type.type === "code") {
+    const src = readFileSync(file, "utf8");
+    const { html } = await renderCode(src, file);
+    // Comments on a source file anchor to its text like a doc's do, so they are read the same way.
+    const codeComments = renderComments(readComments(sessionCommentsPath(home, session.id)).docs[basename(file)] ?? []);
+    return (
+      <>
+        <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} />
+        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={null} />
+      </>
+    );
+  }
+  if (type.ok && type.type === "stream") {
+    return (
+      <>
+        <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} />
+        <main className="mx-auto max-w-2xl px-4 py-10 md:px-6" data-testid="stream-pending">{header}<p className="text-muted-foreground">Stream view arrives in a later step.</p></main>
+      </>
+    );
+  }
   // The doc is read once: its front matter decides the rail and the pinned diff base, and the same
   // string feeds the markdown pass that collects this document's file links.
   const src = readFileSync(file, "utf8");

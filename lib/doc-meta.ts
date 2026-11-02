@@ -65,8 +65,9 @@ function scan(body: string): { lines: string[]; fences: string[] } {
   return { lines, fences };
 }
 
-/** Front matter `title`, else the first `# ` heading, else the file name. */
+/** Front matter `title`, else the first `# ` heading, else the file name. A source file is titled by its name alone. */
 export function docTitle(src: string, path: string): string {
+  if (!path.toLowerCase().endsWith(".md")) return basename(path);
   const { fm, body } = splitFrontMatter(src);
   if (fm) {
     try {
