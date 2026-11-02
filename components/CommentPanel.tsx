@@ -1,10 +1,9 @@
 "use client";
 
-import { ArrowUp, Check, Copy, Eye, EyeOff } from "lucide-react";
+import { ArrowUp, Check, Eye, EyeOff } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { anchorLabel, rowKey } from "@/lib/code-anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
-import { exportComments } from "@/lib/export";
 import { fileHref } from "@/lib/hrefs";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -123,58 +122,6 @@ function ReplyBox({ onReply }: { onReply: (body: string) => Promise<void> }) {
   );
 }
 
-/** Copies the open comments as markdown, to paste to an agent by hand. */
-function CopyButton({ title, path, comments }: { title: string; path: string; comments: PanelComment[] }) {
-  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(exportComments(title, path, comments));
-      setState("copied");
-    } catch {
-      setState("failed");
-    }
-    setTimeout(() => setState("idle"), 1500);
-  };
-  return (
-    <Button
-      size="icon-sm"
-      variant="ghost"
-      data-testid="copy-comments"
-      onClick={copy}
-      aria-label="Copy open comments as markdown"
-      title={state === "copied" ? "Copied" : state === "failed" ? "Copy failed" : "Copy open comments as markdown"}
-      className={state === "copied" ? "text-success" : state === "failed" ? "text-destructive" : "text-muted-foreground"}
-    >
-      {state === "copied" ? <Check /> : <Copy />}
-    </Button>
-  );
-}
-
-/** Who the reader comments as: a small chip that turns into an input on click. */
-function AuthorChip({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [editing, setEditing] = useState(false);
-  const name = value.trim() || "jun";
-  if (editing)
-    return (
-      <input
-        data-testid="author-input"
-        autoFocus
-        aria-label="Comment as"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={() => setEditing(false)}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === "Escape") && setEditing(false)}
-        className="border-input bg-background focus-visible:ring-ring/40 h-7 w-24 rounded-full border px-2.5 text-xs outline-none focus-visible:ring-[3px]"
-      />
-    );
-  return (
-    <button type="button" onClick={() => setEditing(true)} title="Commenting as — click to change" className="text-muted-foreground hover:bg-accent flex h-7 items-center gap-1.5 rounded-full pr-2.5 pl-1 text-xs">
-      <span className="bg-primary text-primary-foreground grid size-5 place-items-center rounded-full text-[10px] font-semibold uppercase">{name[0]}</span>
-      <span className="max-w-20 truncate">{name}</span>
-    </button>
-  );
-}
-
 type Props = {
   title: string;
   path: string;
@@ -206,30 +153,14 @@ export function CommentPanel(p: Props) {
   const visible = p.comments.filter((c) => p.showResolved || c.status === "open");
   return (
     <div data-testid="comment-panel" aria-label="Comments" role="region" className="text-sm">
-      <div className="mb-3 flex items-center gap-1">
-        <h2 className="m-0 mr-auto flex items-center gap-1.5 text-[15px] font-semibold">
-          Comments
-          <span className="bg-primary-soft text-primary rounded-full px-1.5 text-xs leading-[18px] font-semibold" title={`${open} open`}>
-            {open}
-          </span>
-        </h2>
-        <AuthorChip value={p.author} onChange={p.onAuthor} />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          data-testid="show-resolved"
-          aria-pressed={p.showResolved}
-          aria-label="Show resolved comments"
-          title={`${p.showResolved ? "Hide" : "Show"} resolved (${resolved})`}
-          onClick={() => p.onShowResolved(!p.showResolved)}
-          className={p.showResolved ? "bg-accent text-foreground" : "text-muted-foreground"}
-        >
-          {p.showResolved ? <Eye /> : <EyeOff />}
-        </Button>
-        <CopyButton title={p.title} path={p.path} comments={p.comments} />
-      </div>
+      {/* No title row: the tab strip carries the count. The composer is the one write point. */}
       {p.error ? <p className="text-destructive text-[13px]">{p.error}</p> : null}
       {p.composer}
+      <div className="mb-2 flex justify-end">
+        <Button size="xs" variant="ghost" data-testid="show-resolved" aria-pressed={p.showResolved} onClick={() => p.onShowResolved(!p.showResolved)} className={p.showResolved ? "text-foreground" : "text-muted-foreground"}>
+          {p.showResolved ? <Eye /> : <EyeOff />} {p.showResolved ? "Hide" : "Show"} resolved ({resolved})
+        </Button>
+      </div>
       {visible.length === 0 && !p.composer ? <p className="text-muted-foreground text-[13px]">Select text in the doc to comment.</p> : null}
       <ol className="m-0 flex list-none flex-col gap-2.5 p-0">
         {visible.map((c) => (
@@ -289,6 +220,14 @@ export function CommentPanel(p: Props) {
             <ol data-testid="thread" className="thread mt-2 flex list-none flex-col gap-3 p-0">
               <li data-testid="thread-entry" data-kind="comment" className={THREAD_ENTRY}>
                 <Body key={c.body} text={c.body} html={c.html} editing={editing === c.id} onSave={(v) => p.onEdit(c.id, v)} onCancel={() => setEditing(null)} />
+                {c.images?.length ? (
+                  <div className="mt-1.5 flex flex-wrap gap-1.5" data-testid="comment-images">
+                    {c.images.map((id) => (
+                      // eslint-disable-next-line @next/next/no-img-element -- stored images are served by our own route; next/image would add an optimizer hop
+                      <img key={id} src={`/api/comment-images/${id}`} alt="attached image" loading="lazy" className="max-w-[96px] max-h-[96px] rounded-md border border-border object-cover" />
+                    ))}
+                  </div>
+                ) : null}
                 {c.author === me ? (
                   <div className="mt-1 flex justify-end" onClick={(e) => e.stopPropagation()}>
                     <Actions

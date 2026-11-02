@@ -17,6 +17,8 @@ export type Comment = {
   quote?: QuoteSelector;
   code?: CodeAnchor;
   body: string;
+  /** Stored comment image ids (`<sha256>.<ext>`), shown as thumbnails under the body. */
+  images?: string[];
   author: string;
   createdAt: string;
   editedAt?: string;
@@ -77,10 +79,10 @@ function find(file: CommentFile, doc: string, id: string): Comment {
 export type CommentAnchor = { quote: QuoteSelector; code?: undefined } | { code: CodeAnchor; quote?: undefined };
 
 /** A new comment on exactly one anchor kind: a passage of the doc, or a line of the diff. */
-export function addComment(file: CommentFile, doc: string, input: CommentAnchor & { body: string; author: string }): Comment {
+export function addComment(file: CommentFile, doc: string, input: CommentAnchor & { body: string; author: string; images?: string[] }): Comment {
   const anchor = input.quote ? { quote: input.quote } : input.code ? { code: input.code } : null;
   if (!anchor) throw new Error("a comment needs a quote or a code anchor");
-  const c: Comment = { id: newId("c"), ...anchor, body: input.body, author: input.author, createdAt: now(), status: "open", replies: [] };
+  const c: Comment = { id: newId("c"), ...anchor, body: input.body, ...(input.images?.length ? { images: input.images } : {}), author: input.author, createdAt: now(), status: "open", replies: [] };
   (file.docs[doc] ??= []).push(c);
   return c;
 }

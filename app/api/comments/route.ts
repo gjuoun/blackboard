@@ -2,6 +2,7 @@ import { basename } from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
 import type { QuoteSelector } from "@/lib/anchor";
 import { normalizeCodeAnchor, type CodeAnchor } from "@/lib/code-anchor";
+import { IMAGE_ID } from "@/lib/comment-images";
 import { renderComments, type RenderedComment } from "@/lib/comment-markdown";
 import { addComment, addReply, deleteComment, deleteReply, editComment, editReply, mutate, readComments, setStatus, type Comment } from "@/lib/comments-store";
 import { getHome } from "@/lib/home";
@@ -61,7 +62,10 @@ export async function POST(req: NextRequest) {
   const body = text(b.body, MAX_BODY);
   if (!body) return bad("body is required");
   if (Boolean(q) === Boolean(anchor)) return bad("exactly one of quote or code is required");
-  const comment = await mutate(t.file, (f) => addComment(f, t.doc, q ? { quote: q, body, author: author(b.author) } : { code: anchor!, body, author: author(b.author) }));
+  // Images are stored ids: each must be a valid stored name, so a client cannot point a comment at any file.
+  const images = b.images === undefined ? [] : Array.isArray(b.images) && b.images.every((x) => typeof x === "string" && IMAGE_ID.test(x)) ? (b.images as string[]) : null;
+  if (images === null || images.length > 4) return bad("images must be up to 4 stored image ids");
+  const comment = await mutate(t.file, (f) => addComment(f, t.doc, { ...(q ? { quote: q } : { code: anchor! }), body, author: author(b.author), images }));
   return NextResponse.json({ comment: one(comment) }, { status: 201 });
 }
 

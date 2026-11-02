@@ -7,7 +7,7 @@ import { Folder, FolderGit2, FolderTree, GitBranch, GitCommitHorizontal } from "
 import { Badge } from "@/components/ui/badge";
 import { DiffPanel } from "@/components/DiffPanel";
 import { DocChip } from "@/components/DocChip";
-import { DocView } from "@/components/DocView";
+import { DocView, type FileRail } from "@/components/DocView";
 import { RegisterTab } from "@/components/RegisterTab";
 import { Toc } from "@/components/Toc";
 import { groupCodeThreads } from "@/lib/code-anchor";
@@ -23,12 +23,14 @@ import { LEFT_TABS_BY_TYPE, parseLeftTab, type LeftTab } from "@/lib/left-rail";
 import { LeftRail } from "@/components/LeftRail";
 import { WorkspaceTree } from "@/components/WorkspaceTree";
 import { StreamTimeline } from "@/components/StreamTimeline";
+import { FileView } from "@/components/FileView";
+import { changedAgainstHead } from "@/lib/file-source";
 import { parseStream, type StreamBlock } from "@/lib/stream-doc";
 import { renderStream } from "@/lib/stream-html";
 import { workspacePane, type WorkspacePane } from "@/lib/workspace-pane";
 import { renderMarkdown } from "@/lib/markdown";
 import { parsePrFrontmatter } from "@/lib/pr-kind";
-import { parseRightTab } from "@/lib/prefs";
+import { parseRightTab, type RightTab } from "@/lib/prefs";
 import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath, sessionRow, tildify } from "@/lib/sessions";
 
 /**
@@ -36,6 +38,25 @@ import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionComm
  * (`?left=`), so the rail needs no client state. Only 内容 has a pane in this step; the others are
  * filled in by later steps and show a short placeholder until then.
  */
+/** The `tab` query selects the right pane; anything but `file` and `pr` is the comments pane. */
+function rightOf(tab: string | string[] | undefined): RightTab {
+  return tab === "file" ? "file" : tab === "pr" ? "pr" : "comments";
+}
+
+/** The File rail for every document with source. `view=full` opens the full-window reader. */
+function fileRailFor(id: string, file: string, row: { repo: { root: string } | null }, view: string | string[] | undefined): FileRail {
+  const full = view === "full";
+  return { panel: filePane(id, file, row, full), href: `/s/${id}?tab=file`, commentHref: `/s/${id}?tab=comments` };
+}
+
+/** The File tab's pane: the raw source with lines that differ from HEAD marked. Reads the file once. */
+function filePane(id: string, file: string, row: { repo: { root: string } | null }, full: boolean) {
+  const src = readFileSync(file, "utf8");
+  const lines = src.replace(/\n$/, "").split("\n");
+  const changed = changedAgainstHead(row.repo?.root ?? null, file, lines.length);
+  return <FileView lines={lines} changed={changed} full={full} backHref={`/s/${id}?tab=file`} fullHref={`/s/${id}?tab=file&view=full`} />;
+}
+
 function leftPane(id: string, type: DocType, requested: string | string[] | undefined, toc: React.ReactNode, workspace: WorkspacePane, blocks: readonly StreamBlock[] = []): React.ReactNode {
   const tabs = LEFT_TABS_BY_TYPE[type];
   const active: LeftTab = parseLeftTab(typeof requested === "string" ? requested : undefined, type);
@@ -160,7 +181,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} />
-        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={left} />
+        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={left} rightTab={rightOf(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
       </>
     );
   }
@@ -172,7 +193,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} />
-        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={streamHtml} initialComments={renderComments(readComments(sessionCommentsPath(home, session.id)).docs[basename(file)] ?? [])} header={header} toc={leftPane(id, "stream", search.left, null, { state: "outside-git" }, blocks)} />
+        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={streamHtml} initialComments={renderComments(readComments(sessionCommentsPath(home, session.id)).docs[basename(file)] ?? [])} header={header} toc={leftPane(id, "stream", search.left, null, { state: "outside-git" }, blocks)} rightTab={rightOf(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
       </>
     );
   }
@@ -190,7 +211,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   const docPath = row.repo?.relPath ?? null;
   const snapshot = row.repo ? getDiffSnapshot(row.repo.root, pr ? { baseRef: prDoc.base ?? "main", base: prDoc.baseSha! } : {}) : null;
   const selected = snapshot ? parseSelectedFile(search, docPath) : null;
-  const rightTab = pr && snapshot && parseRightTab(search.tab) === "pr" ? "pr" : "comments";
+  const rightTab: RightTab = pr && snapshot && parseRightTab(search.tab) === "pr" ? "pr" : rightOf(search.tab) === "file" ? "file" : "comments";
   const prHref = selected
     ? fileHref(selected.path, selected.start !== null ? { start: selected.start, end: selected.end ?? selected.start } : null)
     : tabHref("pr");
@@ -218,6 +239,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
         header={header}
         toc={leftPane(id, "doc", search.left, toc.length > 1 ? <Toc toc={toc} /> : null, workspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home))}
         rightTab={rightTab}
+        fileRail={fileRailFor(id, file, row, search.view)}
         codeState={codeThreads.state}
         diff={
           snapshot

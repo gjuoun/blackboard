@@ -85,6 +85,13 @@
 .doc-body pre { font-family: var(--font-code); font-size: 0.82rem; line-height: 1.65; margin: 1em 0; padding: 14px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; }
 .doc-body pre code { font-family: inherit; font-size: inherit; }
 [data-wrap-code] .doc-body pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* The File tab: raw source, no wrap, changed lines marked against HEAD. */
+.file-source { background: var(--code); border: 1px solid var(--border); border-radius: 10px; padding: 8px 0; }
+.file-line { display: block; padding: 0 12px; }
+.file-line.added { background: color-mix(in srgb, var(--success) 14%, transparent); box-shadow: inset 3px 0 0 var(--success); }
+.file-line.modified { background: color-mix(in srgb, var(--warn) 14%, transparent); box-shadow: inset 3px 0 0 var(--warn); }
+.file-view[data-full="1"] { position: fixed; inset: 0; z-index: 50; background: var(--background); padding: 16px; overflow: auto; }
+.file-view[data-full="1"] .file-source { min-height: calc(100vh - 80px); }
 /* A streaming document: one section per block, with a header and an optional side rule. */
 .stream-block { position: relative; padding: 0.4em 0 0.4em 1em; margin: 0 0 1.6em; scroll-margin-top: calc(var(--bar-h) + 12px); }
 .stream-block:target { outline: 1px dashed var(--border); outline-offset: 6px; border-radius: 8px; }
