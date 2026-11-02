@@ -99,7 +99,9 @@ export function TopBar() {
         className="md:contents max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:flex max-md:items-center max-md:gap-1 max-md:bg-background/95 max-md:border-border max-md:data-[expanded=true]:border-t max-md:px-2 max-md:pt-1.5 max-md:pb-[calc(0.375rem+env(safe-area-inset-bottom))] max-md:data-[expanded=false]:right-auto max-md:data-[expanded=false]:left-1/2 max-md:data-[expanded=false]:-translate-x-1/2 max-md:data-[expanded=false]:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:data-[expanded=false]:rounded-full max-md:data-[expanded=false]:border max-md:data-[expanded=false]:px-1 max-md:data-[expanded=false]:pt-0 max-md:data-[expanded=false]:pb-0 max-md:data-[expanded=false]:shadow-md"
       >
         <div data-testid="bar-tools" data-expanded={expanded} className="md:contents max-md:flex max-md:flex-1 max-md:items-center max-md:justify-around max-md:gap-1 max-md:data-[expanded=false]:hidden">
-        {/* The timeline is first in the icon group and shows on every page that has a stream, a stream included. */}
+        {/* The timeline is first in the icon group and shows on every page that has a stream, a stream included.
+            On a phone a stream page has no left rail, so the icon opens the timeline as a sheet; anywhere else
+            it stays a link to the stream (on a stream page that link is this very page). */}
         {doc?.streamHref ? (
               <Button
                 asChild
@@ -112,7 +114,14 @@ export function TopBar() {
                 aria-current={doc.kind === "stream" ? "page" : undefined}
                 className={cn("shrink-0", doc.kind === "stream" ? "bg-primary-soft text-primary border-primary border" : "")}
               >
-                <a href={doc.streamHref}>
+                <a
+                  href={doc.streamHref}
+                  onClick={(e) => {
+                    if (desktop || doc.kind !== "stream") return;
+                    e.preventDefault();
+                    setChrome({ sheet: chrome.sheet === "timeline" ? null : "timeline" });
+                  }}
+                >
                   <TimelineIcon />
                 </a>
               </Button>
