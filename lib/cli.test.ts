@@ -188,6 +188,29 @@ describe("code-anchored comments", () => {
   });
 });
 
+describe("block writer", () => {
+  test("block: appends one line", () => {
+    const { home, docs } = setup();
+    writeFileSync(join(docs, "log.jsonl"), "");
+    expect(run(home, ["open", "--no-browser", "--kind", "stream", "log.jsonl"], docs).code).toBe(0);
+    const r = run(home, ["block", "log.jsonl", "--action", "answer", "### Heading\n\nBody"], docs);
+    expect(r.code).toBe(0);
+    const lines = readFileSync(join(docs, "log.jsonl"), "utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0])).toMatchObject({ n: 1, action: "answer", author: "agent" });
+    const exp = run(home, ["export", "log.jsonl"], docs);
+    expect(exp.out).toContain("## 1. 长答 · agent");
+  });
+
+  test("block: refused on a doc session", () => {
+    const { home, design } = setup();
+    expect(run(home, ["open", "--no-browser", design]).code).toBe(0);
+    const r = run(home, ["block", design, "--action", "answer", "x"]);
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("is not a stream");
+  });
+});
+
 describe("open --kind pr", () => {
   test("fills the front matter once, pins the merge-base and reports the pin", () => {
     const { home, repo, design } = repoSetup();

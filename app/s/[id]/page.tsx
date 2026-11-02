@@ -22,6 +22,9 @@ import { docType, type DocType } from "@/lib/doc-type";
 import { LEFT_TABS_BY_TYPE, parseLeftTab, type LeftTab } from "@/lib/left-rail";
 import { LeftRail } from "@/components/LeftRail";
 import { WorkspaceTree } from "@/components/WorkspaceTree";
+import { StreamTimeline } from "@/components/StreamTimeline";
+import { parseStream, type StreamBlock } from "@/lib/stream-doc";
+import { renderStream } from "@/lib/stream-html";
 import { workspacePane, type WorkspacePane } from "@/lib/workspace-pane";
 import { renderMarkdown } from "@/lib/markdown";
 import { parsePrFrontmatter } from "@/lib/pr-kind";
@@ -33,7 +36,7 @@ import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionComm
  * (`?left=`), so the rail needs no client state. Only 内容 has a pane in this step; the others are
  * filled in by later steps and show a short placeholder until then.
  */
-function leftPane(id: string, type: DocType, requested: string | string[] | undefined, toc: React.ReactNode, workspace: WorkspacePane): React.ReactNode {
+function leftPane(id: string, type: DocType, requested: string | string[] | undefined, toc: React.ReactNode, workspace: WorkspacePane, blocks: readonly StreamBlock[] = []): React.ReactNode {
   const tabs = LEFT_TABS_BY_TYPE[type];
   const active: LeftTab = parseLeftTab(typeof requested === "string" ? requested : undefined, type);
   let pane: React.ReactNode;
@@ -44,7 +47,7 @@ function leftPane(id: string, type: DocType, requested: string | string[] | unde
     ) : (
       <div className="p-3"><WorkspaceTree nodes={workspace.tree} current={workspace.current} sessionByPath={workspace.sessionByPath} /></div>
     );
-  } else pane = <p className="text-muted-foreground p-3 text-[13px]">时间线 arrives in step 6.</p>;
+  } else pane = <StreamTimeline blocks={blocks} />;
   return (
     <>
       <LeftRail tabs={tabs} active={active} hrefFor={(t) => `/s/${id}?left=${t}`} />
@@ -162,11 +165,14 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     );
   }
   if (type.ok && type.type === "stream") {
-    // The stream body and its timeline arrive in step 6; until then the page shows only its header.
+    // One read of the file, then one render per block. The composer is not part of the body: writing
+    // happens in the comments rail, so the body ends at its last block.
+    const blocks = parseStream(readFileSync(file, "utf8")).blocks;
+    const streamHtml = await renderStream(blocks);
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} />
-        <main className="mx-auto max-w-2xl px-4 py-10 md:px-6" data-testid="stream-pending">{header}<p className="text-muted-foreground">Stream view arrives in a later step.</p></main>
+        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={streamHtml} initialComments={renderComments(readComments(sessionCommentsPath(home, session.id)).docs[basename(file)] ?? [])} header={header} toc={leftPane(id, "stream", search.left, null, { state: "outside-git" }, blocks)} />
       </>
     );
   }

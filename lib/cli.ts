@@ -1,9 +1,10 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { anchorLabel, codeStateFromLines, parseCodeRef, type CodeState } from "./code-anchor";
 import { addComment, addReply, mutate, readComments, setStatus, type Comment, type CommentFile } from "./comments-store";
 import { docMeta } from "./doc-meta";
 import { docType } from "./doc-type";
+import { exportStream, parseStream, STREAM_ACTIONS, type StreamAction } from "./stream-doc";
 import { renderPlainText } from "./markdown";
 import { ensurePrDoc } from "./pr-kind";
 import { prStatus, type PrStatus } from "./pr-status";
@@ -149,6 +150,37 @@ export async function commentOnCode(
   if (parsed.end > lines.length) throw new CliError(`${parsed.path} has no line ${parsed.end}`);
   const code = { path: parsed.path, startLine: parsed.start, endLine: parsed.end, side: "new" as const, lineText };
   return { ...(await mutate(file, (f) => addComment(f, doc, { code, body: note.trim(), author }))), doc };
+}
+
+/**
+ * Append one block to a stream session. The block is one line; a re-append with the same `id` replaces
+ * the earlier line when read (last line wins). `text` is the body; `status: "writing"` marks a block in progress.
+ */
+export function appendBlock(
+  home: string,
+  ref: string,
+  input: { action: string; text: string; author: string; id?: string; images?: string[]; status?: "writing" },
+  cwd = process.cwd(),
+): { id: string; n: number; file: string } {
+  const { session } = find(home, ref, cwd);
+  if (session.kind !== "stream") throw new CliError(`${session.path} is not a stream (open it with --kind stream)`, 2);
+  if (!(STREAM_ACTIONS as readonly string[]).includes(input.action)) throw new CliError(`--action takes ${STREAM_ACTIONS.join("|")}`, 2);
+  if (!input.text.trim()) throw new CliError("block text is empty", 2);
+  const current = parseStream(readStreamText(session.path));
+  const n = current.blocks.reduce((m, b) => Math.max(m, b.n), 0) + 1;
+  const id = input.id ?? `b${n}`;
+  const line = { id, n, action: input.action as StreamAction, author: input.author, at: new Date().toISOString(), body: input.text, ...(input.images?.length ? { images: input.images } : {}), ...(input.status ? { status: input.status } : {}) };
+  appendFileSync(session.path, JSON.stringify(line) + "\n");
+  return { id, n, file: session.path };
+}
+
+const readStreamText = (path: string) => (existsSync(path) ? readFileSync(path, "utf8") : "");
+
+/** The stream as markdown, one section per block. The cloud mirror reads this export. */
+export function exportBlocks(home: string, ref: string, cwd = process.cwd()): string {
+  const { session } = find(home, ref, cwd);
+  if (session.kind !== "stream") throw new CliError(`${session.path} is not a stream`, 2);
+  return exportStream(parseStream(readStreamText(session.path)).blocks, basename(session.path));
 }
 
 /**

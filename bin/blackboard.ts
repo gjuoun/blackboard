@@ -80,6 +80,10 @@ async function main(argv: string[]): Promise<number> {
       quote: { type: "string" },
       code: { type: "string" },
       kind: { type: "string" },
+      action: { type: "string" },
+      images: { type: "string" },
+      status: { type: "string" },
+      general: { type: "boolean" },
       occurrence: { type: "string" },
       "no-browser": { type: "boolean" },
       "no-server": { type: "boolean" },
@@ -182,6 +186,25 @@ async function main(argv: string[]): Promise<number> {
       need(2, `${cmd} <session> <comment-id>`);
       const c = await cli.status(home, args[0], args[1], cmd === "resolve" ? "resolved" : "open", author);
       print(c, `${cmd === "resolve" ? "resolved" : "reopened"} ${c.id} on ${c.doc}`);
+      return 0;
+    }
+    case "block": {
+      // Text is the rest of the argv, or stdin when the text is `-`.
+      need(1, "block <session> --action answer|edit|append [--status writing] [--images a,b] <text|->");
+      const action = o.action ?? "";
+      const raw = args.slice(1).join(" ");
+      const text = raw === "-" ? await new Response(Bun.stdin.stream()).text() : raw;
+      const images = o.images ? o.images.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
+      if (o.status !== undefined && o.status !== "writing") throw new cli.CliError('--status takes "writing"', 2);
+      const b = cli.appendBlock(home, args[0], { action, text, author, images, status: o.status === "writing" ? "writing" : undefined });
+      print(b, `block ${b.n} (${b.id}) appended to ${b.file}`);
+      return 0;
+    }
+    case "export": {
+      need(1, "export <session>");
+      const md = cli.exportBlocks(home, args[0]);
+      if (o.json) console.log(JSON.stringify({ markdown: md }));
+      else process.stdout.write(md);
       return 0;
     }
     case "comment": {
