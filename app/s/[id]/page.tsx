@@ -18,11 +18,29 @@ import { LOCAL_PR } from "@/lib/features";
 import { fileHref, parseSelectedFile, parseShowAll, tabHref } from "@/lib/file-refs";
 import { getHome } from "@/lib/home";
 import { renderCode } from "@/lib/code-view";
-import { docType } from "@/lib/doc-type";
+import { docType, type DocType } from "@/lib/doc-type";
+import { LEFT_TABS_BY_TYPE, parseLeftTab, type LeftTab } from "@/lib/left-rail";
+import { LeftRail } from "@/components/LeftRail";
 import { renderMarkdown } from "@/lib/markdown";
 import { parsePrFrontmatter } from "@/lib/pr-kind";
 import { parseRightTab } from "@/lib/prefs";
 import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath, sessionRow, tildify } from "@/lib/sessions";
+
+/**
+ * The left rail for a type: its tab strip and the pane under the active tab. Tabs are links
+ * (`?left=`), so the rail needs no client state. Only 内容 has a pane in this step; the others are
+ * filled in by later steps and show a short placeholder until then.
+ */
+function leftPane(id: string, type: DocType, requested: string | string[] | undefined, toc: React.ReactNode): React.ReactNode {
+  const tabs = LEFT_TABS_BY_TYPE[type];
+  const active: LeftTab = parseLeftTab(typeof requested === "string" ? requested : undefined, type);
+  return (
+    <>
+      <LeftRail tabs={tabs} active={active} hrefFor={(t) => `/s/${id}?left=${t}`} />
+      {active === "contents" ? toc : <p className="text-muted-foreground p-3 text-[13px]">{active === "workspace" ? "工作区 arrives in step 5." : "时间线 arrives in step 6."}</p>}
+    </>
+  );
+}
 
 /** The tab title is the doc's own title; the description names the file, never its folder. */
 export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promise<Metadata> {
@@ -124,14 +142,16 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     const { html } = await renderCode(src, file);
     // Comments on a source file anchor to its text like a doc's do, so they are read the same way.
     const codeComments = renderComments(readComments(sessionCommentsPath(home, session.id)).docs[basename(file)] ?? []);
+    const left = leftPane(id, "code", search.left, null);
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} />
-        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={null} />
+        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={left} />
       </>
     );
   }
   if (type.ok && type.type === "stream") {
+    // The stream body and its timeline arrive in step 6; until then the page shows only its header.
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} />
@@ -179,7 +199,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
         html={html}
         initialComments={renderedComments}
         header={header}
-        toc={toc.length > 1 ? <Toc toc={toc} /> : null}
+        toc={leftPane(id, "doc", search.left, toc.length > 1 ? <Toc toc={toc} /> : null)}
         rightTab={rightTab}
         codeState={codeThreads.state}
         diff={
