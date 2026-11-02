@@ -3,7 +3,10 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { comment, formatPr, open, pr } from "./cli";
+import { run } from "../test/app";
+import { formatPr } from "./cli";
+import { comment } from "./cli/comments";
+import { open, pr } from "./cli/sessions";
 import { prStatus } from "./pr-status";
 
 const BIN = new URL("../bin/blackboard.ts", import.meta.url).pathname;
@@ -25,12 +28,12 @@ async function setup() {
   git("update-ref", "refs/remotes/origin/main", "HEAD");
   git("checkout", "-qb", "feat/x");
   writeFileSync(join(repo, "lib", "a.ts"), "export const a = 2;\n");
-  const { session } = open(home, doc, repo, "pr");
-  await comment(home, doc, "A line to comment on.", "please explain", "jun");
+  const { session } = await run(open(home, doc, repo, "pr"));
+  await run(comment(home, doc, "A line to comment on.", "please explain", "jun"));
   return { home, repo, doc, id: session.id };
 }
 
-const run = (home: string, args: string[], cwd: string) => {
+const runBin = (home: string, args: string[], cwd: string) => {
   const p = Bun.spawnSync(["bun", BIN, "--home", home, "--no-server", "--no-browser", ...args], { cwd, env: { ...process.env, BLACKBOARD_NO_BROWSER: "1" } });
   return { code: p.exitCode, out: p.stdout.toString(), err: p.stderr.toString() };
 };
@@ -38,7 +41,7 @@ const run = (home: string, args: string[], cwd: string) => {
 describe("pr status", () => {
   test("the payload carries the front matter, the pin, the command, files and open comments", async () => {
     const { home, id } = await setup();
-    const status = pr(home, id);
+    const status = await run(pr(home, id));
     expect(status.kind).toBe("pr");
     expect(status.frontmatter?.kind).toBe("pr");
     expect(status.base?.ref).toBe("main");
@@ -53,21 +56,21 @@ describe("pr status", () => {
 
   test("an unknown ref is null; the binary reports it as a failed command", async () => {
     const { home, repo } = await setup();
-    expect(prStatus(home, "0000000000")).toBeNull();
-    const missing = run(home, ["pr", "0000000000"], repo);
+    expect(await run(prStatus(home, "0000000000"))).toBeNull();
+    const missing = runBin(home, ["pr", "0000000000"], repo);
     expect(missing.code).toBe(1);
     expect(missing.err).toContain("no session");
   });
 
   test("--json is the payload, and its command runs verbatim", async () => {
     const { home, repo, id } = await setup();
-    const printed = run(home, ["pr", id, "--json"], repo);
+    const printed = runBin(home, ["pr", id, "--json"], repo);
     expect(printed.code).toBe(0);
     const payload = JSON.parse(printed.out);
-    expect(payload).toEqual(JSON.parse(JSON.stringify(pr(home, id))));
+    expect(payload).toEqual(JSON.parse(JSON.stringify(await run(pr(home, id)))));
     const out = execFileSync("bash", ["-lc", payload.command], { cwd: tmpdir() }).toString();
     expect(out).toContain("lib/a.ts");
-    const human = run(home, ["pr", id], repo);
+    const human = runBin(home, ["pr", id], repo);
     expect(human.code).toBe(0);
     expect(human.out).toContain("base main @");
   });

@@ -2,7 +2,24 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { closeSession, getSession, listSessions, openSession, realDoc, resolveSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath } from "./sessions";
+import { Effect } from "effect";
+import { runSync } from "../test/app";
+import { realDoc, SCRATCHPAD_ID, servablePath, sessionCommentsPath, SessionsStore, type Session, type SessionKind } from "./sessions";
+
+/** The registry operations as the app runs them, synchronously: every test here is single process. */
+const withStore = <A>(work: (store: SessionsStore["Service"]) => Effect.Effect<A, { message: string }>): A =>
+  runSync(
+    Effect.gen(function* () {
+      const store = yield* SessionsStore;
+      return yield* work(store);
+    }),
+  );
+const openSession = (home: string, file: string, cwd = process.cwd(), kind?: SessionKind): Session => withStore((s) => s.open(home, file, cwd, kind));
+const closeSession = (home: string, id: string): Session => withStore((s) => s.close(home, id));
+const listSessions = (home: string): Session[] => withStore((s) => s.list(home));
+const getSession = (home: string, id: string): Session | null => withStore((s) => s.get(home, id));
+const resolveSession = (home: string, ref: string, cwd = process.cwd()): Session | null => withStore((s) => s.resolve(home, ref, cwd));
+const scratchpadSession = (home: string): Session => withStore((s) => s.scratchpad(home));
 
 /** A temp home plus a few docs: one in a nested folder, a non-markdown file, a symlink to a doc. */
 function fixture() {

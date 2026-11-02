@@ -3,12 +3,13 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { open } from "@/lib/cli";
+import { run } from "../../../../test/app";
+import { open } from "@/lib/cli/sessions";
 import { prStatus } from "@/lib/pr-status";
 import { GET } from "./route";
 
 /** A temp home and a git repo with one changed file and a pr doc. */
-function setup(kind: "pr" | "plain") {
+async function setup(kind: "pr" | "plain") {
   const base = realpathSync(mkdtempSync(join(tmpdir(), "bb-pr-route-")));
   const home = join(base, "home");
   const repo = join(base, "repo");
@@ -25,7 +26,7 @@ function setup(kind: "pr" | "plain") {
   git("checkout", "-qb", "feat/x");
   writeFileSync(join(repo, "lib", "a.ts"), "export const a = 2;\n");
   process.env.BLACKBOARD_HOME = home;
-  const { session } = open(home, doc, process.cwd(), kind);
+  const { session } = await run(open(home, doc, process.cwd(), kind));
   return { home, repo, doc, session: session.id };
 }
 
@@ -33,11 +34,11 @@ const get = (id: string) => GET(new Request("http://127.0.0.1/api/pr/" + id), { 
 
 describe("pr API", () => {
   test("a pr session answers the same payload the builder and CLI use", async () => {
-    const { home, session } = setup("pr");
+    const { home, session } = await setup("pr");
     const res = await get(session);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual(prStatus(home, session)!);
+    expect(body).toEqual(await run(prStatus(home, session)));
     expect(body.kind).toBe("pr");
     expect(body.base.ref).toBe("main");
     expect(body.base.sha).toMatch(/^[0-9a-f]{40}$/);
@@ -52,17 +53,17 @@ describe("pr API", () => {
   });
 
   test("a plain session is honest: no base, no command", async () => {
-    const { home, session } = setup("plain");
+    const { home, session } = await setup("plain");
     const body = await (await get(session)).json();
     expect(body.kind).toBe("plain");
     expect(body.base).toBeNull();
     expect(body.command).toBeNull();
     expect(body.files).toEqual([]);
-    expect(prStatus(home, session)!.kind).toBe("plain");
+    expect((await run(prStatus(home, session)))!.kind).toBe("plain");
   });
 
   test("an unknown session is a 404", async () => {
-    setup("pr");
+    await setup("pr");
     const res = await get("0000000000");
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "unknown session" });

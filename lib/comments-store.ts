@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { Context, Effect, Layer, Semaphore } from "effect";
 import type { QuoteSelector } from "./anchor";
 import type { CodeAnchor } from "./code-anchor";
-import { withFileLock } from "./lock";
+import { errorMessage, IoFailure, type LockTimeout } from "./effect/errors";
+import { Lock } from "./lock";
 
 /**
  * On-disk format of a comment file. Plain JSON on purpose: an agent reads it straight from
@@ -53,26 +55,54 @@ function writeAtomic(p: string, data: CommentFile) {
   renameSync(tmp, p);
 }
 
-const queues = new Map<string, Promise<unknown>>();
+const failure = (error: unknown) => new IoFailure({ message: errorMessage(error), status: 500 });
+
+/** The comment file store: the IO edges of a comment file, as an Effect service. */
+export class CommentsStore extends Context.Service<
+  CommentsStore,
+  {
+    read(file: string): Effect.Effect<CommentFile, IoFailure>;
+    mutate<A>(file: string, change: (file: CommentFile) => A): Effect.Effect<A, IoFailure | LockTimeout>;
+  }
+>()("blackboard/CommentsStore") {}
 
 /**
- * Read, change and write a comment file. Calls in this process are queued, and every
- * process (web app, CLI) holds the file lock for the read-change-write, so no writer loses another's
- * change. The write goes to a temp file renamed over the old one.
+ * Read, change and write a comment file. Calls in this process take turns on a semaphore, and every
+ * process (web app, CLI) holds the file lock for the read-change-write, so no writer loses another
+ * writer's change. The write goes to a temp file renamed over the old one.
  */
-export function mutate<T>(p: string, change: (file: CommentFile) => T): Promise<T> {
-  const run = (queues.get(p) ?? Promise.resolve()).catch(() => {}).then(() => {
-    mkdirSync(dirname(p), { recursive: true });
-    return withFileLock(p, () => {
-      const file = readComments(p);
-      const result = change(file);
-      writeAtomic(p, file);
-      return result;
-    });
-  });
-  queues.set(p, run);
-  return run;
-}
+export const layer = Layer.effect(
+  CommentsStore,
+  Effect.gen(function* () {
+    const lock = yield* Lock;
+    const gates = new Map<string, Semaphore.Semaphore>();
+    const gateOf = (file: string): Effect.Effect<Semaphore.Semaphore> =>
+      Effect.suspend(() => {
+        const held = gates.get(file);
+        if (held) return Effect.succeed(held);
+        return Semaphore.make(1).pipe(Effect.tap((made) => Effect.sync(() => gates.set(file, made))));
+      });
+    const read = (file: string) => Effect.try({ try: () => readComments(file), catch: failure });
+    const mutate = <A>(file: string, change: (current: CommentFile) => A): Effect.Effect<A, IoFailure | LockTimeout> =>
+      Effect.gen(function* () {
+        const gate = yield* gateOf(file);
+        // The lock file lives in the same folder, so the folder must exist before it is taken.
+        yield* Effect.sync(() => mkdirSync(dirname(file), { recursive: true }));
+        return yield* gate.withPermits(1)(
+          lock.withLock(
+            file,
+            Effect.gen(function* () {
+              const current = yield* read(file);
+              const result = yield* Effect.try({ try: () => change(current), catch: failure });
+              yield* Effect.try({ try: () => writeAtomic(file, current), catch: failure });
+              return result;
+            }),
+          ),
+        );
+      });
+    return CommentsStore.of({ read, mutate });
+  }),
+);
 
 function find(file: CommentFile, doc: string, id: string): Comment {
   const c = file.docs[doc]?.find((x) => x.id === id);

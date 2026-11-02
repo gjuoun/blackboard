@@ -1,290 +1,50 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
-import { anchorLabel, codeStateFromLines, parseCodeRef, type CodeState } from "./code-anchor";
-import { addComment, addReply, mutate, readComments, reviewRound, setStatus, type Comment, type CommentFile } from "./comments-store";
-import { docMeta } from "./doc-meta";
-import { docType } from "./doc-type";
-import { exportStream, parseStream, type StreamAction } from "./stream-doc";
-import { appendBlock as storeAppend, createStream, rewriteBlock as storeRewrite, writeStreamMeta, type HeaderResult } from "./stream-store";
-import { renderPlainText } from "./markdown";
-import { ensurePrDoc } from "./pr-kind";
-import { prStatus, type PrStatus } from "./pr-status";
-import { selectorFor } from "./selector";
-import { closeSession, openSession, realDoc, resolveSession, SessionError, sessionCommentsPath, sessionRow, sessionRows, type Session, type SessionKind, type SessionRow } from "./sessions";
+import { basename } from "node:path";
+import { Data, Effect } from "effect";
+import { anchorLabel, type CodeState } from "./code-anchor";
+import { type Comment, type CommentFile } from "./comments-store";
+import { SessionsStore, sessionCommentsPath, type Session, type SessionRow } from "./sessions";
+import type { PrStatus } from "./pr-status";
 
 /** A failure the CLI reports on stderr. code 1 = the command failed, 2 = bad usage. */
-export class CliError extends Error {
-  constructor(message: string, readonly code: 1 | 2 = 1) {
-    super(message);
-  }
-}
+export class CliError extends Data.TaggedError("CliError")<{ message: string; code: 1 | 2 }> {}
+
+/** A store or parsing failure as the CLI reports it: same message, exit code 1 unless given. */
+export const cliFailure = (error: { message: string }, code: 1 | 2 = 1) => new CliError({ message: error.message, code });
 
 export type DocComment = Comment & { doc: string; codeState?: CodeState };
 
-const DEFAULT_URL = "http://127.0.0.1:38770";
+/** A session and the comment file its comments live in, resolved from an id or a path. */
+export type Target = { session: Session; file: string; doc: string };
 
-/** Where the web app shows a session: $BLACKBOARD_URL (default the local app) + /s/<id>. */
-export const sessionUrl = (id: string) => `${(process.env.BLACKBOARD_URL || DEFAULT_URL).replace(/\/+$/, "")}/s/${id}`;
-
-/** A session named by id or by a path to its file (relative to `cwd`). */
-function find(home: string, ref: string, cwd = process.cwd()): { session: Session; file: string; doc: string } {
-  const session = resolveSession(home, ref, cwd);
-  if (!session) throw new CliError(`no session "${ref}" (register the file with: blackboard open <file>)`);
-  return { session, file: sessionCommentsPath(home, session.id), doc: basename(session.path) };
+/** A session named by id or by a path to its file (relative to cwd). */
+export function find(home: string, ref: string, cwd = process.cwd()): Effect.Effect<Target, CliError, SessionsStore> {
+  return Effect.gen(function* () {
+    const sessions = yield* SessionsStore;
+    const session = yield* sessions.resolve(home, ref, cwd).pipe(Effect.mapError((error) => cliFailure(error)));
+    if (!session) {
+      return yield* new CliError({ message: `no session "${ref}" (register the file with: blackboard open <file>)`, code: 1 });
+    }
+    return { session, file: sessionCommentsPath(home, session.id), doc: basename(session.path) };
+  });
 }
 
-/** The top-level comment that `id` is, or that holds `id` as one of its replies. Ids are unique within a session. */
-function threadOf(file: CommentFile, id: string): { doc: string; commentId: string } {
-  for (const [doc, list] of Object.entries(file.docs)) {
-    const c = list.find((x) => x.id === id || x.replies.some((r) => r.id === id));
-    if (c) return { doc, commentId: c.id };
-  }
-  throw new CliError(`no comment ${id} on this session`);
+/** The top-level comment that id is, or that holds id as one of its replies. Ids are unique within a session. */
+export function threadOf(file: CommentFile, id: string): Effect.Effect<{ doc: string; commentId: string }, CliError> {
+  return Effect.suspend(() => {
+    for (const [doc, list] of Object.entries(file.docs)) {
+      const c = list.find((x) => x.id === id || x.replies.some((r) => r.id === id));
+      if (c) return Effect.succeed({ doc, commentId: c.id });
+    }
+    return Effect.fail(new CliError({ message: `no comment ${id} on this session`, code: 1 }));
+  });
 }
 
 /** Comment ids are unique within a session, so a command can name a comment by id alone. */
-function docOf(file: CommentFile, id: string): string {
-  const doc = Object.keys(file.docs).find((d) => file.docs[d].some((c) => c.id === id));
-  if (!doc) throw new CliError(`no comment ${id} on this session`);
-  return doc;
-}
-
-/** What the CLI pinned, so both the text and --json output can report it. */
-export type PrPin = { base: string; sha: string; filled: boolean };
-
-/**
- * Register a markdown file as a session (again is fine) and give its URL. A pr session is
- * verified before it is registered: the front matter must name a hash git can resolve, and a
- * missing block is filled from the merge-base once, then written back into the doc.
- *
- * A stream session also gets its metadata line. `meta.title` is used when given, else the session
- * id; a file that already has content is never rewritten (old files are migrated with `header`).
- */
-export function open(
-  home: string,
-  file: string,
-  cwd = process.cwd(),
-  kind?: SessionKind,
-  meta?: { title?: string; owner?: string },
-): { session: Session; url: string; pr?: PrPin } {
-  try {
-    const real = realDoc(file, cwd);
-    const kinded = docType(real, kind ?? "plain");
-    if (!kinded.ok) throw new CliError(kinded.error, 2);
-    let pr: PrPin | undefined;
-    if (kind === "pr") {
-      const repo = docMeta(real).repo;
-      if (!repo) throw new CliError(`${real} is not inside a git repository`);
-      const src = readFileSync(real, "utf8");
-      const ensured = ensurePrDoc(src, repo.root);
-      if (!ensured.ok) throw new CliError(ensured.error);
-      if (ensured.src !== src) writeFileSync(real, ensured.src);
-      pr = { base: ensured.base, sha: ensured.sha, filled: ensured.filled };
-    }
-    const session = openSession(home, real, cwd, kind);
-    if ((kind ?? session.kind) === "stream") {
-      createStream(real, { title: meta?.title?.trim() || session.id, ...(meta?.owner?.trim() ? { owner: meta.owner.trim() } : {}) });
-    }
-    return { session, url: sessionUrl(session.id), ...(pr ? { pr } : {}) };
-  } catch (err) {
-    if (err instanceof SessionError) throw new CliError(err.message);
-    throw err;
-  }
-}
-
-export function sessions(home: string): SessionRow[] {
-  return sessionRows(home);
-}
-
-export function close(home: string, ref: string, cwd = process.cwd()): Session {
-  return closeSession(home, find(home, ref, cwd).session.id);
-}
-
-const linesOfFile = (raw: string): string[] => {
-  const lines = raw.split(/\r?\n/);
-  if (lines.at(-1) === "") lines.pop();
-  return lines;
-};
-
-/**
- * Every comment in a session, resolved ones included, each with its replies, in creation order.
- * A code anchor also carries its drift state: the anchored file is read once, on demand, so an
- * agent sees `L12 ↦ 现 L14` without the anchor ever being rewritten.
- */
-export function comments(home: string, ref: string, cwd = process.cwd()): DocComment[] {
-  const { session, file } = find(home, ref, cwd);
-  const repo = docMeta(session.path).repo;
-  const cache = new Map<string, readonly string[] | null>();
-  const read = (path: string): readonly string[] | null => {
-    if (!repo) return null;
-    const hit = cache.get(path);
-    if (hit !== undefined) return hit;
-    let lines: readonly string[] | null = null;
-    try {
-      lines = linesOfFile(readFileSync(join(repo.root, path), "utf8"));
-    } catch {
-      lines = null;
-    }
-    cache.set(path, lines);
-    return lines;
-  };
-  return Object.entries(readComments(file).docs).flatMap(([doc, list]) =>
-    list.map((c) => ({
-      ...c,
-      doc,
-      ...(c.code && c.code.side === "new" ? { codeState: codeStateFromLines(c.code, read(c.code.path)) } : {}),
-    })),
-  );
-}
-
-/** Close a round for a session's doc. The store refuses while an open comment has no agent reply. */
-export async function review(home: string, ref: string, round: number, body: string, author: string, cwd = process.cwd()) {
-  if (!body.trim()) throw new CliError("review text is empty", 2);
-  const { file, doc } = find(home, ref, cwd);
-  try {
-    return await mutate(file, (f) => reviewRound(f, doc, { round, body: body.trim(), author }));
-  } catch (err) {
-    throw new CliError(err instanceof Error ? err.message : String(err), 1);
-  }
-}
-
-/** An independent comment: no passage and no line. It joins the same store and list as the other kinds. */
-export async function commentGeneral(home: string, ref: string, note: string, author: string, cwd = process.cwd()): Promise<DocComment> {
-  if (!note.trim()) throw new CliError("comment text is empty", 2);
-  const { file, doc } = find(home, ref, cwd);
-  return { ...(await mutate(file, (f) => addComment(f, doc, { general: true, body: note.trim(), author }))), doc };
-}
-
-/** Comment on one line of a repo file, n-th line counted from the worktree: `lib/a.ts:L12`. */
-export async function commentOnCode(
-  home: string,
-  ref: string,
-  codeRef: string,
-  note: string,
-  author: string,
-  cwd = process.cwd(),
-): Promise<DocComment> {
-  if (!note.trim()) throw new CliError("comment text is empty", 2);
-  const parsed = parseCodeRef(codeRef);
-  if (!parsed) throw new CliError(`--code takes <repo-relative-path>:L<n> (got "${codeRef}")`, 2);
-  const { session, file, doc } = find(home, ref, cwd);
-  const repo = docMeta(session.path).repo;
-  if (!repo) throw new CliError(`${session.path} is not inside a git repository`);
-  let lines: string[];
-  try {
-    lines = linesOfFile(readFileSync(join(repo.root, parsed.path), "utf8"));
-  } catch {
-    throw new CliError(`no such file in ${repo.name}: ${parsed.path}`);
-  }
-  const lineText = lines[parsed.start - 1];
-  if (lineText === undefined) throw new CliError(`${parsed.path} has no line ${parsed.start}`);
-  if (parsed.end > lines.length) throw new CliError(`${parsed.path} has no line ${parsed.end}`);
-  const code = { path: parsed.path, startLine: parsed.start, endLine: parsed.end, side: "new" as const, lineText };
-  return { ...(await mutate(file, (f) => addComment(f, doc, { code, body: note.trim(), author }))), doc };
-}
-
-/** Appends one block to a stream session under the file lock, with a ULID id. */
-export function appendBlock(
-  home: string,
-  ref: string,
-  input: { action: string; text: string; author: string; images?: string[]; status?: "writing" },
-  cwd = process.cwd(),
-): { id: string; n: number; file: string } {
-  const { session, file } = streamFile(home, ref, cwd);
-  if (!input.text.trim()) throw new CliError("block text is empty", 2);
-  try {
-    // A block appended to an empty file writes the metadata line first; the title falls back to the session id.
-    const b = storeAppend(file, { action: input.action as StreamAction, author: input.author, text: input.text, images: input.images, status: input.status }, undefined, { title: session.id, owner: input.author });
-    return { id: b.id, n: b.n, file };
-  } catch (err) {
-    throw new CliError(err instanceof Error ? err.message : String(err), 2);
-  }
-}
-
-/** Replaces the body (and optionally the action) of one existing block by id. Rewrites the file atomically. */
-export function editBlock(home: string, ref: string, id: string, text: string, cwd = process.cwd()): { id: string; n: number; file: string } {
-  const { file } = streamFile(home, ref, cwd);
-  if (!text.trim()) throw new CliError("block text is empty", 2);
-  try {
-    const b = storeRewrite(file, id, (x) => ({ ...x, body: text, at: new Date().toISOString() }));
-    return { id: b.id, n: b.n, file };
-  } catch (err) {
-    throw new CliError(err instanceof Error ? err.message : String(err), 1);
-  }
-}
-
-/** The stream session and its file, after the kind check. */
-function streamFile(home: string, ref: string, cwd: string): { session: Session; file: string } {
-  const { session } = find(home, ref, cwd);
-  if (session.kind !== "stream") throw new CliError(`${session.path} is not a stream (open it with --kind stream)`, 2);
-  return { session, file: session.path };
-}
-
-/**
- * Add or update the metadata line of an existing stream (old files have none). Every block keeps its
- * place and bytes; the document id and `created` are kept, so running it twice with the same title is
- * a no-op. This is the migration path for files written before the metadata line existed.
- */
-export function setHeader(home: string, ref: string, input: { title: string; owner?: string }, cwd = process.cwd()): HeaderResult & { file: string } {
-  const { session } = streamFile(home, ref, cwd);
-  if (!input.title.trim()) throw new CliError("header needs --title <title>", 2);
-  try {
-    const out = writeStreamMeta(session.path, { title: input.title.trim(), ...(input.owner?.trim() ? { owner: input.owner.trim() } : {}) });
-    return { ...out, file: session.path };
-  } catch (err) {
-    throw new CliError(err instanceof Error ? err.message : String(err), 1);
-  }
-}
-
-const readStreamText = (path: string) => (existsSync(path) ? readFileSync(path, "utf8") : "");
-
-/** The stream as markdown, one section per block. The cloud mirror reads this export. */
-export function exportBlocks(home: string, ref: string, cwd = process.cwd()): string {
-  const { session } = find(home, ref, cwd);
-  if (session.kind !== "stream") throw new CliError(`${session.path} is not a stream`, 2);
-  const parsed = parseStream(readStreamText(session.path));
-  // The document's own title wins; an old file without a metadata line falls back to the session title.
-  return exportStream(parsed.blocks, parsed.meta?.title ?? sessionRow(home, session).title);
-}
-
-/**
- * Reply to a comment, or to one of its replies: `id` names either, and the text joins that comment's
- * thread (replies are one flat list per comment). Returns the comment the reply went under.
- */
-export async function reply(home: string, ref: string, id: string, body: string, author: string, cwd = process.cwd()): Promise<DocComment> {
-  if (!body.trim()) throw new CliError("reply text is empty", 2);
-  const { file } = find(home, ref, cwd);
-  const { doc, commentId } = threadOf(readComments(file), id);
-  return { ...(await mutate(file, (f) => addReply(f, doc, commentId, { body: body.trim(), author }))), doc };
-}
-
-export async function status(home: string, ref: string, id: string, to: "resolved" | "open", author: string, cwd = process.cwd()): Promise<DocComment> {
-  const { file } = find(home, ref, cwd);
-  const doc = docOf(readComments(file), id);
-  return { ...(await mutate(file, (f) => setStatus(f, doc, id, to, author))), doc };
-}
-
-/** Comment on the n-th occurrence of `quote` in the session's doc, as the agent. The page highlights it live. */
-export async function comment(
-  home: string,
-  ref: string,
-  quote: string,
-  note: string,
-  author: string,
-  occurrence = 1,
-  cwd = process.cwd(),
-): Promise<DocComment> {
-  if (!note.trim()) throw new CliError("comment text is empty", 2);
-  const { session, file, doc } = find(home, ref, cwd);
-  let src: string;
-  try {
-    src = readFileSync(session.path, "utf8");
-  } catch {
-    throw new CliError(`the doc is missing: ${session.path}`);
-  }
-  const sel = selectorFor(await renderPlainText(src), quote, occurrence);
-  if (!sel.ok) throw new CliError(sel.error);
-  return { ...(await mutate(file, (f) => addComment(f, doc, { quote: sel.selector, body: note.trim(), author }))), doc };
+export function docOf(file: CommentFile, id: string): Effect.Effect<string, CliError> {
+  return Effect.suspend(() => {
+    const doc = Object.keys(file.docs).find((d) => file.docs[d].some((c) => c.id === id));
+    return doc ? Effect.succeed(doc) : Effect.fail(new CliError({ message: `no comment ${id} on this session`, code: 1 }));
+  });
 }
 
 const squash = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -306,20 +66,13 @@ export function formatComments(list: DocComment[]): string {
         : "";
       const where = c.quote ? "  > " + squash(c.quote.exact) : c.code ? `  @ ${anchorLabel(c.code)}` + drift : "  (general)";
       const lines = [`${c.id}  ${c.doc}  ${c.status}  ${c.author}  ${c.createdAt}`, where, `  ${c.body.replace(/\n/g, "\n  ")}`];
-      for (const r of c.replies) lines.push(`    ↳ ${r.id}  ${r.author}: ${r.body.replace(/\n/g, "\n      ")}`);
+      for (const r of c.replies) lines.push(`    \u21b3 ${r.id}  ${r.author}: ${r.body.replace(/\n/g, "\n      ")}`);
       return lines.join("\n");
     })
     .join("\n\n");
 }
 
-/** The pinned baseline and the exact diff command for one session; unknown refs fail like any other command. */
-export function pr(home: string, ref: string, cwd = process.cwd()): PrStatus {
-  const status = prStatus(home, ref, cwd);
-  if (!status) throw new CliError(`no session "${ref}" (register the file with: blackboard open <file>)`);
-  return status;
-}
-
-/** Human form of a session's pr state: the front matter's baseline and the command to run. */
+/** Human form of a session pr state: the front matter baseline and the command to run. */
 export function formatPr(status: PrStatus): string {
   const lines = [`${status.session}  ${status.path}  ${status.kind}`];
   if (status.base && status.command) {
@@ -339,4 +92,3 @@ export function formatSessions(rows: SessionRow[]): string {
     .map((r) => `${r.id}  ${r.title}  ${r.location}  ${r.branch ?? "-"}  ${r.open} open  ${r.kind ?? "plain"}${r.missing ? "  (missing)" : ""}`)
     .join("\n");
 }
-
