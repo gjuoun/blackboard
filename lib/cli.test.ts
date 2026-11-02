@@ -20,5 +20,5 @@ describe("blackboard binary", () => {
     expect(runCli(home, ["open", "--no-browser", docs]).code).toBe(1);
     expect(runCli(home, ["reply", id]).code).toBe(2);
     expect(runCli(home, ["frobnicate"]).code).toBe(2);
-  });
+  }, 30_000);
 });

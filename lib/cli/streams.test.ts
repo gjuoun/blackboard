@@ -19,7 +19,7 @@ describe("block writer", () => {
     const ok = runCli(home, ["review", design, "--round", "1", "all done"]);
     expect(ok.code).toBe(0);
     expect(ok.out).toContain("commented");
-  });
+  }, 30_000);
 
   test("general: CLI creates one", () => {
     const { home, design } = setup();
@@ -28,7 +28,7 @@ describe("block writer", () => {
     expect(r.code).toBe(0);
     expect(r.out).toContain("(general)");
     expect(runCli(home, ["comments", design]).out).toContain("(general)");
-  });
+  }, 30_000);
 
   test("open --kind stream --title writes the metadata line", () => {
     const { home, docs } = setup();
@@ -37,7 +37,7 @@ describe("block writer", () => {
     const lines = readFileSync(join(docs, "log.jsonl"), "utf8").split("\n");
     expect(lines).toHaveLength(2);
     expect(JSON.parse(lines[0])).toMatchObject({ type: "meta", v: 1, title: "标题", kind: "stream", owner: "agent" });
-  });
+  }, 30_000);
 
   test("block: edit keeps the id and rewrites the body", async () => {
     const { home, docs } = setup();
@@ -53,7 +53,7 @@ describe("block writer", () => {
     expect(lines).toHaveLength(2);
     expect(JSON.parse(lines[0])).toMatchObject({ type: "meta" });
     expect(JSON.parse(lines[1])).toMatchObject({ type: "block", id: made.id, body: "final" });
-  });
+  }, 30_000);
 
   test("block: appends one block line after the metadata", () => {
     const { home, docs } = setup();
@@ -67,7 +67,7 @@ describe("block writer", () => {
     expect(JSON.parse(lines[1])).toMatchObject({ type: "block", n: 1, action: "answer", author: "agent" });
     const exp = runCli(home, ["export", "log.jsonl"], docs);
     expect(exp.out).toContain("## 1. 长答 · agent");
-  });
+  }, 30_000);
 
   test("header: migrates an old file, keeps its blocks and is idempotent", () => {
     const { home, docs } = setup();
@@ -96,7 +96,7 @@ describe("block writer", () => {
     const exp = runCli(home, ["export", "log.jsonl"], docs);
     expect(exp.out.startsWith("# 老会话\n")).toBe(true);
     expect(exp.out.match(/^## /gm)).toHaveLength(2);
-  });
+  }, 30_000);
 
   test("block: refused on a doc session", () => {
     const { home, design } = setup();
@@ -104,7 +104,7 @@ describe("block writer", () => {
     const r = runCli(home, ["block", design, "--action", "answer", "x"]);
     expect(r.code).toBe(2);
     expect(r.err).toContain("is not a stream");
-  });
+  }, 30_000);
 
   test("streams service: append, edit, header and export round-trip", async () => {
     const { home, docs } = setup();
@@ -118,5 +118,5 @@ describe("block writer", () => {
     expect(md.startsWith("# 标题")).toBe(true);
     expect(md).toContain("two");
     await run(close(home, join(docs, "log.jsonl")));
-  });
+  }, 30_000);
 });

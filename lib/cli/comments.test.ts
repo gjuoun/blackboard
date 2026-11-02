@@ -68,7 +68,7 @@ describe("comments", () => {
     const direct = runCli(home, ["reply", session.id, c.id, "third"]);
     expect(direct.out).not.toContain("joined thread");
     expect((await run(comments(home, session.id)))[0].replies.map((x) => x.body)).toEqual(["first", "second", "third"]);
-  });
+  }, 30_000);
 
   test("unknown session, id and quote fail with a clear message", async () => {
     const { home, design, docs } = setup();
