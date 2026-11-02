@@ -18,7 +18,7 @@ describe("PanelResizer", () => {
 
   test("the shared right rail keeps one grip and one persisted slot", () => {
     const html = renderToStaticMarkup(<PanelResizer which="cm" width={340} other={240} onDraft={noop} onCommit={noop} />);
-    expect(html).toContain('aria-label="Resize comments and local PR panel"');
+    expect(html).toContain('aria-label="Resize comments panel"');
     expect(html).toContain('data-testid="resize-cm"');
     expect(html).toContain('aria-valuemin="' + PANEL_LIMITS.cm.min + '"');
     expect(html).toContain('aria-valuemax="' + PANEL_LIMITS.cm.max + '"');
