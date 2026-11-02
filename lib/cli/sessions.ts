@@ -10,6 +10,9 @@ const DEFAULT_URL = "http://127.0.0.1:38770";
 /** Where the web app shows a session: $BLACKBOARD_URL (default the local app) + /s/<id>. */
 export const sessionUrl = (id: string) => `${(process.env.BLACKBOARD_URL || DEFAULT_URL).replace(/\/+$/, "")}/s/${id}`;
 
+/** Where the web app shows one block of a stream: the session URL with the block's stable id as its fragment. */
+export const blockUrl = (id: string, block: string) => `${sessionUrl(id)}#${block}`;
+
 /**
  * Register a markdown file as a session (again is fine) and give its URL.
  *
