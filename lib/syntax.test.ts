@@ -120,8 +120,11 @@ describe("diff palette mapping", () => {
     expect(GLOBALS).not.toMatch(/\.dv[^{]*\{[^}]*font-style: italic/);
   });
 
-  test("the active right tab carries a primary top line", () => {
-    expect(GLOBALS).toMatch(/\.rail-tab\[aria-selected="true"\][^}]*box-shadow: inset 0 2px 0 var\(--primary\)/);
+  test("the active rail tab merges into the pane instead of carrying a primary top line", () => {
+    const active = /\.rail-tab\[aria-selected="true"\]\s*\{([^}]*)\}/.exec(GLOBALS)?.[1] ?? "";
+    expect(active).not.toContain("box-shadow");
+    expect(active).not.toContain("border-top");
+    expect(active).toMatch(/font-weight: 600/);
   });
 });
 

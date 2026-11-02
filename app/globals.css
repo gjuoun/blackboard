@@ -233,9 +233,9 @@
   background: var(--card);
   border-color: var(--border);
   color: var(--foreground);
-  font-weight: 500;
-  /* QA: fill + border alone read too faintly; a primary top line makes the active tab obvious. */
-  box-shadow: inset 0 2px 0 var(--primary);
+  font-weight: 600;
+  /* Jun, 2026-11-02 — no primary top line on the active tab. Fill, border and weight carry the
+     state; a colour accent is not needed. */
 }
 .rail-tab .count {
   background: var(--primary-soft);
