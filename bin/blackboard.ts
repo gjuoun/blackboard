@@ -13,9 +13,11 @@ import * as server from "../lib/server-ctl";
 const HELP = `blackboard — review markdown files and their comments, from the shell
 
 Usage:
-  blackboard open     <file> [--kind pr] [--no-browser]
-                                                 register a .md file, print "<id>  <url>", open it
+  blackboard open     <file> [--kind plain|pr|stream] [--title <title>] [--no-browser]
+                                                 register a file, print "<id>  <url>", open it
                                                  (starts the web app first when it is not running)
+  blackboard header   <session> --title <title> [--owner <name>]
+                                                 add or update a stream's metadata line (old files)
   blackboard pr       <session> [--json]         the pinned diff baseline, its git command and totals
   blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)
   blackboard sessions [--json]                   every session: id, title, location, branch, open comments
@@ -26,12 +28,15 @@ Usage:
   blackboard reopen   <session> <comment-id>
   blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>
   blackboard comment  <session> --code <path>:L<n> <note>
+  blackboard block    <session> --action answer|edit|append [--edit <id>] <text|->
 
 <session> is a session id or a path to the registered file.
 <id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).
 
 Options:
   --kind <k>       open: plain (default), pr (pins the diff baseline in the doc's front matter) or stream (a .jsonl block file)
+  --title <t>      open --kind stream / header: the document title written into the metadata line
+  --owner <name>   header: the document owner written into the metadata line
   --code <ref>     comment: anchor on <repo-relative-path>:L<n> instead of a quoted passage
   --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)
   --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or "agent")
@@ -80,6 +85,8 @@ async function main(argv: string[]): Promise<number> {
       quote: { type: "string" },
       code: { type: "string" },
       kind: { type: "string" },
+      title: { type: "string" },
+      owner: { type: "string" },
       action: { type: "string" },
       images: { type: "string" },
       status: { type: "string" },
@@ -118,7 +125,7 @@ async function main(argv: string[]): Promise<number> {
         throw new cli.CliError('--kind takes "plain", "pr" or "stream"', 2);
       }
       if (!o["no-server"] && process.env.BLACKBOARD_NO_SERVER !== "1") await ensureServer(home);
-      const { session, url, pr } = cli.open(home, args[0], process.cwd(), o.kind);
+      const { session, url, pr } = cli.open(home, args[0], process.cwd(), o.kind, o.kind === "stream" ? { title: o.title, owner: author } : undefined);
       const pin = pr ? `\npr base ${pr.base} @ ${pr.sha.slice(0, 7)}${pr.filled ? "  (front matter filled)" : ""}` : "";
       print({ ...session, url, ...(pr ? { pr } : {}) }, `${session.id}  ${url}${pin}`);
       if (!o["no-browser"] && process.env.BLACKBOARD_NO_BROWSER !== "1") launch(url);
@@ -152,6 +159,13 @@ async function main(argv: string[]): Promise<number> {
         return r.running ? 0 : 3;
       }
       throw new cli.CliError("usage: blackboard serve start|stop|restart|status [--port <n>] [--foreground]", 2);
+    }
+    case "header": {
+      need(1, "header <session> --title <title> [--owner <name>]");
+      if (o.title === undefined) throw new cli.CliError("header needs --title <title>", 2);
+      const r = cli.setHeader(home, args[0], { title: o.title, owner: o.owner });
+      print(r, `header ${r.created ? "written" : "updated"} for ${r.file}: ${r.meta.title} (${r.meta.id}, ${r.blocks} blocks)`);
+      return 0;
     }
     case "sessions": {
       const rows = cli.sessions(home);

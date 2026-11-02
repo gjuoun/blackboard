@@ -215,6 +215,15 @@ describe("block writer", () => {
     expect(run(home, ["comments", design]).out).toContain("(general)");
   });
 
+  test("open --kind stream --title writes the metadata line", () => {
+    const { home, docs } = setup();
+    writeFileSync(join(docs, "log.jsonl"), "");
+    expect(run(home, ["open", "--no-browser", "--kind", "stream", "--title", "标题", "log.jsonl"], docs).code).toBe(0);
+    const lines = readFileSync(join(docs, "log.jsonl"), "utf8").split("\n");
+    expect(lines).toHaveLength(2);
+    expect(JSON.parse(lines[0])).toMatchObject({ type: "meta", v: 1, title: "标题", kind: "stream", owner: "agent" });
+  });
+
   test("block: edit keeps the id and rewrites the body", () => {
     const { home, docs } = setup();
     writeFileSync(join(docs, "log.jsonl"), "");
@@ -224,21 +233,53 @@ describe("block writer", () => {
     const r = run(home, ["block", "log.jsonl", "--edit", first.id, "final"], docs);
     expect(r.code).toBe(0);
     const lines = readFileSync(join(docs, "log.jsonl"), "utf8").trim().split("\n");
-    expect(lines).toHaveLength(1);
-    expect(JSON.parse(lines[0])).toMatchObject({ id: first.id, body: "final" });
+    // line 1 is the metadata line open wrote; the block follows it
+    expect(lines).toHaveLength(2);
+    expect(JSON.parse(lines[0])).toMatchObject({ type: "meta" });
+    expect(JSON.parse(lines[1])).toMatchObject({ type: "block", id: first.id, body: "final" });
   });
 
-  test("block: appends one line", () => {
+  test("block: appends one block line after the metadata", () => {
     const { home, docs } = setup();
     writeFileSync(join(docs, "log.jsonl"), "");
     expect(run(home, ["open", "--no-browser", "--kind", "stream", "log.jsonl"], docs).code).toBe(0);
     const r = run(home, ["block", "log.jsonl", "--action", "answer", "### Heading\n\nBody"], docs);
     expect(r.code).toBe(0);
     const lines = readFileSync(join(docs, "log.jsonl"), "utf8").trim().split("\n");
-    expect(lines).toHaveLength(1);
-    expect(JSON.parse(lines[0])).toMatchObject({ n: 1, action: "answer", author: "agent" });
+    expect(lines).toHaveLength(2);
+    expect(JSON.parse(lines[0])).toMatchObject({ type: "meta" });
+    expect(JSON.parse(lines[1])).toMatchObject({ type: "block", n: 1, action: "answer", author: "agent" });
     const exp = run(home, ["export", "log.jsonl"], docs);
     expect(exp.out).toContain("## 1. 长答 · agent");
+  });
+
+  test("header: migrates an old file, keeps its blocks and is idempotent", () => {
+    const { home, docs } = setup();
+    const old = [
+      JSON.stringify({ id: "b1", n: 1, action: "answer", author: "agent", at: "t1", body: "one" }),
+      JSON.stringify({ id: "b2", n: 2, action: "append", author: "agent", at: "t2", body: "two" }),
+    ].join("\n") + "\n";
+    writeFileSync(join(docs, "log.jsonl"), old);
+    // register without touching the existing blocks
+    expect(run(home, ["open", "--no-browser", "--kind", "stream", "log.jsonl"], docs).code).toBe(0);
+    expect(readFileSync(join(docs, "log.jsonl"), "utf8")).toBe(old);
+
+    const first = run(home, ["header", "log.jsonl", "--title", "老会话", "--owner", "jun"], docs);
+    expect(first.code).toBe(0);
+    expect(first.out).toContain("written");
+    const after = readFileSync(join(docs, "log.jsonl"), "utf8");
+    expect(after.endsWith(old)).toBe(true);
+    const meta = JSON.parse(after.split("\n")[0]);
+    expect(meta).toMatchObject({ type: "meta", v: 1, title: "老会话", kind: "stream", owner: "jun" });
+
+    const second = run(home, ["header", "log.jsonl", "--title", "老会话", "--owner", "jun"], docs);
+    expect(second.code).toBe(0);
+    expect(second.out).toContain("updated");
+    expect(readFileSync(join(docs, "log.jsonl"), "utf8")).toBe(after);
+
+    const exp = run(home, ["export", "log.jsonl"], docs);
+    expect(exp.out.startsWith("# 老会话\n")).toBe(true);
+    expect(exp.out.match(/^## /gm)).toHaveLength(2);
   });
 
   test("block: refused on a doc session", () => {
