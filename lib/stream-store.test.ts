@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { appendBlock, rewriteBlock, withStreamLock, StreamError } from "./stream-store";
+import { appendBlock, createStream, rewriteBlock, withStreamLock, writeStreamMeta, StreamError } from "./stream-store";
 import { parseStream } from "./stream-doc";
 
 const fresh = () => {
@@ -67,6 +67,118 @@ describe("stream store", () => {
     expect(new Set(blocks.map((b) => b.n)).size).toBe(600);
     expect(Math.max(...blocks.map((b) => b.n))).toBe(600);
   }, 60000);
+
+  test("stream: create writes the metadata line and never overwrites", () => {
+    const { file } = fresh();
+    const first = createStream(file, { title: "标题", owner: "pi #j7x2" }, "2026-11-02T14:03:11.482Z");
+    expect(first.created).toBe(true);
+    const lines = readFileSync(file, "utf8").split("\n");
+    expect(lines).toHaveLength(2);
+    expect(JSON.parse(lines[0])).toEqual({
+      type: "meta",
+      v: 1,
+      id: first.meta!.id,
+      title: "标题",
+      kind: "stream",
+      created: "2026-11-02T14:03:11.482Z",
+      owner: "pi #j7x2",
+    });
+    expect(first.meta!.id).toMatch(/^s-[0-9A-HJKMNP-TV-Z]{26}$/);
+    // a second create leaves the file as it is and reports the metadata it found
+    const second = createStream(file, { title: "另一个标题" });
+    expect(second.created).toBe(false);
+    expect(second.meta?.title).toBe("标题");
+    expect(readFileSync(file, "utf8")).toBe(lines.join("\n"));
+  });
+
+  test("stream: append to an empty file writes the metadata line first", () => {
+    const { file } = fresh();
+    const b = appendBlock(file, { action: "answer", author: "agent", text: "one" }, "2026-11-02T14:05:00.000Z", {
+      title: "会话标题",
+      owner: "pi #j7x2",
+    });
+    const lines = readFileSync(file, "utf8").split("\n");
+    expect(lines).toHaveLength(3);
+    expect(JSON.parse(lines[0])).toMatchObject({ type: "meta", v: 1, title: "会话标题", owner: "pi #j7x2" });
+    expect(JSON.parse(lines[1])).toMatchObject({ type: "block", id: b.id, n: 1 });
+    const parsed = parseStream(readFileSync(file, "utf8"));
+    expect(parsed.meta?.title).toBe("会话标题");
+    expect(parsed.blocks).toHaveLength(1);
+    expect(parsed.skipped).toBe(0);
+  });
+
+  test("stream: append keeps the first metadata line", () => {
+    const { file } = fresh();
+    const created = createStream(file, { title: "标题", owner: "pi" }, "2026-11-02T14:03:11.482Z");
+    const first = readFileSync(file, "utf8").split("\n")[0];
+    appendBlock(file, { action: "answer", author: "agent", text: "one" }, "t1");
+    appendBlock(file, { action: "append", author: "agent", text: "two" }, "t2");
+    const raw = readFileSync(file, "utf8");
+    expect(raw.split("\n")[0]).toBe(first);
+    const parsed = parseStream(raw);
+    expect(parsed.meta?.id).toBe(created.meta!.id);
+    expect(parsed.blocks).toHaveLength(2);
+    expect(parsed.skipped).toBe(0);
+  });
+
+  test("stream: rewrite keeps the metadata line and the other blocks byte for byte", () => {
+    const { file } = fresh();
+    const created = createStream(file, { title: "标题", owner: "pi" }, "2026-11-02T14:03:11.482Z");
+    const a = appendBlock(file, { action: "answer", author: "agent", text: "one" }, "t1");
+    const b = appendBlock(file, { action: "append", author: "agent", text: "two" }, "t2");
+    const before = readFileSync(file, "utf8").split("\n");
+    rewriteBlock(file, a.id, (x) => ({ ...x, body: "one, edited" }));
+    const after = readFileSync(file, "utf8").split("\n");
+    expect(after[0]).toBe(before[0]);
+    expect(after[1]).not.toBe(before[1]);
+    expect(after[2]).toBe(before[2]);
+    const parsed = parseStream(after.join("\n"));
+    expect(parsed.meta?.id).toBe(created.meta!.id);
+    expect(parsed.blocks.map((x) => x.id)).toEqual([a.id, b.id]);
+    expect(parsed.blocks.map((x) => x.body)).toEqual(["one, edited", "two"]);
+  });
+
+  test("stream: header adds the metadata line to an old file, idempotently", () => {
+    const { file } = fresh();
+    const old = [
+      JSON.stringify({ id: "b1", n: 1, action: "answer", author: "agent", at: "t1", body: "one" }),
+      JSON.stringify({ id: "b2", n: 2, action: "append", author: "agent", at: "t2", body: "two" }),
+    ].join("\n") + "\n";
+    writeFileSync(file, old);
+    const first = writeStreamMeta(file, { title: "标题", owner: "pi #j7x2" });
+    expect(first.created).toBe(true);
+    const afterFirst = readFileSync(file, "utf8");
+    // every old block line is exactly where it was, after the new first line
+    expect(afterFirst.endsWith(old)).toBe(true);
+    const parsed = parseStream(afterFirst);
+    expect(parsed.meta).toMatchObject({ type: "meta", v: 1, id: first.meta.id, title: "标题", kind: "stream", owner: "pi #j7x2" });
+    expect(parsed.blocks.map((b) => b.id)).toEqual(["b1", "b2"]);
+    expect(parsed.blocks.map((b) => b.body)).toEqual(["one", "two"]);
+
+    const second = writeStreamMeta(file, { title: "标题", owner: "pi #j7x2" });
+    expect(second.created).toBe(false);
+    expect(second.meta.id).toBe(first.meta.id);
+    expect(second.meta.created).toBe(first.meta.created);
+    expect(readFileSync(file, "utf8")).toBe(afterFirst);
+
+    // changing the title keeps the document id and creation time, and leaves the owner alone
+    const third = writeStreamMeta(file, { title: "新标题" });
+    expect(third.meta.id).toBe(first.meta.id);
+    expect(third.meta.created).toBe(first.meta.created);
+    expect(third.meta.owner).toBe("pi #j7x2");
+    expect(parseStream(readFileSync(file, "utf8")).meta?.title).toBe("新标题");
+    expect(parseStream(readFileSync(file, "utf8")).blocks.map((b) => b.id)).toEqual(["b1", "b2"]);
+  });
+
+  test("stream: create does not touch an old file that already has blocks", () => {
+    const { file } = fresh();
+    const old = JSON.stringify({ id: "b1", n: 1, action: "answer", author: "agent", at: "t", body: "one" }) + "\n";
+    writeFileSync(file, old);
+    const r = createStream(file, { title: "标题" });
+    expect(r.created).toBe(false);
+    expect(r.meta).toBeNull();
+    expect(readFileSync(file, "utf8")).toBe(old);
+  });
 
   test("stream: a truncated last line is skipped by readers", () => {
     const { file } = fresh();
