@@ -14,6 +14,7 @@ import { groupCodeThreads } from "@/lib/code-anchor";
 import { renderComments } from "@/lib/comment-markdown";
 import { readComments } from "@/lib/comments-store";
 import { getDiffSnapshot } from "@/lib/diff-index";
+import { LOCAL_PR } from "@/lib/features";
 import { fileHref, parseSelectedFile, parseShowAll, tabHref } from "@/lib/file-refs";
 import { getHome } from "@/lib/home";
 import { renderMarkdown } from "@/lib/markdown";
@@ -118,7 +119,9 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   const src = readFileSync(file, "utf8");
   const prDoc = parsePrFrontmatter(src);
   // Explicit, checkable activation: the session says pr and the doc carries a pin git can read.
-  const pr = session.kind === "pr" && prDoc.baseSha !== null;
+  // LOCAL_PR is off (see lib/features.ts): the pin diffs the DOC's repo, not the code repo a plan
+  // wants to read, so the whole rail + `file:` links stay dormant until the base can name one.
+  const pr = LOCAL_PR && session.kind === "pr" && prDoc.baseSha !== null;
   // One snapshot for the whole request: the link visitor and the diff pane read this index, never
   // the filesystem or git. A pr doc pins the commit its front matter names; a plain doc keeps the
   // floating base only for its code-comment threads and never shows the diff.
@@ -157,7 +160,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
         diff={
           snapshot
             ? {
-                panel: <DiffPanel index={snapshot} selected={selected} refs={fileRefs} showAll={showAll} threads={codeThreads.byRow} session={session.id} />,
+                panel: pr ? <DiffPanel index={snapshot} selected={selected} refs={fileRefs} showAll={showAll} threads={codeThreads.byRow} session={session.id} /> : null,
                 commentHref: tabHref("comments"),
                 prHref,
                 additions: snapshot.totals.additions,
