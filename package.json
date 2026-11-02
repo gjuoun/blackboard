@@ -98,6 +98,7 @@
     "unrs-resolver"
   ],
   "dependencies": {
+    "@effect/platform-node": "4.1.2",
     "effect": "4.1.2",
     "rehype-highlight": "^7.0.2"
   }

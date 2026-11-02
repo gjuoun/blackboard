@@ -1,6 +1,5 @@
-import { readFile, stat } from "node:fs/promises";
 import { dirname, extname, join, relative, resolve } from "node:path";
-import { Effect } from "effect";
+import { ByteSize, Effect, FileSystem } from "effect";
 import { errorMessage, IoFailure, SessionNotFound, type ApiFailure } from "@/lib/effect/errors";
 import { respondRaw } from "@/lib/effect/respond";
 import { getHome } from "@/lib/home";
@@ -27,10 +26,18 @@ const TYPES: Record<string, string> = {
 
 const missing = (message: string): Effect.Effect<never, ApiFailure> => Effect.fail(new IoFailure({ message, status: 404 }));
 
-function program(req: Request, params: Promise<{ id: string }>): Effect.Effect<Response, ApiFailure, SessionsStore> {
+/** A stat that failed means the file is not there; the response has always called that "no such image". */
+const sizeOf = (fs: FileSystem.FileSystem, path: string): Effect.Effect<number, ApiFailure> =>
+  fs.stat(path).pipe(
+    Effect.map((info) => Number(ByteSize.toBigInt(info.size))),
+    Effect.mapError(() => new IoFailure({ message: "no such image", status: 404 })),
+  );
+
+function program(req: Request, params: Promise<{ id: string }>): Effect.Effect<Response, ApiFailure, SessionsStore | FileSystem.FileSystem> {
   return Effect.gen(function* () {
     const { id } = yield* Effect.promise(() => params);
     const sessions = yield* SessionsStore;
+    const fs = yield* FileSystem.FileSystem;
     const home = yield* Effect.sync(() => getHome());
     if (id === SCRATCHPAD_ID) yield* sessions.scratchpad(home);
     const session = yield* sessions.get(home, id);
@@ -50,16 +57,12 @@ function program(req: Request, params: Promise<{ id: string }>): Effect.Effect<R
     const type = TYPES[extname(target).toLowerCase()];
     if (!type) return yield* missing("not an image");
 
-    const size = yield* Effect.tryPromise({
-      try: () => stat(target).then((s) => s.size),
-      catch: () => new IoFailure({ message: "no such image", status: 404 }),
-    });
+    const size = yield* sizeOf(fs, target);
     if (size === 0) return yield* missing("empty file");
 
-    const body = yield* Effect.tryPromise({
-      try: () => readFile(target),
-      catch: (error) => new IoFailure({ message: errorMessage(error), status: 500 }),
-    });
+    const body = yield* fs.readFile(target).pipe(
+      Effect.mapError((error) => new IoFailure({ message: errorMessage(error), status: 500 })),
+    );
     // SVG can carry scripts; a CSP header keeps it inert even though it is same-origin.
     const headers: Record<string, string> = {
       "content-type": type,
