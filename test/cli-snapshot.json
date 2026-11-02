@@ -1,0 +1,511 @@
+[
+  {
+    "label": "sessions.empty",
+    "argv": [
+      "sessions"
+    ],
+    "code": 0,
+    "stdout": "no sessions (register a file with: blackboard open <file>)\n",
+    "stderr": ""
+  },
+  {
+    "label": "sessions.empty-json",
+    "argv": [
+      "sessions",
+      "--json"
+    ],
+    "code": 0,
+    "stdout": "[]\n",
+    "stderr": ""
+  },
+  {
+    "label": "open.ok",
+    "argv": [
+      "open",
+      "--no-browser",
+      "--no-server",
+      "design.md"
+    ],
+    "code": 0,
+    "stdout": "<id>  http://127.0.0.1:38770/s/<id>\n",
+    "stderr": ""
+  },
+  {
+    "label": "open.again",
+    "argv": [
+      "open",
+      "--no-browser",
+      "--no-server",
+      "design.md"
+    ],
+    "code": 0,
+    "stdout": "<id>  http://127.0.0.1:38770/s/<id>\n",
+    "stderr": ""
+  },
+  {
+    "label": "open.bad-kind",
+    "argv": [
+      "open",
+      "--no-browser",
+      "--no-server",
+      "--kind",
+      "cloud",
+      "design.md"
+    ],
+    "code": 2,
+    "stdout": "",
+    "stderr": "blackboard: --kind takes \"plain\", \"pr\" or \"stream\"\n"
+  },
+  {
+    "label": "open.not-markdown",
+    "argv": [
+      "open",
+      "--no-browser",
+      "--no-server",
+      "notes.txt"
+    ],
+    "code": 1,
+    "stdout": "",
+    "stderr": "blackboard: not a markdown file: <base>/docs/notes.txt\n"
+  },
+  {
+    "label": "sessions.one",
+    "argv": [
+      "sessions"
+    ],
+    "code": 0,
+    "stdout": "<id>  Design  <base>/docs/design.md  -  0 open  plain\n",
+    "stderr": ""
+  },
+  {
+    "label": "sessions.one-json",
+    "argv": [
+      "sessions",
+      "--json"
+    ],
+    "code": 0,
+    "stdout": "[\n  {\n    \"id\": \"<id>\",\n    \"path\": \"<base>/docs/design.md\",\n    \"createdAt\": \"<time>\",\n    \"openedAt\": \"<time>\",\n    \"kind\": \"plain\",\n    \"title\": \"Design\",\n    \"repo\": null,\n    \"branch\": null,\n    \"detached\": false,\n    \"worktree\": null,\n    \"project\": null,\n    \"missing\": false,\n    \"stats\": {\n      \"sections\": 0,\n      \"diagrams\": 0\n    },\n    \"location\": \"<base>/docs/design.md\",\n    \"updatedAt\": \"<time>\",\n    \"open\": 0\n  }\n]\n",
+    "stderr": ""
+  },
+  {
+    "label": "comment.general",
+    "argv": [
+      "comment",
+      "design.md",
+      "--general",
+      "an independent note"
+    ],
+    "code": 0,
+    "stdout": "commented c_<id> (general)\n",
+    "stderr": ""
+  },
+  {
+    "label": "comment.quote",
+    "argv": [
+      "comment",
+      "design.md",
+      "--quote",
+      "Later text.",
+      "--json",
+      "why warm?"
+    ],
+    "code": 0,
+    "stdout": "{\n  \"id\": \"c_<id>\",\n  \"quote\": {\n    \"exact\": \"Later text.\",\n    \"prefix\": \"Design\\nThe cache is warm. \",\n    \"suffix\": \" The cache is warm. End.\"\n  },\n  \"body\": \"why warm?\",\n  \"author\": \"agent\",\n  \"createdAt\": \"<time>\",\n  \"status\": \"open\",\n  \"replies\": [],\n  \"doc\": \"design.md\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "label": "comment.empty-text",
+    "argv": [
+      "comment",
+      "design.md",
+      "--quote",
+      "Later text.",
+      ""
+    ],
+    "code": 2,
+    "stdout": "",
+    "stderr": "blackboard: comment text is empty\n"
+  },
+  {
+    "label": "comment.no-anchor",
+    "argv": [
+      "comment",
+      "design.md",
+      "note"
+    ],
+    "code": 2,
+    "stdout": "",
+    "stderr": "blackboard: comment needs --quote <passage> or --code <path>:L<n>\n"
+  },
+  {
+    "label": "comment.bad-occurrence",
+    "argv": [
+      "comment",
+      "design.md",
+      "--quote",
+      "Later text.",
+      "--occurrence",
+      "x",
+      "note"
+    ],
+    "code": 2,
+    "stdout": "",
+    "stderr": "blackboard: --occurrence must be a whole number\n"
+  },
+  {
+    "label": "comments.text",
+    "argv": [
+      "comments",
+      "design.md"
+    ],
+    "code": 0,
+    "stdout": "c_<id>  design.md  open  agent  <time>\n  (general)\n  an independent note\n\nc_<id>  design.md  open  agent  <time>\n  > Later text.\n  why warm?\n",
+    "stderr": ""
+  },
+  {
+    "label": "comments.json",
+    "argv": [
+      "comments",
+      "design.md",
+      "--json"
+    ],
+    "code": 0,
+    "stdout": "[\n  {\n    \"id\": \"c_<id>\",\n    \"general\": true,\n    \"body\": \"an independent note\",\n    \"author\": \"agent\",\n    \"createdAt\": \"<time>\",\n    \"status\": \"open\",\n    \"replies\": [],\n    \"doc\": \"design.md\"\n  },\n  {\n    \"id\": \"c_<id>\",\n    \"quote\": {\n      \"exact\": \"Later text.\",\n      \"prefix\": \"Design\\nThe cache is warm. \",\n      \"suffix\": \" The cache is warm. End.\"\n    },\n    \"body\": \"why warm?\",\n    \"author\": \"agent\",\n    \"createdAt\": \"<time>\",\n    \"status\": \"open\",\n    \"replies\": [],\n    \"doc\": \"design.md\"\n  }\n]\n",
+    "stderr": ""
+  },
+  {
+    "label": "reply.ok",
+    "argv": [
+      "reply",
+      "design.md",
+      "c_<id>",
+      "answered"
+    ],
+    "code": 0,
+    "stdout": "replied to c_<id> on design.md\n",
+    "stderr": ""
+  },
+  {
+    "label": "resolve.ok",
+    "argv": [
+      "resolve",
+      "design.md",
+      "c_<id>"
+    ],
+    "code": 0,
+    "stdout": "resolved c_<id> on design.md\n",
+    "stderr": ""
+  },
+  {
+    "label": "reopen.ok",
+    "argv": [
+      "reopen",
+      "design.md",
+      "c_<id>"
+    ],
+    "code": 0,
+    "stdout": "reopened c_<id> on design.md\n",
+    "stderr": ""
+  },
+  {
+    "label": "reply.short-args",
+    "argv": [
+      "reply",
+      "c_<id>"
+    ],
+    "code": 2,
+    "stdout": "",
+    "stderr": "blackboard: usage: blackboard reply <session> <comment-id> <text>\n"
+  },
+  {
+    "label": "comments.unknown-session",
+    "argv": [
+      "comments",
+      "nope"
+    ],
+    "code": 1,
+    "stdout": "",
+    "stderr": "blackboard: no session \"nope\" (register the file with: blackboard open <file>)\n"
+  },
+  {
+    "label": "reply.unknown-comment",
+    "argv": [
+      "reply",
+      "design.md",
+      "c_nope",
+      "hi"
+    ],
+    "code": 1,
+    "stdout": "",
+    "stderr": "blackboard: no comment c_nope on this session\n"
+  },
+  {
+    "label": "review.refused",
+    "argv": [
+      "review",
+      "design.md",
+      "--round",
+      "1",
+      "all done"
+    ],
+    "code": 1,
+    "stdout": "",
+    "stderr": "blackboard: no reply from agent on 1 open comment(s), e.g. c_<id>\n"
+  },
+  {
+    "label": "review.ok",
+    "argv": [
+      "review",
+      "design.md",
+      "--round",
+      "1",
+      "all done"
+    ],
+    "code": 1,
+    "stdout": "",
+    "stderr": "blackboard: no reply from agent on 1 open comment(s), e.g. c_<id>\n"
+  },
+  {
+    "label": "review.bad-round",
+    "argv": [
+      "review",
+      "design.md",
+      "--round",
+      "0",
+      "x"
+    ],
+    "code": 2,
+    "stdout": "",
+    "stderr": "blackboard: --round must be a whole number from 1\n"
+  },
+  {
+    "label": "close.ok",
+    "argv": [
+      "close",
+      "design.md"
+    ],
+    "code": 0,
+    "stdout": "closed <id>  <base>/docs/design.md\n",
+    "stderr": ""
+  },
+  {
+    "label": "close.again",
+    "argv": [
+      "close",
+      "design.md"
+    ],
+    "code": 1,
+    "stdout": "",
+    "stderr": "blackboard: no session \"design.md\" (register the file with: blackboard open <file>)\n"
+  },
+  {
+    "label": "open.stream",
+    "argv": [
+      "open",
+      "--no-browser",
+      "--no-server",
+      "--kind",
+      "stream",
+      "--title",
+      "Log",
+      "log.jsonl"
+    ],
+    "code": 0,
+    "stdout": "<id>  http://127.0.0.1:38770/s/<id>\n",
+    "stderr": ""
+  },
+  {
+    "label": "block.append",
+    "argv": [
+      "block",
+      "log.jsonl",
+      "--action",
+      "answer",
+      "--json",
+      "first block"
+    ],
+    "code": 0,
+    "stdout": "{\n  \"id\": \"b-<ulid>\",\n  \"n\": 1,\n  \"file\": \"<base>/docs/log.jsonl\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "label": "block.edit",
+    "argv": [
+      "block",
+      "log.jsonl",
+      "--action",
+      "edit",
+      "--edit",
+      "b-<ulid>",
+      "rewritten"
+    ],
+    "code": 0,
+    "stdout": "block b-<ulid> rewritten in <base>/docs/log.jsonl\n",
+    "stderr": ""
+  },
+  {
+    "label": "block.bad-action",
+    "argv": [
+      "block",
+      "log.jsonl",
+      "--action",
+      "nope",
+      "x"
+    ],
+    "code": 2,
+    "stdout": "",
+    "stderr": "blackboard: action takes answer|edit|append\n"
+  },
+  {
+    "label": "block.not-a-stream",
+    "argv": [
+      "block",
+      "design.md",
+      "--action",
+      "answer",
+      "x"
+    ],
+    "code": 1,
+    "stdout": "",
+    "stderr": "blackboard: no session \"design.md\" (register the file with: blackboard open <file>)\n"
+  },
+  {
+    "label": "header.first",
+    "argv": [
+      "header",
+      "log.jsonl",
+      "--title",
+      "标题",
+      "--owner",
+      "jun"
+    ],
+    "code": 0,
+    "stdout": "header updated for <base>/docs/log.jsonl: 标题 (s-<ulid>, 1 blocks)\n",
+    "stderr": ""
+  },
+  {
+    "label": "header.again",
+    "argv": [
+      "header",
+      "log.jsonl",
+      "--title",
+      "标题",
+      "--owner",
+      "jun"
+    ],
+    "code": 0,
+    "stdout": "header updated for <base>/docs/log.jsonl: 标题 (s-<ulid>, 1 blocks)\n",
+    "stderr": ""
+  },
+  {
+    "label": "export.ok",
+    "argv": [
+      "export",
+      "log.jsonl"
+    ],
+    "code": 0,
+    "stdout": "# 标题\n\n## 1. 长答 · agent · <time>\n\nrewritten\n",
+    "stderr": ""
+  },
+  {
+    "label": "open.pr",
+    "argv": [
+      "open",
+      "--no-browser",
+      "--no-server",
+      "--kind",
+      "pr",
+      "docs/review.md"
+    ],
+    "code": 0,
+    "stdout": "<id>  http://127.0.0.1:38770/s/<id>\npr base main @ <sha>  (front matter filled)\n",
+    "stderr": ""
+  },
+  {
+    "label": "pr.ok",
+    "argv": [
+      "pr",
+      "docs/review.md"
+    ],
+    "code": 0,
+    "stdout": "<id>  <base>/repo/docs/review.md  pr\nbase main @ <sha>\ngit -C '<base>/repo' diff --no-color --no-ext-diff --unified=3 -M '<sha>' -- .\n2 files  +8 -1  0 open\n",
+    "stderr": ""
+  },
+  {
+    "label": "pr.unknown-session",
+    "argv": [
+      "pr",
+      "nope"
+    ],
+    "code": 1,
+    "stdout": "",
+    "stderr": "blackboard: no session \"nope\" (register the file with: blackboard open <file>)\n"
+  },
+  {
+    "label": "comment.code",
+    "argv": [
+      "comment",
+      "docs/review.md",
+      "--code",
+      "lib/a.ts:L1",
+      "why here?"
+    ],
+    "code": 0,
+    "stdout": "commented c_<id> on review.md at lib/a.ts:L1\n",
+    "stderr": ""
+  },
+  {
+    "label": "comment.code-missing",
+    "argv": [
+      "comment",
+      "docs/review.md",
+      "--code",
+      "lib/a.ts:L99",
+      "x"
+    ],
+    "code": 1,
+    "stdout": "",
+    "stderr": "blackboard: lib/a.ts has no line 99\n"
+  },
+  {
+    "label": "comment.code-bad-ref",
+    "argv": [
+      "comment",
+      "docs/review.md",
+      "--code",
+      "lib/a.ts",
+      "x"
+    ],
+    "code": 2,
+    "stdout": "",
+    "stderr": "blackboard: --code takes <repo-relative-path>:L<n> (got \"lib/a.ts\")\n"
+  },
+  {
+    "label": "serve.status",
+    "argv": [
+      "serve",
+      "status"
+    ],
+    "code": 0,
+    "stdout": "running at http://127.0.0.1:38770 (not started by this command)\n",
+    "stderr": ""
+  },
+  {
+    "label": "version",
+    "argv": [
+      "--version"
+    ],
+    "code": 0,
+    "stdout": "0.3.0-beta.0\n",
+    "stderr": ""
+  },
+  {
+    "label": "unknown-command",
+    "argv": [
+      "frobnicate"
+    ],
+    "code": 2,
+    "stdout": "",
+    "stderr": "blackboard: unknown command \"frobnicate\"\n\nblackboard — review markdown files and their comments, from the shell\n\nUsage:\n  blackboard open     <file> [--kind plain|pr|stream] [--title <title>] [--no-browser]\n                                                 register a file, print \"<id>  <url>\", open it\n                                                 (starts the web app first when it is not running)\n  blackboard header   <session> --title <title> [--owner <name>]\n                                                 add or update a stream's metadata line (old files)\n  blackboard pr       <session> [--json]         the pinned diff baseline, its git command and totals\n  blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)\n  blackboard sessions [--json]                   every session: id, title, location, branch, open comments\n  blackboard close    <session>                  forget a session (its comments are kept)\n  blackboard comments <session> [--json]         every comment and its replies, resolved ones too\n  blackboard reply    <session> <id> <text>\n  blackboard resolve  <session> <comment-id>\n  blackboard reopen   <session> <comment-id>\n  blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>\n  blackboard comment  <session> --code <path>:L<n> <note>\n  blackboard block    <session> --action answer|edit|append [--edit <id>] <text|->\n\n<session> is a session id or a path to the registered file.\n<id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).\n\nOptions:\n  --kind <k>       open: plain (default), pr (pins the diff baseline in the doc's front matter) or stream (a .jsonl block file)\n  --title <t>      open --kind stream / header: the document title written into the metadata line\n  --owner <name>   header: the document owner written into the metadata line\n  --code <ref>     comment: anchor on <repo-relative-path>:L<n> instead of a quoted passage\n  --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)\n  --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or \"agent\")\n  --json           machine-readable output\n  --no-browser     open: do not launch the browser (or set BLACKBOARD_NO_BROWSER=1)\n  --no-server      open: do not start the web app (or set BLACKBOARD_NO_SERVER=1)\n  --port <n>       serve start / restart: port to listen on (default: from $BLACKBOARD_URL, else 38770)\n  --foreground     serve start: run in this terminal until Ctrl-C\n  --version        print the version\n\nExit codes: 0 ok, 1 command failed, 2 bad usage, 3 serve status: not running.\n"
+  }
+]
