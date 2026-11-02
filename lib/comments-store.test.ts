@@ -94,7 +94,7 @@ describe("comment file", () => {
 
   test("six processes adding at once all land", async () => {
     const demo = fresh();
-    const child = new URL("./test-mutator.ts", import.meta.url).pathname;
+    const child = new URL("../test/fixtures/test-mutator.ts", import.meta.url).pathname;
     const procs = Array.from({ length: 6 }, (_, p) => Bun.spawn(["bun", child, fileIn(demo), "15", `p${p}`], { stderr: "pipe" }));
     const codes = await Promise.all(procs.map((p) => p.exited));
     expect(codes).toEqual([0, 0, 0, 0, 0, 0]);

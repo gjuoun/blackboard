@@ -12,16 +12,16 @@ import { fileURLToPath } from "node:url";
  */
 export const DEFAULT_URL = "http://127.0.0.1:38770";
 
-export type ServerState = { pid: number; url: string; startedAt: string };
-export type ServerStatus =
+type ServerState = { pid: number; url: string; startedAt: string };
+type ServerStatus =
   | { running: false; url: string }
   | { running: true; url: string; managed: true; pid: number; startedAt: string; log: string }
   | { running: true; url: string; managed: false };
 
 export class ServerError extends Error {}
 
-export const statePath = (home: string) => join(home, "server.json");
-export const logPath = (home: string) => join(home, "server.log");
+const statePath = (home: string) => join(home, "server.json");
+const logPath = (home: string) => join(home, "server.log");
 
 /** Where the app should answer: --port, else $BLACKBOARD_URL, else the default. Always an http origin. */
 export function resolveUrl(opts: { port?: number | string; env?: Record<string, string | undefined> } = {}): string {
@@ -79,7 +79,7 @@ export async function probe(url: string, timeoutMs = 1500): Promise<boolean> {
 }
 
 /** The package folder: where `.next` and `node_modules/next` live. Same for the built CLI and the source. */
-export function appRoot(from: string = import.meta.url): string {
+function appRoot(from: string = import.meta.url): string {
   return dirname(dirname(fileURLToPath(from)));
 }
 
@@ -129,7 +129,7 @@ const packageVersion = (root: string): string => {
 };
 
 /** The command line that starts the production app on `url`, and the folder to run it in. */
-export function startCommand(root: string, home: string) {
+function startCommand(root: string, home: string) {
   const serverDir = join(root, "server");
   if (!existsSync(join(serverDir, "server.js"))) {
     throw new ServerError("this copy has no production build; run `bun run build && bun run build:server` first (or use `bun dev`)");

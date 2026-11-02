@@ -7,7 +7,7 @@
 
 const SKIP_SELECTOR = "[data-testid=mermaid], [data-testid=math]";
 
-export type TextMap = { text: string; nodes: { node: Text; start: number }[] };
+type TextMap = { text: string; nodes: { node: Text; start: number }[] };
 
 export function buildTextMap(root: HTMLElement): TextMap {
   const nodes: TextMap["nodes"] = [];

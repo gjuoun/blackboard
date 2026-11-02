@@ -3,11 +3,11 @@ import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { basename, dirname, relative, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 
-export type DocRepo = { name: string; root: string; relPath: string };
-export type DocWorktree = { name: string; path: string };
+type DocRepo = { name: string; root: string; relPath: string };
+type DocWorktree = { name: string; path: string };
 /** The main checkout a file belongs to: the repo a linked worktree was created from, or the repo itself. */
-export type DocProject = { name: string; root: string };
-export type DocStats = { sections: number; diagrams: number };
+type DocProject = { name: string; root: string };
+type DocStats = { sections: number; diagrams: number };
 export type DocMeta = {
   title: string;
   /** The git repo the file is in, or null outside git. */

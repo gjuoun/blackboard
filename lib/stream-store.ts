@@ -27,7 +27,7 @@ import {
   type StreamMeta,
 } from "./stream-doc";
 
-export const LOCK_TIMEOUT_MS = 5000;
+const LOCK_TIMEOUT_MS = 5000;
 export const STALE_MS = 30_000;
 
 export class StreamError extends Error {}
@@ -60,9 +60,9 @@ export function withStreamLock<T>(file: string, fn: () => T, timeoutMs = LOCK_TI
   }
 }
 
-export type NewBlock = { action: StreamAction; author: string; text: string; images?: string[]; status?: "writing" };
+type NewBlock = { action: StreamAction; author: string; text: string; images?: string[]; status?: "writing" };
 /** What a fresh metadata line needs; the id and time are the store's. */
-export type StreamMetaInput = { title: string; owner?: string };
+type StreamMetaInput = { title: string; owner?: string };
 
 const readText = (file: string) => (existsSync(file) ? readFileSync(file, "utf8") : "");
 const fallbackTitle = (file: string) => basename(file).replace(/\.jsonl$/i, "");

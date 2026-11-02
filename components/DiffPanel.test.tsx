@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { DiffFileList } from "@/components/DiffFileList";
 import { DiffPanel } from "@/components/DiffPanel";
 import { RightTabs } from "@/components/RightTabs";
-import { planFile, snapshot } from "@/lib/test-diff";
+import { planFile, snapshot } from "@/test/fixtures/diff";
 
 describe("RightTabs", () => {
   test("is a server-rendered tablist with both counts", () => {

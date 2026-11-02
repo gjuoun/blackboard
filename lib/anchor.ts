@@ -2,7 +2,7 @@
 export type QuoteSelector = { exact: string; prefix: string; suffix: string };
 export type TextRange = { start: number; end: number };
 
-export const CONTEXT_CHARS = 32;
+const CONTEXT_CHARS = 32;
 
 const squash = (s: string) => s.replace(/\s+/g, " ");
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

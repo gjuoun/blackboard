@@ -1,6 +1,6 @@
 import { makeSelector, type QuoteSelector } from "./anchor";
 
-export type SelectorResult = { ok: true; selector: QuoteSelector } | { ok: false; error: string };
+type SelectorResult = { ok: true; selector: QuoteSelector } | { ok: false; error: string };
 
 /**
  * Selector for the n-th (1-based) occurrence of `quote` in a doc's plain text, so an agent can

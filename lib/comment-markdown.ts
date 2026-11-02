@@ -17,7 +17,7 @@ import type { Comment, Reply } from "./comments-store";
 import { remarkDisplayMath } from "./markdown";
 import { remarkSingleDollarMath } from "./math";
 
-export type RenderedReply = Reply & { html: string };
+type RenderedReply = Reply & { html: string };
 export type RenderedComment = Omit<Comment, "replies"> & { html: string; replies: RenderedReply[] };
 
 /** Only these schemes survive in a comment link; everything else keeps its text and loses the href. */

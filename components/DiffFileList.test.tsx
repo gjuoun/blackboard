@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DiffFileList } from "@/components/DiffFileList";
 import { prAllHref } from "@/lib/file-refs";
-import { planFile, snapshot } from "@/lib/test-diff";
+import { planFile, snapshot } from "@/test/fixtures/diff";
 
 const THREE = () => [planFile(), planFile({ path: "lib/other.ts" }), planFile({ path: "lib/third.ts" })];
 const rows = (html: string) => [...html.matchAll(/data-file="([^"]+)"/g)].map((m) => m[1]);

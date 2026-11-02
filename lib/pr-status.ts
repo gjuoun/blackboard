@@ -11,7 +11,7 @@ import { resolveSession, sessionCommentsPath, type SessionKind } from "./session
  * the diff is pinned to, the exact git command for that diff, the file list and the open-comment
  * count. A plain session answers honestly with base and command null instead of a borrowed diff.
  */
-export type PrStatusFile = { path: string; status: string; additions: number; deletions: number; binary: boolean };
+type PrStatusFile = { path: string; status: string; additions: number; deletions: number; binary: boolean };
 export type PrStatus = {
   session: string;
   path: string;

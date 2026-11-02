@@ -10,8 +10,8 @@ import { applyPrefs, DEFAULT_CHROME, parsePrefs, PREFS_KEY, serializePrefs, type
  * four booleans. On a phone the panels are bottom sheets, so `sheet` says which one is showing.
  */
 /** `kind` is the open document's type; `streamHref` is the stream to jump to from anywhere, or null when there is none. */
-export type DocInfo = { id: string; path: string; readable: boolean; hasToc: boolean; open: number; kind: "doc" | "code" | "stream"; streamHref: string | null };
-export type Chrome = StoredChrome & { sheet: "toc" | "cm" | null; doc: DocInfo | null };
+type DocInfo = { id: string; path: string; readable: boolean; hasToc: boolean; open: number; kind: "doc" | "code" | "stream"; streamHref: string | null };
+type Chrome = StoredChrome & { sheet: "toc" | "cm" | null; doc: DocInfo | null };
 
 const DEFAULTS: Chrome = { ...DEFAULT_CHROME, sheet: null, doc: null };
 

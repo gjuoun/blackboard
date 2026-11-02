@@ -10,7 +10,7 @@ import { withFileLock } from "./lock";
  * disk. Keys of `docs` name the doc the comments belong to.
  */
 export type Reply = { id: string; body: string; author: string; createdAt: string; editedAt?: string };
-export type CommentStatus = "open" | "resolved";
+type CommentStatus = "open" | "resolved";
 export type Comment = {
   id: string;
   /** Exactly one anchor kind: a passage in the doc (`quote`), a line of a repo file (`code`), or none (`general`). */
@@ -94,7 +94,7 @@ export function reviewRound(file: CommentFile, doc: string, input: { round: numb
   return review;
 }
 
-export type CommentAnchor = { quote: QuoteSelector; code?: undefined; general?: undefined } | { code: CodeAnchor; quote?: undefined; general?: undefined } | { general: true; quote?: undefined; code?: undefined };
+type CommentAnchor = { quote: QuoteSelector; code?: undefined; general?: undefined } | { code: CodeAnchor; quote?: undefined; general?: undefined } | { general: true; quote?: undefined; code?: undefined };
 
 /** A new comment on exactly one anchor kind: a passage of the doc, or a line of the diff. */
 export function addComment(file: CommentFile, doc: string, input: CommentAnchor & { body: string; author: string; images?: string[] }): Comment {

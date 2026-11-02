@@ -25,7 +25,7 @@ export function rowKey(anchor: Pick<CodeAnchor, "side" | "startLine">): string {
 export const anchorLabel = (anchor: CodeAnchor): string => anchor.path + ":" + rowKey(anchor);
 
 /** The line text is user content, but it is shipped in HTML and JSON: keep it bounded and NUL-free. */
-export const MAX_LINE_TEXT = 4000;
+const MAX_LINE_TEXT = 4000;
 
 const lineNo = (n: unknown): n is number => typeof n === "number" && Number.isSafeInteger(n) && n > 0;
 
@@ -101,7 +101,7 @@ export function codeState(anchor: CodeAnchor, snapshot: DiffSnapshot): CodeState
 }
 
 /** A rendered comment or reply, as the snippet renders it inside a thread. */
-export type CodeThreadEntry = { id: string; author: string; createdAt: string; html: string; body: string; reply: boolean };
+type CodeThreadEntry = { id: string; author: string; createdAt: string; html: string; body: string; reply: boolean };
 
 /** One comment and its replies, ready to render as a diff-box thread. */
 export type CodeThread = CodeState & {
@@ -115,8 +115,8 @@ export type CodeThread = CodeState & {
   entries: CodeThreadEntry[];
 };
 
-export type RenderedThreadComment = Omit<Comment, "replies"> & { html: string; replies: (Reply & { html: string })[] };
-export type CodeThreads = {
+type RenderedThreadComment = Omit<Comment, "replies"> & { html: string; replies: (Reply & { html: string })[] };
+type CodeThreads = {
   byRow: Map<string, CodeThread[]>;
   /** Per comment id, for the Comments tab's anchor chip and orphan note. */
   state: Record<string, CodeState>;

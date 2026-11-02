@@ -22,7 +22,7 @@ export const MONO_IDS = ["qublack-mono", "sarasa-mono", "jetbrains", "sf-mono"] 
 export type MonoId = (typeof MONO_IDS)[number];
 
 /** The reading subset of the persisted record. */
-export type Prefs = {
+type Prefs = {
   theme: ThemeId;
   fontLatin: LatinId;
   fontCjk: CjkId;
@@ -41,11 +41,11 @@ export const DEFAULT_PREFS: Prefs = {
 };
 
 /** The rest of `bb-chrome`: what the top bar and the doc page already persist. */
-export type ChromeFlags = { tocOpen: boolean; cmOpen: boolean; showResolved: boolean; wrapCode: boolean };
+type ChromeFlags = { tocOpen: boolean; cmOpen: boolean; showResolved: boolean; wrapCode: boolean };
 export type StoredChrome = Prefs & ChromeFlags;
 export const DEFAULT_CHROME: StoredChrome = { ...DEFAULT_PREFS, tocOpen: true, cmOpen: true, showResolved: false, wrapCode: false };
 
-export const RIGHT_TABS = ["comments", "pr", "file"] as const;
+const RIGHT_TABS = ["comments", "pr", "file"] as const;
 export type RightTab = (typeof RIGHT_TABS)[number];
 
 /** The shared right column has two panes, selected by the URL (server-rendered), not a third panel. */

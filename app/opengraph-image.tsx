@@ -1,4 +1,4 @@
-import { ogCard, OG_SIZE, OG_TYPE } from "@/lib/og";
+import { ogCard, OG_SIZE, OG_TYPE } from "@/app/_og/render";
 
 export const alt = "Blackboard — review markdown with your coding agent";
 export const size = OG_SIZE;

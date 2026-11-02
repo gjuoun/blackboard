@@ -8,7 +8,7 @@
  */
 
 export type DocType = "doc" | "code" | "stream";
-export type RegisterKind = "plain" | "pr" | "stream";
+type RegisterKind = "plain" | "pr" | "stream";
 
 export const CODE_EXTENSIONS = ["ts", "tsx", "js", "jsx", "mjs", "cjs", "json", "css", "sh", "py", "go", "rs", "yml", "toml"] as const;
 

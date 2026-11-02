@@ -4,7 +4,8 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { openTab, removeTab } from "@/lib/tabs";
 import { setChrome } from "./chrome";
-import { getTabs, sessionIdOf, setTabs } from "./TopBar";
+import { sessionIdOf } from "./TopBar";
+import { getTabs, setTabs } from "./tabs-store";
 
 /** Rendered by a doc page: opening any /s/<id> (from Home, the CLI or a typed URL) adds its tab and tells the top bar about the doc. */
 export function RegisterTab({ id, title, path, readable, hasToc, kind = "doc", streamHref = null }: { id: string; title: string; path: string; readable: boolean; hasToc: boolean; kind?: "doc" | "code" | "stream"; streamHref?: string | null }) {

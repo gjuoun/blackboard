@@ -35,7 +35,10 @@ function applyPane() {
   $("#btn-comments").setAttribute("aria-pressed", String(pane === "comments"));
   $("#btn-toc").setAttribute("aria-pressed", String(!document.documentElement.classList.contains("notoc")));
 }
+// Called from onclick attributes in the sketch's HTML.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function setTheme(t) { theme = t; applyChrome(); }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function setLayout(l) { layout = l; applyChrome(); }
 function setPane(p) { pane = p; applyPane(); }
 applyChrome();

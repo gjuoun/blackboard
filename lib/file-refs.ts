@@ -11,7 +11,7 @@ export { fileHref, parseShowAll, prAllHref, prListHref, tabHref } from "./hrefs"
  * (`file:L330-240`) means the current document's file; a reversed range is normalized.
  * Only markdown links are rewritten — prose and fenced code never become file links.
  */
-export type FileRef = { path: string | null; start: number | null; end: number | null };
+type FileRef = { path: string | null; start: number | null; end: number | null };
 export type LineRange = { start: number; end: number };
 
 const SHORT = /^L(\d+)(?:-L?(\d+))?$/;

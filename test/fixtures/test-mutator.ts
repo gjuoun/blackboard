@@ -1,5 +1,5 @@
 // Child process for the multi-process test: adds N comments to one comment file through mutate.
-import { addComment, mutate } from "./comments-store";
+import { addComment, mutate } from "@/lib/comments-store";
 
 const [file, count, tag] = process.argv.slice(2);
 const quote = { exact: "x", prefix: "", suffix: "" };

@@ -39,6 +39,8 @@ function setTheme(t) {
   document.getElementById("seg-paper").setAttribute("aria-pressed", String(t === "paper"));
   document.getElementById("seg-night").setAttribute("aria-pressed", String(t === "night"));
 }
+// Called from an onclick attribute in the sketch's HTML.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function showTab(p) {
   location.hash = p === "comments" ? "tab" : "thread";
 }

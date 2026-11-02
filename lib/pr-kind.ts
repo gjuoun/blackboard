@@ -16,8 +16,8 @@ import { parse as parseYaml } from "yaml";
  * merge-base, so a doc keeps showing the change it was written against.
  */
 
-export type PrKind = "plain" | "pr";
-export type PrFrontmatter = {
+type PrKind = "plain" | "pr";
+type PrFrontmatter = {
   /** The parsed front matter map, or null when the doc has none / it does not parse. */
   frontmatter: Record<string, unknown> | null;
   kind: PrKind;
@@ -28,12 +28,12 @@ export type PrFrontmatter = {
 };
 
 /** git subprocess seam: tests inject a runner to simulate a repo without invoking git. */
-export type PrGit = (cwd: string, args: string[]) => string | null;
+type PrGit = (cwd: string, args: string[]) => string | null;
 
 const GIT_TIMEOUT_MS = 2000;
 const FRONT = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
 const SHA = /^[0-9a-f]{7,40}$/i;
-export const DEFAULT_BASE = "main";
+const DEFAULT_BASE = "main";
 
 const gitRun: PrGit = (cwd, args) => {
   try {
@@ -150,7 +150,7 @@ export function diffCommand(root: string, sha: string): string {
   return "git -C " + shellQuote(root) + " diff --no-color --no-ext-diff --unified=3 -M " + shellQuote(sha) + " -- .";
 }
 
-export type EnsuredPrDoc =
+type EnsuredPrDoc =
   | { ok: true; src: string; base: string; sha: string; filled: boolean }
   | { ok: false; error: string };
 

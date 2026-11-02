@@ -1,7 +1,7 @@
 import { THEME_IDS, THEME_MODE, type ThemeId } from "./prefs";
 
 /** A palette, as the picker needs it: the id the CSS uses, a label, and the mode it paints. */
-export type ThemeMeta = { id: ThemeId; label: string; mode: "light" | "dark" };
+type ThemeMeta = { id: ThemeId; label: string; mode: "light" | "dark" };
 
 export const THEMES: ThemeMeta[] = [
   { id: "paper", label: "Paper", mode: THEME_MODE.paper },

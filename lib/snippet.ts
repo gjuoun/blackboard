@@ -141,7 +141,7 @@ function maps(file: DiffFile): { adds: Map<number, DiffLine>; dels: Map<number, 
   return { adds, dels, ctx };
 }
 
-export type Snippet = {
+type Snippet = {
   path: string;
   range: LineRange;
   additions: number;
@@ -224,7 +224,7 @@ export function renderSnippet(snapshot: DiffSnapshot, path: string, request: { s
   };
 }
 
-export type WholeDiff = { path: string; additions: number; deletions: number; html: string; state: "ok" | "unchanged" | "binary" };
+type WholeDiff = { path: string; additions: number; deletions: number; html: string; state: "ok" | "unchanged" | "binary" };
 
 /** The whole file diff: every hunk, with the same row vocabulary as a snippet. */
 export function renderFileDiff(snapshot: DiffSnapshot, path: string, threads?: ThreadLookup): WholeDiff {
