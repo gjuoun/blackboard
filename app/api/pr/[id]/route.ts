@@ -1,14 +1,22 @@
-import { NextResponse } from "next/server";
+import { Effect } from "effect";
+import { sessionNotFound, type ApiFailure } from "@/lib/effect/errors";
+import { respond } from "@/lib/effect/respond";
 import { getHome } from "@/lib/home";
-import { prStatus } from "@/lib/pr-status";
+import { prStatus, type PrStatus } from "@/lib/pr-status";
+
+function program(params: Promise<{ id: string }>): Effect.Effect<PrStatus, ApiFailure> {
+  return Effect.gen(function* () {
+    const { id } = yield* Effect.promise(() => params);
+    const status = yield* Effect.sync(() => prStatus(getHome(), id));
+    if (!status) return yield* Effect.fail(sessionNotFound(404));
+    return status;
+  });
+}
 
 /**
  * The same payload as "blackboard pr <session> --json": front matter, the pinned base, the exact
  * git command, files/totals and open comments. SDKs read this instead of the CLI's text output.
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const status = prStatus(getHome(), id);
-  if (!status) return NextResponse.json({ error: "unknown session" }, { status: 404 });
-  return NextResponse.json(status);
+  return respond(program(params));
 }
