@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 import { sessionNotFound, type ApiFailure } from "@/lib/effect/errors";
 import { respondRaw } from "@/lib/effect/respond";
 import { getHome } from "@/lib/home";
-import { getSession, sessionCommentsPath } from "@/lib/sessions";
+import { sessionCommentsPath, SessionsStore } from "@/lib/sessions";
 
 const DEBOUNCE_MS = 100;
 const HEARTBEAT_MS = 25_000;
@@ -20,10 +20,11 @@ export async function GET(req: NextRequest) {
   return respondRaw(program(req));
 }
 
-function program(req: NextRequest): Effect.Effect<Response, ApiFailure> {
+function program(req: NextRequest): Effect.Effect<Response, ApiFailure, SessionsStore> {
   return Effect.gen(function* () {
+    const sessions = yield* SessionsStore;
     const home = getHome();
-    const session = getSession(home, req.nextUrl.searchParams.get("session") ?? "");
+    const session = yield* sessions.get(home, req.nextUrl.searchParams.get("session") ?? "");
     if (!session) return yield* Effect.fail(sessionNotFound(400));
     const docDir = dirname(session.path);
     const docName = basename(session.path);

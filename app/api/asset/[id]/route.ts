@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { errorMessage, IoFailure, SessionNotFound, type ApiFailure } from "@/lib/effect/errors";
 import { respondRaw } from "@/lib/effect/respond";
 import { getHome } from "@/lib/home";
-import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath } from "@/lib/sessions";
+import { SCRATCHPAD_ID, servablePath, SessionsStore } from "@/lib/sessions";
 
 /**
  * Serves image files that sit next to a registered markdown doc (including subfolders), so
@@ -27,12 +27,13 @@ const TYPES: Record<string, string> = {
 
 const missing = (message: string): Effect.Effect<never, ApiFailure> => Effect.fail(new IoFailure({ message, status: 404 }));
 
-function program(req: Request, params: Promise<{ id: string }>): Effect.Effect<Response, ApiFailure> {
+function program(req: Request, params: Promise<{ id: string }>): Effect.Effect<Response, ApiFailure, SessionsStore> {
   return Effect.gen(function* () {
     const { id } = yield* Effect.promise(() => params);
+    const sessions = yield* SessionsStore;
     const home = yield* Effect.sync(() => getHome());
-    if (id === SCRATCHPAD_ID) yield* Effect.sync(() => scratchpadSession(home));
-    const session = yield* Effect.sync(() => getSession(home, id));
+    if (id === SCRATCHPAD_ID) yield* sessions.scratchpad(home);
+    const session = yield* sessions.get(home, id);
     const doc = session === null ? null : yield* Effect.sync(() => servablePath(session));
     if (!doc) return yield* Effect.fail(new SessionNotFound({ message: "no such session", status: 404 }));
 

@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFi
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NextRequest } from "next/server";
-import { open } from "@/lib/cli";
+import { open } from "@/lib/cli/sessions";
 import { GET as assetGet } from "@/app/api/asset/[id]/route";
 import { GET as commentsGet, PATCH as commentsPatch, POST as commentsPost } from "@/app/api/comments/route";
 import { GET as imageGet } from "@/app/api/comment-images/[id]/route";
@@ -12,6 +12,7 @@ import { POST as imagePost } from "@/app/api/comment-images/route";
 import { GET as healthGet } from "@/app/api/health/route";
 import { GET as prGet } from "@/app/api/pr/[id]/route";
 import { GET as watchGet } from "@/app/api/watch/route";
+import { run } from "./app";
 
 /**
  * The wire snapshot: every exported route handler, called directly, every branch it has today.
@@ -65,7 +66,7 @@ async function record(name: string, res: Response) {
 }
 
 /** A temp Blackboard home with one doc, one real png, one empty png and one text file next to it. */
-function docsFixture() {
+async function docsFixture() {
   const base = realpathSync(mkdtempSync(join(tmpdir(), "bb-wire-")));
   const home = join(base, "home");
   const docs = join(base, "docs");
@@ -77,13 +78,13 @@ function docsFixture() {
   writeFileSync(join(docs, "notes.txt"), "not an image\n");
   process.env.BLACKBOARD_HOME = home;
   process.env.BLACKBOARD_NO_BROWSER = "1";
-  const { session } = open(home, design);
+  const { session } = await run(open(home, design));
   literals.push([base, "<base>"], [session.id, "<session>"]);
   return { base, home, docs, design, session: session.id };
 }
 
 /** A temp home and a git repo with one changed file, opened as a pr session. */
-function prFixture() {
+async function prFixture() {
   const base = realpathSync(mkdtempSync(join(tmpdir(), "bb-wire-pr-")));
   const home = join(base, "home");
   const repo = join(base, "repo");
@@ -101,7 +102,7 @@ function prFixture() {
   git("checkout", "-qb", "feat/x");
   writeFileSync(join(repo, "lib", "a.ts"), "export const a = 2;\n");
   process.env.BLACKBOARD_HOME = home;
-  const { session } = open(home, doc, process.cwd(), "pr");
+  const { session } = await run(open(home, doc, process.cwd(), "pr"));
   literals.push([base, "<base>"], [session.id, "<session>"]);
   return { base, home, repo, doc, session: session.id };
 }
@@ -118,7 +119,7 @@ const patch = (payload: unknown) => commentsPatch(new NextRequest(commentsUrl, {
 
 describe("the wire the routes answer today", () => {
   test("every handler, every branch, matches the committed snapshot", async () => {
-    const fx = docsFixture();
+    const fx = await docsFixture();
 
     // health
     await record("health.GET", await healthGet());
@@ -199,7 +200,7 @@ describe("the wire the routes answer today", () => {
     };
 
     // pr
-    const pr = prFixture();
+    const pr = await prFixture();
     const prRoute = (id: string) => prGet(new Request(`http://127.0.0.1/api/pr/${id}`), { params: Promise.resolve({ id }) });
     await record("pr.GET.unknown-session", await prRoute("nosuchid"));
     await record("pr.GET.ok", await prRoute(pr.session));

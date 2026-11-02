@@ -1,9 +1,11 @@
+import { Effect } from "effect";
 import { connection } from "next/server";
 import { SessionTable, type HomeRow, type HomeSort } from "@/components/SessionTable";
+import { runtime } from "@/lib/effect/runtime";
 import { getHome } from "@/lib/home";
 import { groupOf } from "@/lib/home-groups";
 import { relativeTime, shortDateTime } from "@/lib/relative-time";
-import { SCRATCHPAD_ID, scratchpadSession, sessionRow, sessionRows } from "@/lib/sessions";
+import { SCRATCHPAD_ID, SessionsStore } from "@/lib/sessions";
 
 // The title template covers child routes only, so Home spells its own.
 export const metadata = { title: { absolute: "Sessions · Blackboard" } };
@@ -12,10 +14,16 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 /** Everything Home shows, with times already formatted so server and browser render the same text. */
-function homeData(now = Date.now()) {
+async function homeData(now = Date.now()) {
   const home = getHome();
-  const pad = sessionRow(home, scratchpadSession(home));
-  const rows: HomeRow[] = sessionRows(home)
+  const { pad, list } = await runtime.runPromise(
+    Effect.gen(function* () {
+      const sessions = yield* SessionsStore;
+      const scratch = yield* sessions.scratchpad(home);
+      return { pad: yield* sessions.row(home, scratch), list: yield* sessions.rows(home) };
+    }),
+  );
+  const rows: HomeRow[] = list
     .filter((r) => r.id !== SCRATCHPAD_ID)
     .map((r) => ({
       id: r.id,
@@ -39,7 +47,7 @@ function homeData(now = Date.now()) {
 /** Home: the scratchpad pinned on top, then every session with where it lives and its branch. */
 export default async function Home({ searchParams }: PageProps<"/">) {
   await connection();
-  const { rows, padSummary } = homeData();
+  const { rows, padSummary } = await homeData();
   const q = await searchParams;
   const sort = one(q.sort);
   return (

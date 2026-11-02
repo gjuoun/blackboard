@@ -27,22 +27,19 @@ import { FileView } from "@/components/FileView";
 import { changedAgainstHead } from "@/lib/file-source";
 import { parseStream, type StreamBlock } from "@/lib/stream-doc";
 import { renderStream } from "@/lib/stream-html";
-import { workspacePane, type WorkspacePane } from "@/lib/workspace-pane";
+import type { WorkspacePane } from "@/lib/workspace-pane";
 import { renderMarkdown } from "@/lib/markdown";
 import { parsePrFrontmatter } from "@/lib/pr-kind";
 import { parseRightTab, type RightTab } from "@/lib/prefs";
-import { getSession, listSessions, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath, sessionRow, tildify } from "@/lib/sessions";
+import { servablePath, sessionCommentsPath, tildify } from "@/lib/sessions";
+import { loadSession as load, loadWorkspacePane, streamHref as streamHrefFor } from "@/lib/session-view";
 
 /**
  * The left rail for a type: its tab strip and the pane under the active tab. Tabs are links
  * (`?left=`), so the rail needs no client state. Only 内容 has a pane in this step; the others are
  * filled in by later steps and show a short placeholder until then.
  */
-/** The stream the top-bar timeline button opens: the most recently opened stream session, or null. */
-function streamHrefFor(home: string): string | null {
-  const s = listSessions(home).filter((x) => x.kind === "stream").sort((a, b) => b.openedAt.localeCompare(a.openedAt))[0];
-  return s ? `/s/${s.id}` : null;
-}
+
 
 /** The `tab` query selects the right pane; anything but `file` and `pr` is the comments pane. */
 function rightOf(tab: string | string[] | undefined): RightTab {
@@ -105,10 +102,9 @@ export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promis
   await connection();
   const { id } = await params;
   const home = getHome();
-  if (id === SCRATCHPAD_ID) scratchpadSession(home);
-  const session = getSession(home, id);
-  if (!session) return { title: "No such session" };
-  const row = sessionRow(home, session);
+  const found = await load(home, id);
+  if (!found) return { title: "No such session" };
+  const { session, row } = found;
   // A stream's own metadata line titles the page; an old file falls back to the session row's title.
   const type = docType(session.path, session.kind ?? "plain");
   const title = type.ok && type.type === "stream" ? streamDocTitle(session.path, row.title) : row.title;
@@ -122,10 +118,9 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   const { id } = await params;
   const search = await searchParams;
   const home = getHome();
-  if (id === SCRATCHPAD_ID) scratchpadSession(home);
-  const session = getSession(home, id);
-  if (!session) notFound();
-  const row = sessionRow(home, session);
+  const found = await load(home, id);
+  if (!found) notFound();
+  const { session, row } = found;
   const file = servablePath(session);
 
   // Two rows, on every width. Row 1: the file's full path. Row 2: its project, branch and linked worktree,
@@ -180,7 +175,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   if (!file) {
     return (
       <>
-        <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} streamHref={streamHrefFor(home)} />
+        <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} streamHref={await streamHrefFor(home)} />
         <main className="mx-auto max-w-2xl px-4 py-10 md:px-6" data-testid="doc-missing">
           {header}
           <h1 className="text-2xl font-bold">{row.title}</h1>
@@ -203,10 +198,10 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     const { html } = await renderCode(src, file);
     // Comments on a source file anchor to its text like a doc's do, so they are read the same way.
     const codeComments = renderComments(readComments(sessionCommentsPath(home, session.id)).docs[basename(file)] ?? []);
-    const left = leftPane(id, "code", search.left, null, workspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home));
+    const left = leftPane(id, "code", search.left, null, await loadWorkspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home));
     return (
       <>
-        <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} kind="code" streamHref={streamHrefFor(home)} />
+        <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} kind="code" streamHref={await streamHrefFor(home)} />
         <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={left} rightTab={rightOf(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
       </>
     );
@@ -261,7 +256,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   const codeThreads = groupCodeThreads(renderedComments, snapshot);
   return (
     <>
-      <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 1} streamHref={streamHrefFor(home)} />
+      <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 1} streamHref={await streamHrefFor(home)} />
       <DocView
         key={session.id}
         session={session.id}
@@ -271,7 +266,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
         initialComments={renderedComments}
         reviews={reviews}
         header={header}
-        toc={leftPane(id, "doc", search.left, toc.length > 1 ? <Toc toc={toc} /> : null, workspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home))}
+        toc={leftPane(id, "doc", search.left, toc.length > 1 ? <Toc toc={toc} /> : null, await loadWorkspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home))}
         rightTab={rightTab}
         fileRail={fileRailFor(id, file, row, search.view)}
         codeState={codeThreads.state}

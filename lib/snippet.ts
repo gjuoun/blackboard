@@ -1,6 +1,7 @@
 import type { CodeThread } from "./code-anchor";
 import { threadKey } from "./code-anchor";
-import type { DiffFile, DiffLine, DiffSnapshot } from "./diff-index";
+import type { DiffSnapshot } from "./diff-index";
+import type { DiffFile, DiffLine } from "./diff-parse";
 import { normalizeRange, type LineRange } from "./file-refs";
 
 /** Server-rendered line markup for the Local PR tab: snippet first, whole-file diff second. */

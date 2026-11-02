@@ -1,8 +1,19 @@
 import { describe, expect, test } from "bun:test";
+import { Effect } from "effect";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { addComment, addReply, deleteComment, deleteReply, editComment, editReply, mutate, readComments, reviewRound, setStatus } from "./comments-store";
+import { addComment, addReply, CommentsStore, deleteComment, deleteReply, editComment, editReply, readComments, reviewRound, setStatus, type CommentFile } from "./comments-store";
+import { run } from "../test/app";
+
+/** The store mutation as a promise: the tests act on one file the way the CLI does. */
+const mutate = <A>(file: string, change: (f: CommentFile) => A): Promise<A> =>
+  run(
+    Effect.gen(function* () {
+      const store = yield* CommentsStore;
+      return yield* store.mutate(file, change);
+    }),
+  );
 
 const quote = { exact: "The cache is warm.", prefix: "Later text. ", suffix: " End." };
 /** A temp folder; its comment file is <dir>/.blackboard/comments.json and does not exist yet. */

@@ -1,4 +1,5 @@
-import type { DiffFile, DiffSnapshot } from "@/lib/diff-index";
+import type { DiffSnapshot } from "@/lib/diff-index";
+import type { DiffFile } from "@/lib/diff-parse";
 import { fileHref } from "@/lib/file-refs";
 
 const BADGE: Record<string, { letter: string; cls: string }> = {

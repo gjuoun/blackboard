@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { rowKey, threadKey, type CodeThread } from "./code-anchor";
-import type { DiffFile, DiffHunk, DiffSnapshot } from "./diff-index";
+import type { DiffSnapshot } from "./diff-index";
+import type { DiffFile, DiffHunk } from "./diff-parse";
 import { renderFileDiff, renderSnippet } from "./snippet";
 
 const add = (text: string, newLine: number) => ({ kind: "add" as const, text, oldLine: null, newLine });

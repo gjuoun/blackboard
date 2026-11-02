@@ -3,7 +3,10 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildDiffSnapshot, getDiffSnapshot, normalizeRepoPath, parseUnifiedDiff, resetDiffCache, type GitRun } from "./diff-index";
+import { buildDiffSnapshot, getDiffSnapshot, resetDiffCache } from "./diff-index";
+import type { GitRun } from "./diff-git";
+import { parseUnifiedDiff } from "./diff-parse";
+import { normalizeRepoPath } from "./repo-path";
 
 const tmp = () => realpathSync(mkdtempSync(join(tmpdir(), "bb-diff-")));
 const git = (cwd: string, ...args: string[]) =>
