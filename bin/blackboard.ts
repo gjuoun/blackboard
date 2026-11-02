@@ -85,6 +85,7 @@ async function main(argv: string[]): Promise<number> {
       status: { type: "string" },
       general: { type: "boolean" },
       round: { type: "string" },
+      edit: { type: "string" },
       occurrence: { type: "string" },
       "no-browser": { type: "boolean" },
       "no-server": { type: "boolean" },
@@ -197,6 +198,12 @@ async function main(argv: string[]): Promise<number> {
       const text = raw === "-" ? await new Response(Bun.stdin.stream()).text() : raw;
       const images = o.images ? o.images.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
       if (o.status !== undefined && o.status !== "writing") throw new cli.CliError('--status takes "writing"', 2);
+      if (o.edit !== undefined) {
+        // Changing a block keeps its id; the file is rewritten atomically.
+        const e = cli.editBlock(home, args[0], o.edit, text);
+        print(e, `block ${e.id} rewritten in ${e.file}`);
+        return 0;
+      }
       const b = cli.appendBlock(home, args[0], { action, text, author, images, status: o.status === "writing" ? "writing" : undefined });
       print(b, `block ${b.n} (${b.id}) appended to ${b.file}`);
       return 0;

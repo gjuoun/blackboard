@@ -1,7 +1,10 @@
 /**
- * A streaming document: one JSON object per line in a `.jsonl` file. Appending a block appends one line;
- * a later line with the same `id` replaces the earlier one (last line wins), so a status change is also an
- * append. Parsing is pure: it takes the text and returns the blocks in order.
+ * A streaming document: one JSON object per line in a `.jsonl` file, one block per line, and an `id` appears
+ * once. There is no event log in the file: changing a block rewrites the file (see stream-store.ts).
+ *
+ * Parsing is pure. A line that is not a block is skipped and counted. A second line with an `id` already seen
+ * is also skipped and counted, never merged: the first occurrence wins, so a duplicate is visible in `skipped`
+ * instead of silently replacing a block.
  */
 
 export const STREAM_ACTIONS = ["answer", "edit", "append"] as const;
@@ -44,7 +47,7 @@ function asBlock(v: unknown): StreamBlock | null {
   };
 }
 
-/** Fold the lines into blocks: last line wins per id, then sorted by n. Bad lines are counted, not thrown on. */
+/** Blocks in file order. Bad lines and repeated ids are counted in `skipped`, never thrown on. */
 export function parseStream(text: string): ParsedStream {
   const byId = new Map<string, StreamBlock>();
   let skipped = 0;
@@ -56,13 +59,13 @@ export function parseStream(text: string): ParsedStream {
     } catch {
       block = null;
     }
-    if (!block) {
+    if (!block || byId.has(block.id)) {
       skipped++;
       continue;
     }
     byId.set(block.id, block);
   }
-  const blocks = [...byId.values()].sort((a, b) => a.n - b.n);
+  const blocks = [...byId.values()];
   return { blocks, skipped };
 }
 

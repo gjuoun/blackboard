@@ -16,7 +16,7 @@ export async function renderStream(blocks: readonly StreamBlock[]): Promise<stri
     const { html } = await renderMarkdown(b.body);
     const writing = b.status === "writing";
     parts.push(
-      `<section id="b${b.n}" class="stream-block ${RULE[b.action]}" data-testid="stream-block" data-n="${b.n}" data-action="${b.action}">` +
+      `<section id="${esc(b.id)}" class="stream-block ${RULE[b.action]}" data-testid="stream-block" data-id="${esc(b.id)}" data-n="${b.n}" data-action="${b.action}">` +
         `<header class="stream-head"><span class="stream-pill">${ACTION_LABEL[b.action]}</span> <span class="text-muted-foreground text-xs">${esc(b.author)} · ${esc(b.at)}</span></header>` +
         `<div class="doc-body">${html}</div>` +
         (writing ? `<p class="stream-writing text-muted-foreground text-xs">agent 正在写第 ${b.n} 块…</p>` : "") +

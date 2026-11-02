@@ -31,13 +31,19 @@ import { workspacePane, type WorkspacePane } from "@/lib/workspace-pane";
 import { renderMarkdown } from "@/lib/markdown";
 import { parsePrFrontmatter } from "@/lib/pr-kind";
 import { parseRightTab, type RightTab } from "@/lib/prefs";
-import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath, sessionRow, tildify } from "@/lib/sessions";
+import { getSession, listSessions, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionCommentsPath, sessionRow, tildify } from "@/lib/sessions";
 
 /**
  * The left rail for a type: its tab strip and the pane under the active tab. Tabs are links
  * (`?left=`), so the rail needs no client state. Only 内容 has a pane in this step; the others are
  * filled in by later steps and show a short placeholder until then.
  */
+/** The stream the top-bar timeline button opens: the most recently opened stream session, or null. */
+function streamHrefFor(home: string): string | null {
+  const s = listSessions(home).filter((x) => x.kind === "stream").sort((a, b) => b.openedAt.localeCompare(a.openedAt))[0];
+  return s ? `/s/${s.id}` : null;
+}
+
 /** The `tab` query selects the right pane; anything but `file` and `pr` is the comments pane. */
 function rightOf(tab: string | string[] | undefined): RightTab {
   return tab === "file" ? "file" : tab === "pr" ? "pr" : "comments";
@@ -154,7 +160,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   if (!file) {
     return (
       <>
-        <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} />
+        <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} streamHref={streamHrefFor(home)} />
         <main className="mx-auto max-w-2xl px-4 py-10 md:px-6" data-testid="doc-missing">
           {header}
           <h1 className="text-2xl font-bold">{row.title}</h1>
@@ -180,7 +186,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     const left = leftPane(id, "code", search.left, null, workspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home));
     return (
       <>
-        <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} />
+        <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} kind="code" streamHref={streamHrefFor(home)} />
         <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={left} rightTab={rightOf(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
       </>
     );
@@ -192,7 +198,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     const streamHtml = await renderStream(blocks);
     return (
       <>
-        <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} />
+        <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} kind="stream" streamHref={`/s/${session.id}`} />
         <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={streamHtml} initialComments={renderComments(readComments(sessionCommentsPath(home, session.id)).docs[basename(file)] ?? [])} header={header} toc={leftPane(id, "stream", search.left, null, { state: "outside-git" }, blocks)} rightTab={rightOf(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
       </>
     );
@@ -230,7 +236,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   const codeThreads = groupCodeThreads(renderedComments, snapshot);
   return (
     <>
-      <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 1} />
+      <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 1} streamHref={streamHrefFor(home)} />
       <DocView
         key={session.id}
         session={session.id}

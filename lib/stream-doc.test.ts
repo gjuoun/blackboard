@@ -5,26 +5,28 @@ import { renderStream } from "./stream-html";
 const line = (o: Record<string, unknown>) => JSON.stringify(o);
 
 describe("stream doc", () => {
-  test("stream: blocks parse in order", () => {
+  test("stream: blocks parse in file order", () => {
     const text = [
       line({ id: "b3", n: 3, action: "append", author: "agent", at: "t3", body: "c" }),
       line({ id: "b1", n: 1, action: "answer", author: "agent", at: "t1", body: "a" }),
       line({ id: "b2", n: 2, action: "edit", author: "agent", at: "t2", body: "b" }),
     ].join("\n") + "\n";
     const { blocks, skipped } = parseStream(text);
-    expect(blocks.map((b) => b.id)).toEqual(["b1", "b2", "b3"]);
+    // file order is the reading order; n is a display number carried on each block, not a sort key
+    expect(blocks.map((b) => b.id)).toEqual(["b3", "b1", "b2"]);
+    expect(blocks.map((b) => b.n)).toEqual([3, 1, 2]);
     expect(skipped).toBe(0);
   });
 
-  test("stream: last line wins per id", () => {
+  test("stream: duplicate id is skipped and counted, not merged", () => {
     const text = [
-      line({ id: "b1", n: 1, action: "answer", author: "agent", at: "t", body: "old", status: "writing" }),
-      line({ id: "b1", n: 1, action: "answer", author: "agent", at: "t", body: "new" }),
+      line({ id: "b1", n: 1, action: "answer", author: "agent", at: "t", body: "first" }),
+      line({ id: "b1", n: 1, action: "answer", author: "agent", at: "t", body: "second" }),
     ].join("\n");
-    const { blocks } = parseStream(text);
+    const { blocks, skipped } = parseStream(text);
     expect(blocks).toHaveLength(1);
-    expect(blocks[0].body).toBe("new");
-    expect(blocks[0].status).toBeUndefined();
+    expect(blocks[0].body).toBe("first");
+    expect(skipped).toBe(1);
   });
 
   test("stream: unknown action skipped", () => {
@@ -50,7 +52,9 @@ describe("stream doc", () => {
       line({ id: "b", n: 2, action: "append", author: "agent", at: "t", body: "x", status: "writing" }),
     ].join("\n"));
     const html = await renderStream(blocks);
-    expect(html).toContain('id="b1"');
+    // the anchor is the block's own id, never its display number
+    expect(html).toContain('id="a"');
+    expect(html).not.toContain('id="b1"');
     expect(html).toContain("stream-pill\">改正文<");
     expect(html).toContain("stream-rule-edit");
     expect(html).toContain("stream-rule-append");

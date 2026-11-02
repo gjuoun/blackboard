@@ -2,7 +2,8 @@ import type { StreamBlock } from "@/lib/stream-doc";
 
 /**
  * The timeline in the left rail: one entry per block, with its title and `author · time` only. No
- * action label. Each entry links to `#b<n>`; `:target` marks the block being read.
+ * action label. Each entry links to the block's stable id, never to its display number; `:target` marks the
+ * block being read.
  */
 export function StreamTimeline({ blocks }: { blocks: readonly StreamBlock[] }) {
   return (
@@ -10,7 +11,7 @@ export function StreamTimeline({ blocks }: { blocks: readonly StreamBlock[] }) {
       {blocks.map((b) => (
         <li key={b.id} className="relative pl-5 pb-3">
           <span aria-hidden className="absolute left-[5px] top-[7px] size-2 rounded-full bg-border" />
-          <a href={`#b${b.n}`} data-testid="timeline-entry" data-n={b.n} className="block text-foreground no-underline hover:text-primary">
+          <a href={`#${b.id}`} data-testid="timeline-entry" data-id={b.id} data-n={b.n} className="block text-foreground no-underline hover:text-primary">
             <span className="block font-medium">{blockTitle(b)}</span>
             <span className="text-muted-foreground block text-xs">{b.author} · {b.at}</span>
           </a>

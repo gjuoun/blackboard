@@ -1,10 +1,11 @@
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { anchorLabel, codeStateFromLines, parseCodeRef, type CodeState } from "./code-anchor";
 import { addComment, addReply, mutate, readComments, reviewRound, setStatus, type Comment, type CommentFile } from "./comments-store";
 import { docMeta } from "./doc-meta";
 import { docType } from "./doc-type";
-import { exportStream, parseStream, STREAM_ACTIONS, type StreamAction } from "./stream-doc";
+import { exportStream, parseStream, type StreamAction } from "./stream-doc";
+import { appendBlock as storeAppend, rewriteBlock as storeRewrite } from "./stream-store";
 import { renderPlainText } from "./markdown";
 import { ensurePrDoc } from "./pr-kind";
 import { prStatus, type PrStatus } from "./pr-status";
@@ -170,26 +171,40 @@ export async function commentOnCode(
   return { ...(await mutate(file, (f) => addComment(f, doc, { code, body: note.trim(), author }))), doc };
 }
 
-/**
- * Append one block to a stream session. The block is one line; a re-append with the same `id` replaces
- * the earlier line when read (last line wins). `text` is the body; `status: "writing"` marks a block in progress.
- */
+/** Appends one block to a stream session under the file lock, with a ULID id. */
 export function appendBlock(
   home: string,
   ref: string,
-  input: { action: string; text: string; author: string; id?: string; images?: string[]; status?: "writing" },
+  input: { action: string; text: string; author: string; images?: string[]; status?: "writing" },
   cwd = process.cwd(),
 ): { id: string; n: number; file: string } {
+  const file = streamFile(home, ref, cwd);
+  if (!input.text.trim()) throw new CliError("block text is empty", 2);
+  try {
+    const b = storeAppend(file, { action: input.action as StreamAction, author: input.author, text: input.text, images: input.images, status: input.status });
+    return { id: b.id, n: b.n, file };
+  } catch (err) {
+    throw new CliError(err instanceof Error ? err.message : String(err), 2);
+  }
+}
+
+/** Replaces the body (and optionally the action) of one existing block by id. Rewrites the file atomically. */
+export function editBlock(home: string, ref: string, id: string, text: string, cwd = process.cwd()): { id: string; n: number; file: string } {
+  const file = streamFile(home, ref, cwd);
+  if (!text.trim()) throw new CliError("block text is empty", 2);
+  try {
+    const b = storeRewrite(file, id, (x) => ({ ...x, body: text, at: new Date().toISOString() }));
+    return { id: b.id, n: b.n, file };
+  } catch (err) {
+    throw new CliError(err instanceof Error ? err.message : String(err), 1);
+  }
+}
+
+/** The stream file of a session, after the kind check. */
+function streamFile(home: string, ref: string, cwd: string): string {
   const { session } = find(home, ref, cwd);
   if (session.kind !== "stream") throw new CliError(`${session.path} is not a stream (open it with --kind stream)`, 2);
-  if (!(STREAM_ACTIONS as readonly string[]).includes(input.action)) throw new CliError(`--action takes ${STREAM_ACTIONS.join("|")}`, 2);
-  if (!input.text.trim()) throw new CliError("block text is empty", 2);
-  const current = parseStream(readStreamText(session.path));
-  const n = current.blocks.reduce((m, b) => Math.max(m, b.n), 0) + 1;
-  const id = input.id ?? `b${n}`;
-  const line = { id, n, action: input.action as StreamAction, author: input.author, at: new Date().toISOString(), body: input.text, ...(input.images?.length ? { images: input.images } : {}), ...(input.status ? { status: input.status } : {}) };
-  appendFileSync(session.path, JSON.stringify(line) + "\n");
-  return { id, n, file: session.path };
+  return session.path;
 }
 
 const readStreamText = (path: string) => (existsSync(path) ? readFileSync(path, "utf8") : "");

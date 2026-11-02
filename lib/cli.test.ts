@@ -215,6 +215,19 @@ describe("block writer", () => {
     expect(run(home, ["comments", design]).out).toContain("(general)");
   });
 
+  test("block: edit keeps the id and rewrites the body", () => {
+    const { home, docs } = setup();
+    writeFileSync(join(docs, "log.jsonl"), "");
+    expect(run(home, ["open", "--no-browser", "--kind", "stream", "log.jsonl"], docs).code).toBe(0);
+    const first = JSON.parse(run(home, ["block", "log.jsonl", "--action", "answer", "draft", "--json"], docs).out);
+    expect(first.id).toMatch(/^b-/);
+    const r = run(home, ["block", "log.jsonl", "--edit", first.id, "final"], docs);
+    expect(r.code).toBe(0);
+    const lines = readFileSync(join(docs, "log.jsonl"), "utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0])).toMatchObject({ id: first.id, body: "final" });
+  });
+
   test("block: appends one line", () => {
     const { home, docs } = setup();
     writeFileSync(join(docs, "log.jsonl"), "");
