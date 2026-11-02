@@ -1,5 +1,4 @@
-import { readFileSync } from "node:fs";
-import { Effect } from "effect";
+import { Effect, FileSystem } from "effect";
 import { cliFailure, CliError, docOf, find, threadOf, type DocComment } from "../cli";
 import { addComment, addReply, CommentsStore, reviewRound, setStatus } from "../comments-store";
 import { renderPlainText } from "../markdown";
@@ -113,15 +112,15 @@ export function comment(
   author: string,
   occurrence = 1,
   cwd = process.cwd(),
-): Effect.Effect<DocComment, CliError, SessionsStore | CommentsStore> {
+): Effect.Effect<DocComment, CliError, SessionsStore | CommentsStore | FileSystem.FileSystem> {
   return Effect.gen(function* () {
     if (!note.trim()) return yield* new CliError({ message: "comment text is empty", code: 2 });
     const { session, file, doc } = yield* find(home, ref, cwd);
     const store = yield* CommentsStore;
-    const src = yield* Effect.try({
-      try: () => readFileSync(session.path, "utf8"),
-      catch: () => new CliError({ message: `the doc is missing: ${session.path}`, code: 1 }),
-    });
+    const fs = yield* FileSystem.FileSystem;
+    const src = yield* fs.readFileString(session.path).pipe(
+      Effect.mapError(() => new CliError({ message: `the doc is missing: ${session.path}`, code: 1 })),
+    );
     const text = yield* Effect.tryPromise({ try: () => renderPlainText(src), catch: (error) => cliFailure({ message: String(error) }) });
     const sel = selectorFor(text, quote, occurrence);
     if (!sel.ok) return yield* new CliError({ message: sel.error, code: 1 });
