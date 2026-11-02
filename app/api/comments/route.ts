@@ -61,11 +61,14 @@ export async function POST(req: NextRequest) {
   const anchor = code(b.code);
   const body = text(b.body, MAX_BODY);
   if (!body) return bad("body is required");
-  if (Boolean(q) === Boolean(anchor)) return bad("exactly one of quote or code is required");
+  const general = b.general === true;
+  const kinds = Number(Boolean(q)) + Number(Boolean(anchor)) + Number(general);
+  if (kinds !== 1) return bad("exactly one of quote, code or general is required");
   // Images are stored ids: each must be a valid stored name, so a client cannot point a comment at any file.
   const images = b.images === undefined ? [] : Array.isArray(b.images) && b.images.every((x) => typeof x === "string" && IMAGE_ID.test(x)) ? (b.images as string[]) : null;
   if (images === null || images.length > 4) return bad("images must be up to 4 stored image ids");
-  const comment = await mutate(t.file, (f) => addComment(f, t.doc, { ...(q ? { quote: q } : { code: anchor! }), body, author: author(b.author), images }));
+  const kind = q ? { quote: q } : anchor ? { code: anchor } : { general: true as const };
+  const comment = await mutate(t.file, (f) => addComment(f, t.doc, { ...kind, body, author: author(b.author), images }));
   return NextResponse.json({ comment: one(comment) }, { status: 201 });
 }
 

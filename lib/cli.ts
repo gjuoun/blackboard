@@ -124,6 +124,13 @@ export function comments(home: string, ref: string, cwd = process.cwd()): DocCom
   );
 }
 
+/** An independent comment: no passage and no line. It joins the same store and list as the other kinds. */
+export async function commentGeneral(home: string, ref: string, note: string, author: string, cwd = process.cwd()): Promise<DocComment> {
+  if (!note.trim()) throw new CliError("comment text is empty", 2);
+  const { file, doc } = find(home, ref, cwd);
+  return { ...(await mutate(file, (f) => addComment(f, doc, { general: true, body: note.trim(), author }))), doc };
+}
+
 /** Comment on one line of a repo file, n-th line counted from the worktree: `lib/a.ts:L12`. */
 export async function commentOnCode(
   home: string,
@@ -240,7 +247,7 @@ export function formatComments(list: DocComment[]): string {
             : "  (line drifted)"
           : ""
         : "";
-      const where = c.quote ? "  > " + squash(c.quote.exact) : `  @ ${anchorLabel(c.code!)}` + drift;
+      const where = c.quote ? "  > " + squash(c.quote.exact) : c.code ? `  @ ${anchorLabel(c.code)}` + drift : "  (general)";
       const lines = [`${c.id}  ${c.doc}  ${c.status}  ${c.author}  ${c.createdAt}`, where, `  ${c.body.replace(/\n/g, "\n  ")}`];
       for (const r of c.replies) lines.push(`    ↳ ${r.id}  ${r.author}: ${r.body.replace(/\n/g, "\n      ")}`);
       return lines.join("\n");

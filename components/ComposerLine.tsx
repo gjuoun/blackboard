@@ -7,12 +7,12 @@ import { useRef, useState } from "react";
  * The right rail's one write point: an image button, a text input and a round send. No toolbar, no hint,
  * no second button. `onSend` receives the text and any uploaded image ids; the caller decides the anchor.
  */
-export function ComposerLine({ onSend, disabled }: { onSend: (text: string, images: string[]) => Promise<void>; disabled?: boolean }) {
+export function ComposerLine({ onSend }: { onSend: (text: string, images: string[]) => Promise<void> }) {
   const [text, setText] = useState("");
   const [images, setImages] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
-  const canSend = !busy && !disabled && (text.trim().length > 0 || images.length > 0);
+  const canSend = !busy && (text.trim().length > 0 || images.length > 0);
 
   const upload = async (f: File) => {
     const res = await fetch("/api/comment-images", { method: "POST", body: f });

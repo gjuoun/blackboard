@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUp, Check, Eye, EyeOff } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { anchorLabel, rowKey } from "@/lib/code-anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
 import { fileHref } from "@/lib/hrefs";
@@ -163,10 +163,16 @@ export function CommentPanel(p: Props) {
       </div>
       {visible.length === 0 && !p.composer ? <p className="text-muted-foreground text-[13px]">Select text in the doc to comment.</p> : null}
       <ol className="m-0 flex list-none flex-col gap-2.5 p-0">
-        {visible.map((c) => (
+        {visible.map((c, i) => (
+          <Fragment key={c.id}>
+          {c.general && !(i > 0 && visible[i - 1].general) ? (
+            <li aria-hidden className="text-muted-foreground flex items-center gap-2 text-[11px] uppercase tracking-wide" data-testid="general-divider">
+              <span className="bg-border h-px flex-1" />general<span className="bg-border h-px flex-1" />
+            </li>
+          ) : null}
           <li
-            key={c.id}
             data-testid="comment-item"
+            data-kind={c.general ? "general" : c.code ? "code" : "quote"}
             data-id={c.id}
             data-status={c.status}
             data-orphaned={String(c.orphaned)}
@@ -262,6 +268,7 @@ export function CommentPanel(p: Props) {
               <ReplyBox onReply={(body) => p.onReply(c.id, body)} />
             </div>
           </li>
+          </Fragment>
         ))}
       </ol>
     </div>

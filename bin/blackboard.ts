@@ -208,8 +208,14 @@ async function main(argv: string[]): Promise<number> {
       return 0;
     }
     case "comment": {
-      need(2, "comment <session> --quote <passage> | --code <path>:L<n> <note>");
+      need(2, "comment <session> --quote <passage> | --code <path>:L<n> | --general <note>");
       const note = args.slice(1).join(" ");
+      if (o.general) {
+        if (o.quote || o.code) throw new cli.CliError("comment takes --general alone, not with --quote or --code", 2);
+        const c = await cli.commentGeneral(home, args[0], note, author);
+        print(c, `commented ${c.id} (general)`);
+        return 0;
+      }
       if (o.code) {
         if (o.quote) throw new cli.CliError("comment takes --quote or --code, not both", 2);
         if (o.occurrence) throw new cli.CliError("--occurrence only applies to --quote", 2);

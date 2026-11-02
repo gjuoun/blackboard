@@ -9,6 +9,26 @@ const quote = { exact: "The cache is warm.", prefix: "Later text. ", suffix: " E
 const fresh = () => realpathSync(mkdtempSync(join(tmpdir(), "bb-store-")));
 const fileIn = (dir: string) => join(dir, ".blackboard", "comments.json");
 
+describe("general anchor", () => {
+  test("general: exactly one anchor kind", () => {
+    const f = { version: 1 as const, docs: {} };
+    // none of the three kinds
+    expect(() => addComment(f, "d.md", { body: "x", author: "jun" } as never)).toThrow(/exactly one anchor/);
+    // two kinds at once
+    expect(() => addComment(f, "d.md", { quote, general: true, body: "x", author: "jun" } as never)).toThrow(/exactly one anchor/);
+    const c = addComment(f, "d.md", { general: true, body: "independent", author: "jun" } as never);
+    expect(c).toMatchObject({ general: true, body: "independent" });
+    expect(c.quote).toBeUndefined();
+    expect(c.code).toBeUndefined();
+  });
+
+  test("general: quote comments still read", () => {
+    const f = { version: 1 as const, docs: { "d.md": [{ id: "c1", quote, body: "old", author: "jun", createdAt: "t", status: "open" as const, replies: [] }] } };
+    expect(f.docs["d.md"][0].quote).toEqual(quote);
+    expect(f.docs["d.md"][0]).not.toHaveProperty("general");
+  });
+});
+
 describe("comment file", () => {
   test("reads as empty when there are no comments yet", () => {
     const demo = fresh();
@@ -116,7 +136,7 @@ describe("comment file", () => {
     const demo = fresh();
     await expect(
       mutate(fileIn(demo), (f) => addComment(f, "design.md", { body: "no anchor", author: "jun" } as Parameters<typeof addComment>[2])),
-    ).rejects.toThrow(/quote or a code anchor/);
+    ).rejects.toThrow(/exactly one anchor/);
   });
 
   test("errors on an unknown reply id", async () => {

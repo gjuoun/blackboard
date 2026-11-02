@@ -47,7 +47,9 @@ export function useComments(session: string, initial: RenderedComment[], author:
     comments,
     error,
     reload,
-    add: (quote: QuoteSelector, body: string) => run(call("POST", { session, quote, body, author })),
+    add: (quote: QuoteSelector, body: string, images: string[] = []) => run(call("POST", { session, quote, body, author, images })),
+    /** An independent comment: no passage, no line. */
+    addGeneral: (body: string, images: string[] = []) => run(call("POST", { session, general: true, body, author, images })),
     reply: (id: string, body: string) => patch(id, "reply", { body }),
     setResolved: (id: string, resolved: boolean) => patch(id, resolved ? "resolve" : "reopen"),
     edit: (id: string, body: string) => patch(id, "edit", { body }),

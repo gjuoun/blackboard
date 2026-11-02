@@ -70,7 +70,7 @@ export function DocView({ session, title, path, html, initialComments, header, t
     localStorage.setItem(AUTHOR_KEY, v.trim() || "jun");
   };
 
-  const { comments, error, add, reply, setResolved, reload, edit, remove, editReply, removeReply } = useComments(session, initialComments, author.trim() || "jun");
+  const { comments, error, add, addGeneral, reply, setResolved, reload, edit, remove, editReply, removeReply } = useComments(session, initialComments, author.trim() || "jun");
   const chrome = useChrome();
   const desktop = useIsDesktop();
   useLiveDoc(session, reload);
@@ -255,6 +255,9 @@ export function DocView({ session, title, path, html, initialComments, header, t
       };
     });
     return withPos.sort((a, b) => {
+      // independent comments always come last, in the order they were written
+      if (a.general !== b.general) return a.general ? 1 : -1;
+      if (a.general && b.general) return a.createdAt.localeCompare(b.createdAt);
       if (a.code && b.code) {
         return a.code.path.localeCompare(b.code.path) || a.code.startLine - b.code.startLine || a.createdAt.localeCompare(b.createdAt);
       }
@@ -264,16 +267,18 @@ export function DocView({ session, title, path, html, initialComments, header, t
     });
   }, [comments, anchors, codeState]);
 
-  // The one-line composer sits at the top of the Comments pane. It posts a passage comment for the
-  // current selection; without one it is disabled until the general anchor lands (step 8).
+  // The one-line composer sits at the top of the Comments pane. With a passage selected it posts a passage
+  // comment; with none it posts an independent (general) comment.
   const lineComposer = (
     <ComposerLine
-      disabled={!composing}
-      onSend={async (text) => {
-        if (!composing) return;
-        await add(composing, text);
-        setComposing(null);
-        getSelection()?.removeAllRanges();
+      onSend={async (text, images) => {
+        if (composing) {
+          await add(composing, text, images);
+          setComposing(null);
+          getSelection()?.removeAllRanges();
+        } else {
+          await addGeneral(text, images);
+        }
       }}
     />
   );

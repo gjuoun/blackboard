@@ -189,6 +189,18 @@ describe("code-anchored comments", () => {
 });
 
 describe("block writer", () => {
+  test("general: CLI creates one", () => {
+    const { home, design } = setup();
+    expect(run(home, ["open", "--no-browser", design]).code).toBe(0);
+    const r = run(home, ["comment", design, "--general", "an independent note"]);
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("(general)");
+    const list = comments(home, design);
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ general: true, body: "an independent note" });
+    expect(run(home, ["comments", design]).out).toContain("(general)");
+  });
+
   test("block: appends one line", () => {
     const { home, docs } = setup();
     writeFileSync(join(docs, "log.jsonl"), "");
