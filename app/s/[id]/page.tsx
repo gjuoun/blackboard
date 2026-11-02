@@ -21,6 +21,8 @@ import { renderCode } from "@/lib/code-view";
 import { docType, type DocType } from "@/lib/doc-type";
 import { LEFT_TABS_BY_TYPE, parseLeftTab, type LeftTab } from "@/lib/left-rail";
 import { LeftRail } from "@/components/LeftRail";
+import { WorkspaceTree } from "@/components/WorkspaceTree";
+import { workspacePane, type WorkspacePane } from "@/lib/workspace-pane";
 import { renderMarkdown } from "@/lib/markdown";
 import { parsePrFrontmatter } from "@/lib/pr-kind";
 import { parseRightTab } from "@/lib/prefs";
@@ -31,13 +33,22 @@ import { getSession, SCRATCHPAD_ID, scratchpadSession, servablePath, sessionComm
  * (`?left=`), so the rail needs no client state. Only 内容 has a pane in this step; the others are
  * filled in by later steps and show a short placeholder until then.
  */
-function leftPane(id: string, type: DocType, requested: string | string[] | undefined, toc: React.ReactNode): React.ReactNode {
+function leftPane(id: string, type: DocType, requested: string | string[] | undefined, toc: React.ReactNode, workspace: WorkspacePane): React.ReactNode {
   const tabs = LEFT_TABS_BY_TYPE[type];
   const active: LeftTab = parseLeftTab(typeof requested === "string" ? requested : undefined, type);
+  let pane: React.ReactNode;
+  if (active === "contents") pane = toc;
+  else if (active === "workspace") {
+    pane = workspace.state === "outside-git" ? (
+      <p className="text-muted-foreground p-3 text-[13px]">不在 git 仓库中</p>
+    ) : (
+      <div className="p-3"><WorkspaceTree nodes={workspace.tree} current={workspace.current} sessionByPath={workspace.sessionByPath} /></div>
+    );
+  } else pane = <p className="text-muted-foreground p-3 text-[13px]">时间线 arrives in step 6.</p>;
   return (
     <>
       <LeftRail tabs={tabs} active={active} hrefFor={(t) => `/s/${id}?left=${t}`} />
-      {active === "contents" ? toc : <p className="text-muted-foreground p-3 text-[13px]">{active === "workspace" ? "工作区 arrives in step 5." : "时间线 arrives in step 6."}</p>}
+      {pane}
     </>
   );
 }
@@ -142,7 +153,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     const { html } = await renderCode(src, file);
     // Comments on a source file anchor to its text like a doc's do, so they are read the same way.
     const codeComments = renderComments(readComments(sessionCommentsPath(home, session.id)).docs[basename(file)] ?? []);
-    const left = leftPane(id, "code", search.left, null);
+    const left = leftPane(id, "code", search.left, null, workspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home));
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} />
@@ -199,7 +210,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
         html={html}
         initialComments={renderedComments}
         header={header}
-        toc={leftPane(id, "doc", search.left, toc.length > 1 ? <Toc toc={toc} /> : null)}
+        toc={leftPane(id, "doc", search.left, toc.length > 1 ? <Toc toc={toc} /> : null, workspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home))}
         rightTab={rightTab}
         codeState={codeThreads.state}
         diff={
