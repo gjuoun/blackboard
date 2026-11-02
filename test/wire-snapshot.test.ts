@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,7 +9,6 @@ import { GET as commentsGet, PATCH as commentsPatch, POST as commentsPost } from
 import { GET as imageGet } from "@/app/api/comment-images/[id]/route";
 import { POST as imagePost } from "@/app/api/comment-images/route";
 import { GET as healthGet } from "@/app/api/health/route";
-import { GET as prGet } from "@/app/api/pr/[id]/route";
 import { GET as watchGet } from "@/app/api/watch/route";
 import { run } from "./app";
 
@@ -83,30 +81,6 @@ async function docsFixture() {
   return { base, home, docs, design, session: session.id };
 }
 
-/** A temp home and a git repo with one changed file, opened as a pr session. */
-async function prFixture() {
-  const base = realpathSync(mkdtempSync(join(tmpdir(), "bb-wire-pr-")));
-  const home = join(base, "home");
-  const repo = join(base, "repo");
-  mkdirSync(join(repo, "lib"), { recursive: true });
-  mkdirSync(join(repo, "docs"), { recursive: true });
-  writeFileSync(join(repo, "lib", "a.ts"), "export const a = 1;\n");
-  const doc = join(repo, "docs", "review.md");
-  writeFileSync(doc, "# Review\n\nA [range](file:lib/a.ts:L1).\n");
-  const git = (...args: string[]) =>
-    execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@e", ...args], { cwd: repo, stdio: ["ignore", "pipe", "ignore"] });
-  git("init", "-q", "-b", "main");
-  git("add", "-A");
-  git("commit", "-qm", "fixture");
-  git("update-ref", "refs/remotes/origin/main", "HEAD");
-  git("checkout", "-qb", "feat/x");
-  writeFileSync(join(repo, "lib", "a.ts"), "export const a = 2;\n");
-  process.env.BLACKBOARD_HOME = home;
-  const { session } = await run(open(home, doc, process.cwd(), "pr"));
-  literals.push([base, "<base>"], [session.id, "<session>"]);
-  return { base, home, repo, doc, session: session.id };
-}
-
 const commentsUrl = "http://127.0.0.1/api/comments";
 const body = (payload: unknown) => ({
   method: "POST",
@@ -133,7 +107,7 @@ describe("the wire the routes answer today", () => {
     await record("comments.POST.unknown-session", await post({ session: "nosuchid", general: true, body: "x" }));
     await record("comments.POST.no-body", await post({ session: fx.session, general: true }));
     await record("comments.POST.no-anchor", await post({ session: fx.session, body: "x" }));
-    await record("comments.POST.two-anchors", await post({ session: fx.session, body: "x", general: true, code: { path: "lib/a.ts", startLine: 1, endLine: 1, side: "new", lineText: "x" } }));
+    await record("comments.POST.two-anchors", await post({ session: fx.session, body: "x", quote: { exact: "Later text.", prefix: "", suffix: "" }, general: true }));
     await record("comments.POST.bad-images", await post({ session: fx.session, general: true, body: "x", images: ["../etc/passwd"] }));
     await record("comments.POST.too-many-images", await post({ session: fx.session, general: true, body: "x", images: Array(5).fill("<sha256>.png") }));
     const created = await post({ session: fx.session, general: true, body: "**first** note", author: "jun" });
@@ -198,12 +172,6 @@ describe("the wire the routes answer today", () => {
       headers: headersOf(stream),
       body: normalize(decoder.decode(first.value)),
     };
-
-    // pr
-    const pr = await prFixture();
-    const prRoute = (id: string) => prGet(new Request(`http://127.0.0.1/api/pr/${id}`), { params: Promise.resolve({ id }) });
-    await record("pr.GET.unknown-session", await prRoute("nosuchid"));
-    await record("pr.GET.ok", await prRoute(pr.session));
 
     const actual = normalize(JSON.stringify(out, null, 2)) + "\n";
     if (!existsSync(SNAPSHOT)) writeFileSync(SNAPSHOT, actual);

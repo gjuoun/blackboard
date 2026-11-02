@@ -95,31 +95,7 @@ function palette(id: string): Map<string, string> {
 /** Each hljs scope rule: the token it reads from the palette, which must be one of the hue tokens. */
 const HUE_TOKENS = ["primary", "success", "warn", "destructive", "muted-foreground", "foreground"];
 
-/** The diff half of globals.css: everything from the explicit file-link rules down. */
-const DIFF_CSS = GLOBALS.slice(GLOBALS.indexOf(".doc-body a.file-ref"));
-const PALETTE_TOKENS = new Set([...THEMES.matchAll(/--([\w-]+)\s*:/g)].map((m) => m[1]).concat(["font-code", "bar-h", "radius"]));
-
-describe("diff palette mapping", () => {
-  test("the diff and tab selectors use palette tokens only, never a literal colour", () => {
-    expect(DIFF_CSS.length).toBeGreaterThan(1000);
-    expect(DIFF_CSS).not.toMatch(/#[0-9a-f]{3,8}\b/i);
-    expect(DIFF_CSS).not.toMatch(/rgba?\(|hsla?\(/i);
-    const used = new Set([...DIFF_CSS.matchAll(/var\(--([\w-]+)\)/g)].map((m) => m[1]));
-    for (const t of used) expect({ t, ok: PALETTE_TOKENS.has(t) }).toEqual({ t, ok: true });
-  });
-
-  test("add/delete rows take their backgrounds from the semantic soft tokens", () => {
-    expect(GLOBALS).toMatch(/\.dl\.add \{ background: var\(--success-soft\); \}/);
-    expect(GLOBALS).toMatch(/\.dl\.del \{ background: var\(--destructive-soft\); \}/);
-    expect(GLOBALS).toMatch(/\.dl\.add \.tk-t \{ color: var\(--primary\); \}/);
-  });
-
-  test("the monospace diff region never turns italic", () => {
-    expect(GLOBALS).toMatch(/\.dv \{/);
-    expect(GLOBALS).toMatch(/\.dv :is\(em, i\) \{ font-style: normal; \}/);
-    expect(GLOBALS).not.toMatch(/\.dv[^{]*\{[^}]*font-style: italic/);
-  });
-
+describe("rail tab state", () => {
   test("the active rail tab merges into the pane instead of carrying a primary top line", () => {
     const active = /\.rail-tab\[aria-selected="true"\]\s*\{([^}]*)\}/.exec(GLOBALS)?.[1] ?? "";
     expect(active).not.toContain("box-shadow");

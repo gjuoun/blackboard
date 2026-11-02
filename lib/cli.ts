@@ -1,9 +1,7 @@
 import { basename } from "node:path";
 import { Data, Effect } from "effect";
-import { anchorLabel, type CodeState } from "./code-anchor";
 import { type Comment, type CommentFile } from "./comments-store";
 import { SessionsStore, sessionCommentsPath, type Session, type SessionRow } from "./sessions";
-import type { PrStatus } from "./pr-status";
 
 /** A failure the CLI reports on stderr. code 1 = the command failed, 2 = bad usage. */
 export class CliError extends Data.TaggedError("CliError")<{ message: string; code: 1 | 2 }> {}
@@ -11,7 +9,7 @@ export class CliError extends Data.TaggedError("CliError")<{ message: string; co
 /** A store or parsing failure as the CLI reports it: same message, exit code 1 unless given. */
 export const cliFailure = (error: { message: string }, code: 1 | 2 = 1) => new CliError({ message: error.message, code });
 
-export type DocComment = Comment & { doc: string; codeState?: CodeState };
+export type DocComment = Comment & { doc: string };
 
 /** A session and the comment file its comments live in, resolved from an id or a path. */
 export type Target = { session: Session; file: string; doc: string };
@@ -57,32 +55,12 @@ export function formatComments(list: DocComment[]): string {
   if (list.length === 0) return "no comments";
   return list
     .map((c) => {
-      const drift = c.codeState
-        ? c.codeState.orphaned
-          ? c.codeState.movedTo
-            ? ` \u21a6 \u73b0 L${c.codeState.movedTo}`
-            : "  (line drifted)"
-          : ""
-        : "";
-      const where = c.quote ? "  > " + squash(c.quote.exact) : c.code ? `  @ ${anchorLabel(c.code)}` + drift : "  (general)";
+      const where = c.quote ? "  > " + squash(c.quote.exact) : "  (general)";
       const lines = [`${c.id}  ${c.doc}  ${c.status}  ${c.author}  ${c.createdAt}`, where, `  ${c.body.replace(/\n/g, "\n  ")}`];
       for (const r of c.replies) lines.push(`    \u21b3 ${r.id}  ${r.author}: ${r.body.replace(/\n/g, "\n      ")}`);
       return lines.join("\n");
     })
     .join("\n\n");
-}
-
-/** Human form of a session pr state: the front matter baseline and the command to run. */
-export function formatPr(status: PrStatus): string {
-  const lines = [`${status.session}  ${status.path}  ${status.kind}`];
-  if (status.base && status.command) {
-    const totals = status.totals ?? { files: 0, additions: 0, deletions: 0 };
-    lines.push(`base ${status.base.ref} @ ${status.base.sha}`, status.command);
-    lines.push(`${totals.files} files  +${totals.additions} -${totals.deletions}  ${status.comments.open} open`);
-  } else {
-    lines.push("no pinned base: open the doc with --kind pr");
-  }
-  return lines.join("\n");
 }
 
 /** One line per session: id, title, where it is, branch, open comments, kind. */

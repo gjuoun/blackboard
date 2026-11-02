@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { anchor, makeSelector, type QuoteSelector, type TextRange } from "@/lib/anchor";
-import type { CodeState } from "@/lib/code-anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
 import { buildTextMap, offsetOf, rangeOf } from "@/lib/text-map";
 import type { PanelComment } from "./CommentPanel";
@@ -17,7 +16,7 @@ const highlights = () => (typeof CSS !== "undefined" && "highlights" in CSS ? CS
  * Anchors every comment to the doc's text and follows the reader: the passages to highlight, the
  * comment under the pointer, the selection a Comment button can post, and the panel's ordering.
  */
-export function useDocAnchors({ comments, html, codeState }: { comments: RenderedComment[]; html: string; codeState?: Record<string, CodeState> }) {
+export function useDocAnchors({ comments, html }: { comments: RenderedComment[]; html: string }) {
   const bodyRef = useRef<HTMLElement>(null);
   const mainRef = useRef<HTMLElement>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -145,30 +144,21 @@ export function useDocAnchors({ comments, html, codeState }: { comments: Rendere
     if (rect && (rect.top < 100 || rect.bottom > innerHeight)) scrollBy({ top: rect.top - innerHeight / 3, behavior: "smooth" });
   };
 
-  // Passage anchors keep their reading order; code anchors follow, by file then line. A drifted
-  // code anchor is ordered as usual — it is the badge, not the sort, that reports the drift.
+  // Anchored passages keep their reading order; an anchor the text no longer holds keeps its slot,
+  // so the badge (not the sort) is what reports the orphan.
   const panelComments: PanelComment[] = useMemo(() => {
-    const withPos = comments.map((c) => {
-      const code = c.code ? codeState?.[c.id] : undefined;
-      return {
-        ...c,
-        orphaned: c.quote ? c.id in anchors && anchors[c.id] === null : (code?.orphaned ?? false),
-        movedTo: code?.movedTo ?? null,
-        pos: c.quote ? (anchors[c.id]?.start ?? Infinity) : Infinity,
-      };
-    });
+    const withPos = comments.map((c) => ({
+      ...c,
+      orphaned: c.quote ? c.id in anchors && anchors[c.id] === null : false,
+      pos: c.quote ? (anchors[c.id]?.start ?? Infinity) : Infinity,
+    }));
     return withPos.sort((a, b) => {
       // independent comments always come last, in the order they were written
       if (a.general !== b.general) return a.general ? 1 : -1;
       if (a.general && b.general) return a.createdAt.localeCompare(b.createdAt);
-      if (a.code && b.code) {
-        return a.code.path.localeCompare(b.code.path) || a.code.startLine - b.code.startLine || a.createdAt.localeCompare(b.createdAt);
-      }
-      if (a.code) return 1;
-      if (b.code) return -1;
       return a.pos - b.pos;
     });
-  }, [comments, anchors, codeState]);
+  }, [comments, anchors]);
 
   return { bodyRef, mainRef, draft, setDraft, activeId, flashId, onDocMove, onDocLeave, onDocClick, activate, panelComments };
 }

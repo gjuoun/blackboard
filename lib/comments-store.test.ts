@@ -50,14 +50,13 @@ describe("review", () => {
 describe("general anchor", () => {
   test("general: exactly one anchor kind", () => {
     const f = { version: 1 as const, docs: {} };
-    // none of the three kinds
+    // neither kind
     expect(() => addComment(f, "d.md", { body: "x", author: "jun" } as never)).toThrow(/exactly one anchor/);
     // two kinds at once
     expect(() => addComment(f, "d.md", { quote, general: true, body: "x", author: "jun" } as never)).toThrow(/exactly one anchor/);
     const c = addComment(f, "d.md", { general: true, body: "independent", author: "jun" } as never);
     expect(c).toMatchObject({ general: true, body: "independent" });
     expect(c.quote).toBeUndefined();
-    expect(c.code).toBeUndefined();
   });
 
   test("general: quote comments still read", () => {
@@ -155,19 +154,6 @@ describe("comment file", () => {
     expect(readComments(fileIn(demo)).docs["design.md"].map((x) => x.id)).toEqual([keep.id]);
     await mutate(fileIn(demo), (f) => deleteComment(f, "design.md", keep.id));
     expect(readComments(fileIn(demo)).docs).toEqual({});
-  });
-
-  test("a code anchor round-trips beside the passage anchors, in the same v1 file", async () => {
-    const demo = fresh();
-    const code = { path: "lib/residency.ts", startLine: 3, endLine: 3, side: "new" as const, lineText: "  return gate;" };
-    const byCode = await mutate(fileIn(demo), (f) => addComment(f, "design.md", { code, body: "why here?", author: "agent" }));
-    const byQuote = await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "and here", author: "jun" }));
-    const stored = readComments(fileIn(demo)).docs["design.md"];
-    expect(stored.find((c) => c.id === byCode.id)?.code).toEqual(code);
-    expect(stored.find((c) => c.id === byCode.id)?.quote).toBeUndefined();
-    expect(stored.find((c) => c.id === byQuote.id)?.quote).toEqual(quote);
-    expect(stored.find((c) => c.id === byQuote.id)?.code).toBeUndefined();
-    expect(JSON.parse(readFileSync(fileIn(demo), "utf8")).version).toBe(1);
   });
 
   test("a comment without an anchor is refused by the store", async () => {

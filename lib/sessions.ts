@@ -13,8 +13,8 @@ import { Lock } from "./lock";
  * A session is one markdown file, anywhere on disk, that someone opened for review.
  * The registry is <home>/sessions.json — plain JSON, so an agent can read it from disk.
  */
-export type SessionKind = "plain" | "pr" | "stream";
-/** A session is one registered file; pr sessions carry the diff pane front-matter baseline, stream sessions are .jsonl blocks. */
+export type SessionKind = "plain" | "stream";
+/** A session is one registered file; stream sessions are .jsonl blocks, every other session is plain. */
 export type Session = { id: string; path: string; createdAt: string; openedAt: string; kind?: SessionKind };
 type Registry = { version: 1; sessions: Session[] };
 

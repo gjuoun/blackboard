@@ -53,7 +53,7 @@
     "headers": {
       "content-type": "application/json;charset=utf-8"
     },
-    "body": "{\"error\":\"exactly one of quote, code or general is required\"}"
+    "body": "{\"error\":\"exactly one of quote or general is required\"}"
   },
   "comments.POST.two-anchors": {
     "status": 400,
@@ -61,7 +61,7 @@
     "headers": {
       "content-type": "application/json;charset=utf-8"
     },
-    "body": "{\"error\":\"exactly one of quote, code or general is required\"}"
+    "body": "{\"error\":\"exactly one of quote or general is required\"}"
   },
   "comments.POST.bad-images": {
     "status": 400,
@@ -331,21 +331,5 @@
       "content-type": "text/event-stream"
     },
     "body": ": connected\n\n"
-  },
-  "pr.GET.unknown-session": {
-    "status": 404,
-    "contentType": "application/json;charset=utf-8",
-    "headers": {
-      "content-type": "application/json;charset=utf-8"
-    },
-    "body": "{\"error\":\"unknown session\"}"
-  },
-  "pr.GET.ok": {
-    "status": 200,
-    "contentType": "application/json;charset=utf-8",
-    "headers": {
-      "content-type": "application/json;charset=utf-8"
-    },
-    "body": "{\"session\":\"<session>\",\"path\":\"<base>/repo/docs/review.md\",\"kind\":\"pr\",\"repo\":{\"name\":\"repo\",\"root\":\"<base>/repo\"},\"frontmatter\":{\"kind\":\"pr\",\"pr\":{\"base\":\"main\",\"base_sha\":\"<sha>\"}},\"base\":{\"ref\":\"main\",\"sha\":\"<sha>\"},\"command\":\"git -C '<base>/repo' diff --no-color --no-ext-diff --unified=3 -M '<sha>' -- .\",\"files\":[{\"path\":\"docs/review.md\",\"status\":\"modified\",\"additions\":7,\"deletions\":0,\"binary\":false},{\"path\":\"lib/a.ts\",\"status\":\"modified\",\"additions\":1,\"deletions\":1,\"binary\":false}],\"totals\":{\"files\":2,\"additions\":8,\"deletions\":1},\"comments\":{\"open\":0}}"
   }
 }

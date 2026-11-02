@@ -1,57 +1,22 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { Effect } from "effect";
-import { codeStateFromLines, parseCodeRef } from "../code-anchor";
 import { cliFailure, CliError, docOf, find, threadOf, type DocComment } from "../cli";
 import { addComment, addReply, CommentsStore, reviewRound, setStatus } from "../comments-store";
-import { docMeta } from "../doc-meta";
 import { renderPlainText } from "../markdown";
 import { selectorFor } from "../selector";
 import { SessionsStore } from "../sessions";
 
-const linesOfFile = (raw: string): string[] => {
-  const lines = raw.split(/\r?\n/);
-  if (lines.at(-1) === "") lines.pop();
-  return lines;
-};
-
-/** One repo file as lines, or null when it cannot be read; the anchor then reads as orphaned. */
-const readLines = (path: string): Effect.Effect<readonly string[] | null> =>
-  Effect.try({ try: () => linesOfFile(readFileSync(path, "utf8")), catch: () => "unreadable" as const }).pipe(
-    Effect.catch(() => Effect.succeed(null)),
-  );
-
-/**
- * Every comment in a session, resolved ones included, each with its replies, in creation order.
- * A code anchor also carries its drift state: the anchored file is read once, on demand, so an
- * agent sees the moved line without the anchor ever being rewritten.
- */
+/** Every comment in a session, resolved ones included, each with its replies, in creation order. */
 export function comments(
   home: string,
   ref: string,
   cwd = process.cwd(),
 ): Effect.Effect<DocComment[], CliError, SessionsStore | CommentsStore> {
   return Effect.gen(function* () {
-    const { session, file } = yield* find(home, ref, cwd);
+    const { file } = yield* find(home, ref, cwd);
     const store = yield* CommentsStore;
     const commentFile = yield* store.read(file).pipe(Effect.mapError((error) => cliFailure(error)));
-    const repo = docMeta(session.path).repo;
-    const cache = new Map<string, readonly string[] | null>();
-    const out: DocComment[] = [];
-    for (const [doc, list] of Object.entries(commentFile.docs)) {
-      for (const c of list) {
-        if (!c.code || c.code.side !== "new") {
-          out.push({ ...c, doc });
-          continue;
-        }
-        const path = repo ? join(repo.root, c.code.path) : null;
-        const cached = path === null ? null : cache.get(path);
-        const lines = path === null ? null : cached !== undefined ? cached : yield* readLines(path);
-        if (path !== null && cached === undefined) cache.set(path, lines);
-        out.push({ ...c, doc, codeState: codeStateFromLines(c.code, lines) });
-      }
-    }
-    return out;
+    return Object.entries(commentFile.docs).flatMap(([doc, list]) => list.map((c) => ({ ...c, doc })));
   });
 }
 
@@ -74,7 +39,7 @@ export function review(
   });
 }
 
-/** An independent comment: no passage and no line. It joins the same store and list as the other kinds. */
+/** An independent comment: no passage. It joins the same store and list as the quoted kind. */
 export function commentGeneral(
   home: string,
   ref: string,
@@ -87,36 +52,6 @@ export function commentGeneral(
     const { file, doc } = yield* find(home, ref, cwd);
     const store = yield* CommentsStore;
     const made = yield* store.mutate(file, (f) => addComment(f, doc, { general: true, body: note.trim(), author })).pipe(
-      Effect.mapError((error) => cliFailure(error)),
-    );
-    return { ...made, doc };
-  });
-}
-
-/** Comment on one line of a repo file, n-th line counted from the worktree: lib/a.ts:L12. */
-export function commentOnCode(
-  home: string,
-  ref: string,
-  codeRef: string,
-  note: string,
-  author: string,
-  cwd = process.cwd(),
-): Effect.Effect<DocComment, CliError, SessionsStore | CommentsStore> {
-  return Effect.gen(function* () {
-    if (!note.trim()) return yield* new CliError({ message: "comment text is empty", code: 2 });
-    const parsed = parseCodeRef(codeRef);
-    if (!parsed) return yield* new CliError({ message: `--code takes <repo-relative-path>:L<n> (got "${codeRef}")`, code: 2 });
-    const { session, file, doc } = yield* find(home, ref, cwd);
-    const store = yield* CommentsStore;
-    const repo = docMeta(session.path).repo;
-    if (!repo) return yield* new CliError({ message: `${session.path} is not inside a git repository`, code: 1 });
-    const lines = yield* readLines(join(repo.root, parsed.path));
-    if (!lines) return yield* new CliError({ message: `no such file in ${repo.name}: ${parsed.path}`, code: 1 });
-    const lineText = lines[parsed.start - 1];
-    if (lineText === undefined) return yield* new CliError({ message: `${parsed.path} has no line ${parsed.start}`, code: 1 });
-    if (parsed.end > lines.length) return yield* new CliError({ message: `${parsed.path} has no line ${parsed.end}`, code: 1 });
-    const code = { path: parsed.path, startLine: parsed.start, endLine: parsed.end, side: "new" as const, lineText };
-    const made = yield* store.mutate(file, (f) => addComment(f, doc, { code, body: note.trim(), author })).pipe(
       Effect.mapError((error) => cliFailure(error)),
     );
     return { ...made, doc };
