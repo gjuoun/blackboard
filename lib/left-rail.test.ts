@@ -16,9 +16,4 @@ describe("left rail", () => {
     expect(parseLeftTab("outline", "code")).toBe("workspace");
     expect(parseLeftTab("bogus", "doc")).toBe("contents");
   });
-
-  test("left: stream shows timeline only", () => {
-    expect(LEFT_TABS_BY_TYPE.stream).toEqual(["timeline"]);
-    expect(parseLeftTab("workspace", "stream")).toBe("timeline");
-  });
 });

@@ -95,6 +95,22 @@
     },
     "body": "{\"comments\":[{\"id\":\"<id>\",\"general\":true,\"body\":\"**first** note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p><strong>first</strong> note</p>\"}]}"
   },
+  "comments.POST.quoted.ok": {
+    "status": 201,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"comment\":{\"id\":\"<id>\",\"quote\":{\"exact\":\"Later text.\",\"prefix\":\"\",\"suffix\":\"\"},\"body\":\"a passage note\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p>a passage note</p>\"}}"
+  },
+  "comments.GET.two": {
+    "status": 200,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"comments\":[{\"id\":\"<id>\",\"general\":true,\"body\":\"**first** note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p><strong>first</strong> note</p>\"},{\"id\":\"<id>\",\"quote\":{\"exact\":\"Later text.\",\"prefix\":\"\",\"suffix\":\"\"},\"body\":\"a passage note\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p>a passage note</p>\"}]}"
+  },
   "comments.PATCH.unknown-session": {
     "status": 400,
     "contentType": "application/json;charset=utf-8",

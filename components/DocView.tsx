@@ -26,7 +26,7 @@ type DocViewProps = {
   session: string;
   /** This doc's review rounds, listed after the anchored comments. */
   reviews?: Review[];
-  /** Set on every document with source (doc, code, stream): the right rail gets a File tab. */
+  /** Set on every document with source (doc, code): the right rail gets a File tab. */
   fileRail?: FileRail;
   title: string;
   path: string;
@@ -34,8 +34,6 @@ type DocViewProps = {
   initialComments: RenderedComment[];
   header: ReactNode;
   toc: ReactNode;
-  /** A stream's timeline. The desktop rail shows it inside the toc node; a phone opens it from the top bar. */
-  timeline?: ReactNode;
   rightTab?: RightTab;
 };
 
@@ -43,7 +41,7 @@ type DocViewProps = {
  * The doc plus its comments. The anchoring and selection half lives in `useDocAnchors`; this
  * component owns the layout: the three columns on desktop, the bottom sheets on a phone.
  */
-export function DocView({ session, reviews = [], title, path, html, initialComments, header, toc, timeline, rightTab = "comments", fileRail }: DocViewProps) {
+export function DocView({ session, reviews = [], title, path, html, initialComments, header, toc, rightTab = "comments", fileRail }: DocViewProps) {
   const [author, setAuthor] = useState("jun");
   useEffect(() => {
     const saved = localStorage.getItem(AUTHOR_KEY);
@@ -63,14 +61,6 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
   const activeTab: RightTab = fileRail && rightTab === "file" ? "file" : "comments";
   useEffect(() => patchDoc({ open: openCount }), [openCount, chrome.doc?.id]);
   const [composing, setComposing] = useState<QuoteSelector | null>(null);
-  // The block a phone's timeline sheet was closed with. The fragment is set once the sheet has
-  // unmounted, because the sheet holds a scroll lock until then: navigating earlier would scroll a
-  // locked body and the browser would put the old position back. Setting location.hash is the same
-  // navigation the entry's own link does, so the fragment scroll honours the block's scroll-margin-top.
-  const [jump, setJump] = useState<string | null>(null);
-  useEffect(() => {
-    if (jump) location.hash = jump;
-  }, [jump]);
   const [note, setNote] = useState("");
   const showResolved = chrome.showResolved;
   const setShowResolved = (v: boolean) => setChrome({ showResolved: v });
@@ -172,7 +162,6 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
               right rail's. A p-3 wrapper here put 12px above the tabs and read as a stray gap. */}
           <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto px-3 pb-3">
             {toc}
-            {timeline}
           </div>
           <PanelResizer
             which="toc"
@@ -232,33 +221,6 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
               <div onClick={(e) => (e.target as HTMLElement).closest("a") && setChrome({ sheet: null })}>{toc}</div>
             </SheetContent>
           </Sheet>
-          {timeline ? (
-            <Sheet
-              open={chrome.sheet === "timeline"}
-              onOpenChange={(o) => {
-                setChrome({ sheet: o ? "timeline" : null });
-                // Opening starts a fresh jump, so re-picking the same block lands again.
-                if (o) setJump(null);
-              }}
-            >
-              <SheetContent side="bottom" showCloseButton={false} className="bg-background max-h-[80vh] overflow-y-auto rounded-t-2xl px-4 pt-2 pb-8">
-                <div className="bg-border mx-auto mb-3 h-1 w-10 shrink-0 rounded-full" aria-hidden />
-                <SheetTitle className="sr-only">Timeline</SheetTitle>
-                <SheetDescription className="sr-only">Jump to a block</SheetDescription>
-                <div
-                  onClick={(e) => {
-                    const id = (e.target as HTMLElement).closest("a")?.getAttribute("href")?.slice(1);
-                    if (!id) return;
-                    e.preventDefault();
-                    setChrome({ sheet: null });
-                    setJump(id);
-                  }}
-                >
-                  {timeline}
-                </div>
-              </SheetContent>
-            </Sheet>
-          ) : null}
           <Sheet open={chrome.sheet === "cm"} onOpenChange={(o) => setChrome({ sheet: o ? "cm" : null })}>
             <SheetContent side="bottom" showCloseButton={false} className="bg-background max-h-[80vh] overflow-y-auto rounded-t-2xl px-4 pt-2 pb-8">
               <div className="bg-border mx-auto mb-3 h-1 w-10 shrink-0 rounded-full" aria-hidden />

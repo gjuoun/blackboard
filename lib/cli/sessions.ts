@@ -1,43 +1,23 @@
 import { Effect } from "effect";
 import { cliFailure, CliError, find } from "../cli";
-import { docType } from "../doc-type";
 import { errorMessage } from "../effect/errors";
-import { realDoc, SessionsStore, type Session, type SessionKind, type SessionRow } from "../sessions";
-import { StreamStore } from "../stream-store";
+import { realDoc, SessionsStore, type Session, type SessionRow } from "../sessions";
 
 const DEFAULT_URL = "http://127.0.0.1:38770";
 
 /** Where the web app shows a session: $BLACKBOARD_URL (default the local app) + /s/<id>. */
 export const sessionUrl = (id: string) => `${(process.env.BLACKBOARD_URL || DEFAULT_URL).replace(/\/+$/, "")}/s/${id}`;
 
-/** Where the web app shows one block of a stream: the session URL with the block's stable id as its fragment. */
-export const blockUrl = (id: string, block: string) => `${sessionUrl(id)}#${block}`;
-
-/**
- * Register a markdown file as a session (again is fine) and give its URL.
- *
- * A stream session also gets its metadata line. meta.title is used when given, else the session
- * id; a file that already has content is never rewritten (old files are migrated with writeMeta).
- */
+/** Register a markdown file as a session (again is fine) and give its URL. */
 export function open(
   home: string,
   file: string,
   cwd = process.cwd(),
-  kind?: SessionKind,
-  meta?: { title?: string; owner?: string },
-): Effect.Effect<{ session: Session; url: string }, CliError, SessionsStore | StreamStore> {
+): Effect.Effect<{ session: Session; url: string }, CliError, SessionsStore> {
   return Effect.gen(function* () {
     const sessions = yield* SessionsStore;
-    const streams = yield* StreamStore;
     const real = yield* Effect.try({ try: () => realDoc(file, cwd), catch: (error) => cliFailure({ message: errorMessage(error) }) });
-    const kinded = docType(real, kind ?? "plain");
-    if (!kinded.ok) return yield* new CliError({ message: kinded.error, code: 2 });
-    const session = yield* sessions.open(home, real, cwd, kind).pipe(Effect.mapError((error) => cliFailure(error)));
-    if ((kind ?? session.kind) === "stream") {
-      const title = meta?.title?.trim() || session.id;
-      const owner = meta?.owner?.trim();
-      yield* streams.create(real, { title, ...(owner ? { owner } : {}) }).pipe(Effect.mapError((error) => cliFailure(error)));
-    }
+    const session = yield* sessions.open(home, real, cwd).pipe(Effect.mapError((error) => cliFailure(error)));
     return { session, url: sessionUrl(session.id) };
   });
 }

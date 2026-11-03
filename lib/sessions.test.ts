@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { runSync } from "../test/app";
-import { realDoc, SCRATCHPAD_ID, servablePath, sessionCommentsPath, SessionsStore, type Session, type SessionKind } from "./sessions";
+import { realDoc, SCRATCHPAD_ID, servablePath, sessionCommentsPath, SessionsStore, type Session } from "./sessions";
 
 /** The registry operations as the app runs them, synchronously: every test here is single process. */
 const withStore = <A>(work: (store: SessionsStore["Service"]) => Effect.Effect<A, { message: string }>): A =>
@@ -14,7 +14,7 @@ const withStore = <A>(work: (store: SessionsStore["Service"]) => Effect.Effect<A
       return yield* work(store);
     }),
   );
-const openSession = (home: string, file: string, cwd = process.cwd(), kind?: SessionKind): Session => withStore((s) => s.open(home, file, cwd, kind));
+const openSession = (home: string, file: string, cwd = process.cwd()): Session => withStore((s) => s.open(home, file, cwd));
 const closeSession = (home: string, id: string): Session => withStore((s) => s.close(home, id));
 const listSessions = (home: string): Session[] => withStore((s) => s.list(home));
 const getSession = (home: string, id: string): Session | null => withStore((s) => s.get(home, id));
@@ -48,18 +48,12 @@ describe("realDoc", () => {
     expect(() => realDoc(join(docs, "sneaky.md"))).toThrow(/not a markdown file/);
   });
 
-  test("realDoc: jsonl and code are servable", () => {
+  test("realDoc: jsonl is refused, code is servable", () => {
     const { docs } = fixture();
     writeFileSync(join(docs, "log.jsonl"), "{}\n");
     writeFileSync(join(docs, "app.tsx"), "export {};\n");
-    expect(realDoc(join(docs, "log.jsonl"))).toBe(join(docs, "log.jsonl"));
+    expect(() => realDoc(join(docs, "log.jsonl"))).toThrow(/not a markdown file/);
     expect(realDoc(join(docs, "app.tsx"))).toBe(join(docs, "app.tsx"));
-  });
-
-  test("realDoc: stream over 1 MB still servable", () => {
-    const { docs } = fixture();
-    writeFileSync(join(docs, "big.jsonl"), "x".repeat(1024 * 1024 + 1));
-    expect(realDoc(join(docs, "big.jsonl"))).toBe(join(docs, "big.jsonl"));
   });
 
   test("realDoc: source over 1 MB refused", () => {
@@ -111,23 +105,24 @@ describe("openSession", () => {
     expect(onDisk).toEqual({ version: 1, sessions: [s] });
   });
 
-  test("records the kind, defaults to plain, and keeps it when a re-open omits it", () => {
+  test("a new session records no kind", () => {
     const { home, docs } = fixture();
-    const plain = openSession(home, join(docs, "design.md"));
-    expect(plain.kind).toBe("plain");
-    const stream = openSession(home, join(docs, "design.md"), process.cwd(), "stream");
-    expect(stream.kind).toBe("stream");
-    expect(openSession(home, join(docs, "design.md")).kind).toBe("stream");
-    expect(openSession(home, join(docs, "design.md"), process.cwd(), "plain").kind).toBe("plain");
+    const s = openSession(home, join(docs, "design.md"));
+    expect(s.kind).toBeUndefined();
+    const onDisk = JSON.parse(readFileSync(join(home, "sessions.json"), "utf8"));
+    expect(onDisk.sessions[0].kind).toBeUndefined();
   });
 
-  test("a legacy entry without kind reads as undefined (plain)", () => {
+  test("a legacy kind: stream entry reads back without throwing", () => {
     const { home, docs } = fixture();
     const s = openSession(home, join(docs, "design.md"));
     const reg = JSON.parse(readFileSync(join(home, "sessions.json"), "utf8"));
-    delete reg.sessions[0].kind;
+    writeFileSync(join(docs, "log.jsonl"), "");
+    reg.sessions.push({ id: "0123456789", path: join(docs, "log.jsonl"), createdAt: "2026-01-01T00:00:00.000Z", openedAt: "2026-01-01T00:00:00.000Z", kind: "stream" });
     writeFileSync(join(home, "sessions.json"), JSON.stringify(reg));
-    expect(getSession(home, s.id)?.kind).toBeUndefined();
+    expect(listSessions(home)).toHaveLength(2);
+    expect(getSession(home, "0123456789")?.kind).toBe("stream");
+    expect(getSession(home, s.id)?.id).toBe(s.id);
   });
 });
 

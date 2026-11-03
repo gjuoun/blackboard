@@ -1,20 +1,19 @@
 /**
  * The left rail's tabs for each document type. Pure, so the rule is tested without a browser.
  * A doc has 内容 (the TOC) and 工作区 (the repo tree). A code file has only 工作区: the outline (大纲)
- * is not offered, by ruling. A stream has only 时间线.
+ * is not offered, by ruling.
  */
 import type { DocType } from "./doc-type";
 
-export type LeftTab = "contents" | "workspace" | "timeline";
+export type LeftTab = "contents" | "workspace";
 
 /** The tabs a document type offers, in the order they show. */
 export const LEFT_TABS_BY_TYPE: Record<DocType, readonly LeftTab[]> = {
   doc: ["contents", "workspace"],
   code: ["workspace"],
-  stream: ["timeline"],
 };
 
-export const LEFT_LABELS: Record<LeftTab, string> = { contents: "内容", workspace: "工作区", timeline: "时间线" };
+export const LEFT_LABELS: Record<LeftTab, string> = { contents: "内容", workspace: "工作区" };
 
 /**
  * The tab to show for a type. A value the type does not offer (or none) falls back to its first tab,

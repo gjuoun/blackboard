@@ -9,9 +9,9 @@ import { applyPrefs, DEFAULT_CHROME, parsePrefs, PREFS_KEY, serializePrefs, type
  * persists under `bb-chrome` — the same key the previous version wrote, so an upgrade keeps its
  * four booleans. On a phone the panels are bottom sheets, so `sheet` says which one is showing.
  */
-/** `kind` is the open document's type; `streamHref` is the stream to jump to from anywhere, or null when there is none. */
-type DocInfo = { id: string; path: string; readable: boolean; hasToc: boolean; open: number; kind: "doc" | "code" | "stream"; streamHref: string | null };
-type Chrome = StoredChrome & { sheet: "toc" | "cm" | "timeline" | null; doc: DocInfo | null };
+/** `readable` is true when the file has a body the reader can scroll (a doc or a code file). */
+type DocInfo = { id: string; path: string; readable: boolean; hasToc: boolean; open: number };
+type Chrome = StoredChrome & { sheet: "toc" | "cm" | null; doc: DocInfo | null };
 
 const DEFAULTS: Chrome = { ...DEFAULT_CHROME, sheet: null, doc: null };
 

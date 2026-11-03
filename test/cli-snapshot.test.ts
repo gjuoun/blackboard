@@ -29,8 +29,6 @@ function fixture() {
   return { base, home, docs };
 }
 
-const ULID = /\b[bs]-[0-9A-HJKMNP-TV-Z]{26}\b/g;
-
 /**
  * Everything volatile (the temp folder, ids, git shas, clock) becomes a placeholder. A fixture that
  * happens to live under $HOME is printed there as "~/...", so that spelling of the same folder is
@@ -46,7 +44,6 @@ function normalize(text: string, base: string): string {
     .replace(/@ [0-9a-f]{7}\b/g, "@ <sha>")
     .replace(/\b[0-9a-f]{10}\b/g, "<id>")
     .replace(/\b[crv]_[0-9a-f]{12}\b/g, (m) => `${m.slice(0, 2)}<id>`)
-    .replace(ULID, (m) => `${m.slice(0, 2)}<ulid>`)
     .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g, "<time>");
 }
 
@@ -93,8 +90,9 @@ describe("the CLI answers the same thing after every refactor", () => {
     // open, twice (idempotent)
     record("open.ok", ["open", "--no-browser", "--no-server", "design.md"]);
     record("open.again", ["open", "--no-browser", "--no-server", "design.md"]);
-    record("open.bad-kind", ["open", "--no-browser", "--no-server", "--kind", "cloud", "design.md"]);
+    record("open.unknown-option", ["open", "--no-browser", "--no-server", "--kind", "stream", "design.md"]);
     record("open.not-markdown", ["open", "--no-browser", "--no-server", "notes.txt"]);
+    record("open.jsonl", ["open", "--no-browser", "--no-server", "log.jsonl"]);
     record("sessions.one", ["sessions"]);
     record("sessions.one-json", ["sessions", "--json"]);
 
@@ -117,16 +115,6 @@ describe("the CLI answers the same thing after every refactor", () => {
     record("review.bad-round", ["review", "design.md", "--round", "0", "x"]);
     record("close.ok", ["close", "design.md"]);
     record("close.again", ["close", "design.md"]);
-
-    // streams
-    record("open.stream", ["open", "--no-browser", "--no-server", "--kind", "stream", "--title", "Log", "log.jsonl"]);
-    const block = json("block.append", ["block", "log.jsonl", "--action", "answer", "--json", "first block"]);
-    record("block.edit", ["block", "log.jsonl", "--action", "edit", "--edit", block.id, "rewritten"]);
-    record("block.bad-action", ["block", "log.jsonl", "--action", "nope", "x"]);
-    record("block.not-a-stream", ["block", "design.md", "--action", "answer", "x"]);
-    record("header.first", ["header", "log.jsonl", "--title", "标题", "--owner", "jun"]);
-    record("header.again", ["header", "log.jsonl", "--title", "标题", "--owner", "jun"]);
-    record("export.ok", ["export", "log.jsonl"]);
 
     // the binary itself
     record("serve.status", ["serve", "status"]);

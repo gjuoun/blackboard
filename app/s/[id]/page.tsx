@@ -17,16 +17,13 @@ import { docType, type DocType } from "@/lib/doc-type";
 import { LEFT_TABS_BY_TYPE, parseLeftTab, type LeftTab } from "@/lib/left-rail";
 import { LeftRail } from "@/components/LeftRail";
 import { WorkspaceTree } from "@/components/WorkspaceTree";
-import { StreamTimeline } from "@/components/StreamTimeline";
 import { FileView } from "@/components/FileView";
 import { changedAgainstHead } from "@/lib/file-source";
-import { parseStream } from "@/lib/stream-doc";
-import { renderStream } from "@/lib/stream-html";
 import type { WorkspacePane } from "@/lib/workspace-pane";
 import { renderMarkdown } from "@/lib/markdown";
 import { parseRightTab } from "@/lib/prefs";
 import { servablePath, sessionCommentsPath, tildify } from "@/lib/sessions";
-import { loadSession as load, loadWorkspacePane, streamHref as streamHrefFor } from "@/lib/session-view";
+import { loadSession as load, loadWorkspacePane } from "@/lib/session-view";
 
 /**
  * The left rail for a type: its tab strip and the pane under the active tab. Tabs are links
@@ -60,28 +57,19 @@ function leftPane(
   const active: LeftTab = parseLeftTab(typeof requested === "string" ? requested : undefined, type);
   let pane: React.ReactNode;
   if (active === "contents") pane = toc;
-  else if (active === "workspace") {
+  else {
     pane = workspace.state === "outside-git" ? (
       <p className="text-muted-foreground p-3 text-[13px]">不在 git 仓库中</p>
     ) : (
       <div className="p-3"><WorkspaceTree nodes={workspace.tree} current={workspace.current} sessionByPath={workspace.sessionByPath} /></div>
     );
-  } else pane = null; // a stream's timeline is not a pane: it opens as a sheet on a phone, so DocView renders it
+  }
   return (
     <>
       <LeftRail tabs={tabs} active={active} hrefFor={(t) => `/s/${id}?left=${t}`} />
       {pane}
     </>
   );
-}
-
-/** A stream's metadata title, else the session row's title (file name for a stream). Never throws. */
-function streamDocTitle(path: string, fallback: string): string {
-  try {
-    return parseStream(readFileSync(path, "utf8")).meta?.title ?? fallback;
-  } catch {
-    return fallback;
-  }
 }
 
 /** The tab title is the doc's own title; the description names the file, never its folder. */
@@ -92,9 +80,7 @@ export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promis
   const found = await load(home, id);
   if (!found) return { title: "No such session" };
   const { session, row } = found;
-  // A stream's own metadata line titles the page; an old file falls back to the session row's title.
-  const type = docType(session.path, session.kind ?? "plain");
-  const title = type.ok && type.type === "stream" ? streamDocTitle(session.path, row.title) : row.title;
+  const title = row.title;
   const description = `${basename(session.path)} on Blackboard: ${row.stats.sections} sections, ${row.open} open comments.`;
   return { title, description, openGraph: { title, description }, twitter: { card: "summary_large_image", title, description } };
 }
@@ -108,6 +94,9 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   const found = await load(home, id);
   if (!found) notFound();
   const { session, row } = found;
+  // A registry from the streaming era may still hold kind: "stream" entries. Such a session is
+  // not openable: it answers this page's not-found surface instead of throwing.
+  if (session.kind === "stream") notFound();
   const file = servablePath(session);
 
   // Two rows, on every width. Row 1: the file's full path. Row 2: its project, branch and linked worktree,
@@ -162,7 +151,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   if (!file) {
     return (
       <>
-        <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} streamHref={await streamHrefFor(home)} />
+        <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} />
         <main className="mx-auto max-w-2xl px-4 py-10 md:px-6" data-testid="doc-missing">
           {header}
           <h1 className="text-2xl font-bold">{row.title}</h1>
@@ -178,8 +167,8 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   }
 
   // A source file is its own page: the text is shown as one highlighted block, with no front matter,
-  // no TOC and no file links. A stream is shown by its own renderer (step 6); until then it is a placeholder.
-  const type = docType(file, session.kind ?? "plain");
+  // no TOC and no file links.
+  const type = docType(file);
   if (type.ok && type.type === "code") {
     const src = readFileSync(file, "utf8");
     const { html } = await renderCode(src, file);
@@ -188,25 +177,8 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     const left = leftPane(id, "code", search.left, null, await loadWorkspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home));
     return (
       <>
-        <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} kind="code" streamHref={await streamHrefFor(home)} />
+        <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} />
         <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={left} rightTab={parseRightTab(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
-      </>
-    );
-  }
-  if (type.ok && type.type === "stream") {
-    // One read of the file, then one render per block. The composer is not part of the body: writing
-    // happens in the comments rail, so the body ends at its last block.
-    const parsed = parseStream(readFileSync(file, "utf8"));
-    const blocks = parsed.blocks;
-    const title = parsed.meta?.title ?? row.title;
-    const streamHtml = await renderStream(blocks);
-    // Same comment file read as the doc branch: this stream's comments and its round reviews.
-    const streamFile = readComments(sessionCommentsPath(home, session.id));
-    const streamReviews = (streamFile.reviews ?? []).filter((r) => r.doc === basename(file));
-    return (
-      <>
-        <RegisterTab id={session.id} title={title} path={session.path} readable={false} hasToc={false} kind="stream" streamHref={`/s/${session.id}`} />
-        <DocView key={session.id} session={session.id} title={title} path={session.path} html={streamHtml} initialComments={renderComments(streamFile.docs[basename(file)] ?? [])} reviews={streamReviews} header={header} toc={leftPane(id, "stream", search.left, null, { state: "outside-git" })} timeline={<StreamTimeline blocks={blocks} title={title} />} rightTab={parseRightTab(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
       </>
     );
   }
@@ -219,7 +191,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
   const reviews = (commentFile.reviews ?? []).filter((r) => r.doc === doc);
   return (
     <>
-      <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 1} streamHref={await streamHrefFor(home)} />
+      <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 1} />
       <DocView
         key={session.id}
         session={session.id}

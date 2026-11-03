@@ -20,14 +20,3 @@ export function loadSession(home: string, id: string): Promise<{ session: Sessio
 export function loadWorkspacePane(repoRoot: string | null, relPath: string | null, home: string): Promise<WorkspacePane> {
   return runtime.runPromise(workspacePane(repoRoot, relPath, home));
 }
-
-/** The stream the top-bar timeline button opens: the most recently opened stream session, or null. */
-export function streamHref(home: string): Promise<string | null> {
-  return runtime.runPromise(
-    Effect.gen(function* () {
-      const sessions = yield* SessionsStore;
-      const found = (yield* sessions.list(home)).filter((x) => x.kind === "stream").sort((a, b) => b.openedAt.localeCompare(a.openedAt))[0];
-      return found ? `/s/${found.id}` : null;
-    }),
-  );
-}

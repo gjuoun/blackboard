@@ -63,10 +63,10 @@ export function formatComments(list: DocComment[]): string {
     .join("\n\n");
 }
 
-/** One line per session: id, title, where it is, branch, open comments, kind. */
+/** One line per session: id, title, where it is, branch, open comments. */
 export function formatSessions(rows: SessionRow[]): string {
   if (rows.length === 0) return "no sessions (register a file with: blackboard open <file>)";
   return rows
-    .map((r) => `${r.id}  ${r.title}  ${r.location}  ${r.branch ?? "-"}  ${r.open} open  ${r.kind ?? "plain"}${r.missing ? "  (missing)" : ""}`)
+    .map((r) => `${r.id}  ${r.title}  ${r.location}  ${r.branch ?? "-"}  ${r.open} open${r.missing ? "  (missing)" : ""}`)
     .join("\n");
 }
