@@ -247,6 +247,86 @@
     },
     "body": "{\"deleted\":\"<id>\"}"
   },
+  "bind.POST.unknown-session": {
+    "status": 400,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"error\":\"unknown session\"}"
+  },
+  "bind.POST.no-pi-session": {
+    "status": 400,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"error\":\"piSession is required\"}"
+  },
+  "bind.POST.bad-url": {
+    "status": 400,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"error\":\"url must be a loopback http url\"}"
+  },
+  "bind.GET.unknown-session": {
+    "status": 400,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"error\":\"unknown session\"}"
+  },
+  "bind.GET.none": {
+    "status": 200,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"binding\":null}"
+  },
+  "bind.POST.ok": {
+    "status": 200,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"binding\":{\"session\":\"<session>\",\"path\":\"<base>/docs/design.md\",\"piSession\":\"pi-1\",\"url\":\"http://127.0.0.1:41234\",\"boundAt\":\"<time>\",\"lastSeenAt\":\"<time>\"}}"
+  },
+  "bind.GET.bound": {
+    "status": 200,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"binding\":{\"session\":\"<session>\",\"path\":\"<base>/docs/design.md\",\"piSession\":\"pi-1\",\"url\":\"http://127.0.0.1:41234\",\"boundAt\":\"<time>\",\"lastSeenAt\":\"<time>\"}}"
+  },
+  "bind.DELETE.ok": {
+    "status": 200,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"unbound\":\"<session>\"}"
+  },
+  "bind.DELETE.none": {
+    "status": 200,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"unbound\":null}"
+  },
+  "comments.POST.no-binding": {
+    "status": 201,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"unbound note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p>unbound note</p>\"}}"
+  },
   "asset.GET.no-session": {
     "status": 404,
     "contentType": "",

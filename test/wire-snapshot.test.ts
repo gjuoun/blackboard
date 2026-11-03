@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { NextRequest } from "next/server";
 import { open } from "@/lib/cli/sessions";
 import { GET as assetGet } from "@/app/api/asset/[id]/route";
+import { DELETE as bindDelete, GET as bindGet, POST as bindPost } from "@/app/api/bind/route";
 import { GET as commentsGet, PATCH as commentsPatch, POST as commentsPost } from "@/app/api/comments/route";
 import { GET as imageGet } from "@/app/api/comment-images/[id]/route";
 import { POST as imagePost } from "@/app/api/comment-images/route";
@@ -138,6 +139,24 @@ describe("the wire the routes answer today", () => {
     await record("comments.PATCH.reopen.ok", await patch({ session: fx.session, id: comment.id, action: "reopen" }));
     await record("comments.PATCH.delete-reply.ok", await patch({ session: fx.session, id: comment.id, action: "delete-reply", replyId }));
     await record("comments.PATCH.delete.ok", await patch({ session: fx.session, id: comment.id, action: "delete" }));
+
+    // bind — validation, the record, and unbind; the notify never answers on the wire
+    const bindUrl = "http://127.0.0.1/api/bind";
+    const listenerUrl = "http://127.0.0.1:41234";
+    const postBind = (payload: unknown) => bindPost(new NextRequest(bindUrl, body(payload)));
+    const getBind = (session: string) => bindGet(new NextRequest(`${bindUrl}?session=${session}`));
+    const deleteBind = (session: string) => bindDelete(new NextRequest(`${bindUrl}?session=${session}`, { method: "DELETE" }));
+    await record("bind.POST.unknown-session", await postBind({ session: "nosuchid", piSession: "pi-1", url: listenerUrl }));
+    await record("bind.POST.no-pi-session", await postBind({ session: fx.session, url: listenerUrl }));
+    await record("bind.POST.bad-url", await postBind({ session: fx.session, piSession: "pi-1", url: "http://example.com:41234" }));
+    await record("bind.GET.unknown-session", await getBind("nosuchid"));
+    await record("bind.GET.none", await getBind(fx.session));
+    await record("bind.POST.ok", await postBind({ session: fx.session, piSession: "pi-1", url: listenerUrl }));
+    await record("bind.GET.bound", await getBind(fx.session));
+    await record("bind.DELETE.ok", await deleteBind(fx.session));
+    await record("bind.DELETE.none", await deleteBind(fx.session));
+    // A submit with no binding: stored and answered as before, and the notify stays off the wire.
+    await record("comments.POST.no-binding", await post({ session: fx.session, general: true, body: "unbound note" }));
 
     // asset
     const asset = (id: string, p?: string) => assetGet(new Request(`http://127.0.0.1/api/asset/${id}${p === undefined ? "" : `?p=${p}`}`), { params: Promise.resolve({ id }) });

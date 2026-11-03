@@ -20,6 +20,14 @@ export const CommentPostBody = Schema.Struct({
 });
 export type CommentPostBody = typeof CommentPostBody.Type;
 
+/** POST /api/bind: the document, the pi session that opened it, and the listener it runs. */
+export const BindPostBody = Schema.Struct({
+  session: Schema.optional(Schema.String),
+  piSession: Schema.optional(Schema.String),
+  url: Schema.optional(Schema.String),
+});
+export type BindPostBody = typeof BindPostBody.Type;
+
 /** PATCH /api/comments: the action union, with the fields each action needs. */
 export const CommentPatchBody = Schema.Struct({
   session: Schema.String,
@@ -30,6 +38,10 @@ export const CommentPatchBody = Schema.Struct({
   author: Schema.optional(Schema.Unknown),
 });
 export type CommentPatchBody = typeof CommentPatchBody.Type;
+
+/** The request body as a value; a body that is not JSON is null, exactly as a hand-written catch returned. */
+export const jsonBody = (req: Request): Effect.Effect<unknown | null> =>
+  Effect.tryPromise(() => req.json()).pipe(Effect.catch(() => Effect.succeed(null)));
 
 /** The first property a decode failure points at; empty when the value itself is the wrong shape. */
 function firstPath(issue: SchemaIssue.Issue): ReadonlyArray<PropertyKey> {
@@ -67,6 +79,13 @@ export const postReject = (key: string): ApiFailure =>
     : key === "images"
       ? new InvalidInput({ message: "images must be up to 4 stored image ids", status: 400, field: "images" })
       : sessionNotFound(400);
+
+/** POST /api/bind: a missing session is an unknown document; every other key names its own message. */
+export const bindReject = (key: string): ApiFailure => {
+  if (key === "piSession") return new InvalidInput({ message: "piSession is required", status: 400, field: "piSession" });
+  if (key === "url") return new InvalidInput({ message: "url must be a loopback http url", status: 400, field: "url" });
+  return sessionNotFound(400);
+};
 
 /** PATCH: replyId is named by two different messages, so the action picks which one. */
 export const patchReject = (action: unknown) => (key: string): ApiFailure => {

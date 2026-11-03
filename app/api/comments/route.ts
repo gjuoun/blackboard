@@ -1,6 +1,8 @@
 import { basename } from "node:path";
 import { Effect } from "effect";
 import type { NextRequest } from "next/server";
+import { notifyAgent, payloadFor } from "@/lib/agent-notify";
+import { AgentsStore } from "@/lib/agents-store";
 import type { QuoteSelector } from "@/lib/anchor";
 import { IMAGE_ID } from "@/lib/comment-images";
 import { renderComments, type RenderedComment } from "@/lib/comment-markdown";
@@ -17,23 +19,26 @@ import {
 } from "@/lib/comments-store";
 import { bodyRequired, CommentNotFound, InvalidInput, IoFailure, ReplyNotFound, sessionNotFound, type ApiFailure, type LockTimeout } from "@/lib/effect/errors";
 import { respond } from "@/lib/effect/respond";
-import { CommentPatchBody, CommentPostBody, decodeBody, patchReject, postReject } from "@/lib/effect/schema";
+import { CommentPatchBody, CommentPostBody, decodeBody, jsonBody, patchReject, postReject } from "@/lib/effect/schema";
 import { getHome } from "@/lib/home";
-import { servablePath, sessionCommentsPath, SessionsStore } from "@/lib/sessions";
+import { servablePath, sessionCommentsPath, SessionsStore, type Session } from "@/lib/sessions";
 
 const MAX_BODY = 10_000;
 
 /** One comment as the client shows it: its bodies rendered to HTML. */
 const one = (c: Comment): RenderedComment => renderComments([c])[0];
 
+/** Where a comment for these requests lives: the doc, its comment file, and the session it names. */
+type Target = { home: string; session: Session; file: string; doc: string };
+
 /** The comment file and doc key for a request, but only for a registered session whose file can still be served. */
-function target(session: string): Effect.Effect<{ file: string; doc: string } | null, IoFailure, SessionsStore> {
+function target(session: string): Effect.Effect<Target | null, IoFailure, SessionsStore> {
   return Effect.gen(function* () {
     const sessions = yield* SessionsStore;
     const home = getHome();
     const found = yield* sessions.get(home, session);
     if (!found || !servablePath(found)) return null;
-    return { file: sessionCommentsPath(home, found.id), doc: basename(found.path) };
+    return { home, session: found, file: sessionCommentsPath(home, found.id), doc: basename(found.path) };
   });
 }
 
@@ -47,17 +52,13 @@ function quote(v: unknown): QuoteSelector | null {
   return { exact: q.exact as string, prefix: q.prefix.slice(-64), suffix: q.suffix.slice(0, 64) };
 }
 
-/** The request body as a value; a body that is not JSON is null, exactly as the old catch returned. */
-const bodyOf = (req: NextRequest): Effect.Effect<unknown | null> =>
-  Effect.tryPromise(() => req.json()).pipe(Effect.catch(() => Effect.succeed(null)));
-
 /** The action a raw PATCH body names, used to pick the replyId message when the schema rejects it. */
 const actionOf = (raw: unknown): unknown => (raw && typeof raw === "object" ? (raw as Record<string, unknown>).action : undefined);
 
 /** A raw POST body, decoded by its schema, plus the session it names. */
-function postTarget(req: NextRequest): Effect.Effect<{ body: typeof CommentPostBody.Type; file: string; doc: string }, ApiFailure, SessionsStore> {
+function postTarget(req: NextRequest): Effect.Effect<{ body: typeof CommentPostBody.Type } & Target, ApiFailure, SessionsStore> {
   return Effect.gen(function* () {
-    const raw = yield* bodyOf(req);
+    const raw = yield* jsonBody(req);
     if (raw === null) return yield* Effect.fail(sessionNotFound(400));
     const body = yield* decodeBody(CommentPostBody, raw, postReject);
     const found = yield* target(body.session);
@@ -67,9 +68,9 @@ function postTarget(req: NextRequest): Effect.Effect<{ body: typeof CommentPostB
 }
 
 /** The same for a PATCH: the action union is decoded by the schema, and it chooses the replyId message. */
-function patchTarget(req: NextRequest): Effect.Effect<{ body: typeof CommentPatchBody.Type; file: string; doc: string }, ApiFailure, SessionsStore> {
+function patchTarget(req: NextRequest): Effect.Effect<{ body: typeof CommentPatchBody.Type } & Target, ApiFailure, SessionsStore> {
   return Effect.gen(function* () {
-    const raw = yield* bodyOf(req);
+    const raw = yield* jsonBody(req);
     if (raw === null) return yield* Effect.fail(sessionNotFound(400));
     const body = yield* decodeBody(CommentPatchBody, raw, patchReject(actionOf(raw)));
     const found = yield* target(body.session);
@@ -87,6 +88,21 @@ function storeCall<A>(effect: Effect.Effect<A, IoFailure | LockTimeout>): Effect
   return effect.pipe(
     Effect.mapError((error): ApiFailure => (/not found/.test(error.message) ? notFound(error.message) : error)),
   );
+}
+
+/**
+ * Tell the pi session bound to this doc that a comment was just submitted. Only a submit calls
+ * this: a reply, an edit, a delete or a status change stays quiet. The write already landed: the
+ * lookup ignores a missing or unreadable agents file, and the POST itself is not awaited, so a
+ * session that is gone cannot fail or slow down the submitter.
+ */
+function ping(req: NextRequest, at: Pick<Target, "home" | "session" | "doc">, comment: Comment, body: string, author: string) {
+  return Effect.gen(function* () {
+    const agents = yield* AgentsStore;
+    const binding = yield* agents.get(at.home, at.session.id).pipe(Effect.catch(() => Effect.succeed(null)));
+    const pageUrl = new URL(req.url).origin + `/s/${at.session.id}`;
+    notifyAgent(binding, payloadFor({ session: at.session.id, doc: at.doc, comment, body, author, pageUrl }));
+  });
 }
 
 /** GET ?session= — the doc comments, open and resolved. */
@@ -107,7 +123,7 @@ export async function POST(req: NextRequest) {
   return respond(
     Effect.gen(function* () {
       const comments = yield* CommentsStore;
-      const { body: b, file, doc } = yield* postTarget(req);
+      const { body: b, file, doc, home, session } = yield* postTarget(req);
       const q = quote(b.quote);
       const body = text(b.body, MAX_BODY);
       if (!body) return yield* Effect.fail(bodyRequired());
@@ -118,7 +134,9 @@ export async function POST(req: NextRequest) {
       const images = b.images === undefined ? [] : b.images.every((x) => IMAGE_ID.test(x)) ? [...b.images] : null;
       if (images === null || images.length > 4) return yield* Effect.fail(new InvalidInput({ message: "images must be up to 4 stored image ids", status: 400, field: "images" }));
       const kind = q ? { quote: q } : { general: true as const };
-      const comment = yield* storeCall(comments.mutate(file, (f) => addComment(f, doc, { ...kind, body, author: author(b.author), images })));
+      const who = author(b.author);
+      const comment = yield* storeCall(comments.mutate(file, (f) => addComment(f, doc, { ...kind, body, author: who, images })));
+      yield* ping(req, { home, session, doc }, comment, body, who);
       return { comment: one(comment) };
     }),
     201,
@@ -149,7 +167,8 @@ function patchProgram(req: NextRequest): Effect.Effect<Record<string, unknown>, 
       if (!body) return yield* Effect.fail(bodyRequired());
       const joinReplyId = b.replyId === undefined ? undefined : (text(b.replyId, 64) ?? undefined);
       if (b.replyId !== undefined && !joinReplyId) return yield* Effect.fail(new InvalidInput({ message: "replyId must be a reply id", status: 400, field: "replyId" }));
-      return { comment: one(yield* storeCall(comments.mutate(file, (f) => addReply(f, doc, id, { body, author: who, joinReplyId })))) };
+      const comment = yield* storeCall(comments.mutate(file, (f) => addReply(f, doc, id, { body, author: who, joinReplyId })));
+      return { comment: one(comment) };
     }
 
     if (b.action === "edit") {
