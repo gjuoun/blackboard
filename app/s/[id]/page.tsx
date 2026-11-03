@@ -13,24 +13,13 @@ import { renderComments } from "@/lib/comment-markdown";
 import { readComments } from "@/lib/comments-store";
 import { getHome } from "@/lib/home";
 import { renderCode } from "@/lib/code-view";
-import { docType, type DocType } from "@/lib/doc-type";
-import { LEFT_TABS_BY_TYPE, parseLeftTab, type LeftTab } from "@/lib/left-rail";
-import { LeftRail } from "@/components/LeftRail";
-import { WorkspaceTree } from "@/components/WorkspaceTree";
+import { docType } from "@/lib/doc-type";
 import { FileView } from "@/components/FileView";
 import { changedAgainstHead } from "@/lib/file-source";
-import type { WorkspacePane } from "@/lib/workspace-pane";
 import { renderMarkdown } from "@/lib/markdown";
 import { parseRightTab } from "@/lib/prefs";
 import { servablePath, sessionCommentsPath, tildify } from "@/lib/sessions";
-import { loadSession as load, loadWorkspacePane } from "@/lib/session-view";
-
-/**
- * The left rail for a type: its tab strip and the pane under the active tab. Tabs are links
- * (`?left=`), so the rail needs no client state. Only 内容 has a pane in this step; the others are
- * filled in by later steps and show a short placeholder until then.
- */
-
+import { loadSession as load } from "@/lib/session-view";
 
 /** The File rail for every document with source. `view=full` opens the full-window reader. */
 function fileRailFor(id: string, file: string, row: { repo: { root: string } | null }, view: string | string[] | undefined): FileRail {
@@ -46,28 +35,17 @@ function filePane(id: string, file: string, row: { repo: { root: string } | null
   return <FileView lines={lines} changed={changed} full={full} backHref={`/s/${id}?tab=file`} fullHref={`/s/${id}?tab=file&view=full`} />;
 }
 
-function leftPane(
-  id: string,
-  type: DocType,
-  requested: string | string[] | undefined,
-  toc: React.ReactNode,
-  workspace: WorkspacePane,
-): React.ReactNode {
-  const tabs = LEFT_TABS_BY_TYPE[type];
-  const active: LeftTab = parseLeftTab(typeof requested === "string" ? requested : undefined, type);
-  let pane: React.ReactNode;
-  if (active === "contents") pane = toc;
-  else {
-    pane = workspace.state === "outside-git" ? (
-      <p className="text-muted-foreground p-3 text-[13px]">不在 git 仓库中</p>
-    ) : (
-      <div className="p-3"><WorkspaceTree nodes={workspace.tree} current={workspace.current} sessionByPath={workspace.sessionByPath} /></div>
-    );
-  }
+/**
+ * The left rail: the 内容 tab and the table of contents under it. A document without a table
+ * of contents (a code file, a flat doc) passes no rail at all, so no empty tab strip shows.
+ */
+function leftRail(toc: React.ReactNode): React.ReactNode {
   return (
     <>
-      <LeftRail tabs={tabs} active={active} hrefFor={(t) => `/s/${id}?left=${t}`} />
-      {pane}
+      <div className="rail-tabs" role="tablist" aria-label="Navigation" data-testid="left-tabs">
+        <span role="tab" className="rail-tab" aria-selected="true" data-testid="left-tab-contents">内容</span>
+      </div>
+      {toc}
     </>
   );
 }
@@ -174,11 +152,10 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     const { html } = await renderCode(src, file);
     // Comments on a source file anchor to its text like a doc's do, so they are read the same way.
     const codeComments = renderComments(readComments(sessionCommentsPath(home, session.id)).docs[basename(file)] ?? []);
-    const left = leftPane(id, "code", search.left, null, await loadWorkspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home));
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} />
-        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={left} rightTab={parseRightTab(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
+        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={null} rightTab={parseRightTab(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
       </>
     );
   }
@@ -201,7 +178,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
         initialComments={renderedComments}
         reviews={reviews}
         header={header}
-        toc={leftPane(id, "doc", search.left, toc.length > 1 ? <Toc toc={toc} /> : null, await loadWorkspacePane(row.repo?.root ?? null, row.repo?.relPath ?? null, home))}
+        toc={toc.length > 1 ? leftRail(<Toc toc={toc} />) : null}
         rightTab={parseRightTab(search.tab)}
         fileRail={fileRailFor(id, file, row, search.view)}
       />
