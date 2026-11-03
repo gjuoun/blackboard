@@ -7,10 +7,9 @@ import type { QuoteSelector } from "@/lib/anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
 import type { Review } from "@/lib/comments-store";
 import { cn } from "@/lib/utils";
-import { clampPanels, type PanelKey, type RightTab } from "@/lib/prefs";
+import { clampPanels, type PanelKey } from "@/lib/prefs";
 import { DESKTOP, patchDoc, setChrome, useChrome, useIsDesktop } from "./chrome";
 import { PanelResizer } from "./PanelResizer";
-import { RightTabs } from "./RightTabs";
 import { CommentPanel } from "./CommentPanel";
 import { ComposerLine } from "./ComposerLine";
 import { DocBody } from "./DocBody";
@@ -20,28 +19,23 @@ import { useDocAnchors } from "./useDocAnchors";
 import { useLiveDoc } from "./useLiveDoc";
 
 const AUTHOR_KEY = "bb-author";
-/** The File tab: the raw source pane, and the href that selects it. */
-export type FileRail = { panel: ReactNode; href: string; commentHref: string };
 type DocViewProps = {
   session: string;
   /** This doc's review rounds, listed after the anchored comments. */
   reviews?: Review[];
-  /** Set on every document with source (doc, code): the right rail gets a File tab. */
-  fileRail?: FileRail;
   title: string;
   path: string;
   html: string;
   initialComments: RenderedComment[];
   header: ReactNode;
   toc: ReactNode;
-  rightTab?: RightTab;
 };
 
 /**
  * The doc plus its comments. The anchoring and selection half lives in `useDocAnchors`; this
  * component owns the layout: the three columns on desktop, the bottom sheets on a phone.
  */
-export function DocView({ session, reviews = [], title, path, html, initialComments, header, toc, rightTab = "comments", fileRail }: DocViewProps) {
+export function DocView({ session, reviews = [], title, path, html, initialComments, header, toc }: DocViewProps) {
   const [author, setAuthor] = useState("jun");
   useEffect(() => {
     const saved = localStorage.getItem(AUTHOR_KEY);
@@ -58,7 +52,6 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
   const desktop = useIsDesktop();
   useLiveDoc(session, reload);
   const openCount = comments.filter((c) => c.status === "open").length;
-  const activeTab: RightTab = fileRail && rightTab === "file" ? "file" : "comments";
   useEffect(() => patchDoc({ open: openCount }), [openCount, chrome.doc?.id]);
   const [composing, setComposing] = useState<QuoteSelector | null>(null);
   const [note, setNote] = useState("");
@@ -192,11 +185,10 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
       </main>
       {desktop ? (
         chrome.cmOpen ? (
-          <aside className="hidden border-border bg-background relative border-l md:block" data-testid="comments-panel" data-tab={activeTab}>
+          <aside className="hidden border-border bg-background relative border-l md:block" data-testid="comments-panel">
             <div className="sticky top-[var(--bar-h)] flex max-h-[calc(100vh-var(--bar-h))] flex-col">
-              {fileRail ? <RightTabs active={activeTab} commentHref={fileRail.commentHref} open={openCount} fileHref={fileRail.href} /> : null}
-              <div className="min-h-0 flex-1 overflow-y-auto p-3.5" data-testid={activeTab === "file" && fileRail ? "file-pane" : "comments-pane"}>
-                {activeTab === "file" && fileRail ? fileRail.panel : panel}
+              <div className="min-h-0 flex-1 overflow-y-auto p-3.5" data-testid="comments-pane">
+                {panel}
               </div>
             </div>
             <PanelResizer

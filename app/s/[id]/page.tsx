@@ -6,7 +6,7 @@ import { connection } from "next/server";
 import { Folder, FolderGit2, FolderTree, GitBranch, GitCommitHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DocChip } from "@/components/DocChip";
-import { DocView, type FileRail } from "@/components/DocView";
+import { DocView } from "@/components/DocView";
 import { RegisterTab } from "@/components/RegisterTab";
 import { Toc } from "@/components/Toc";
 import { renderComments } from "@/lib/comment-markdown";
@@ -14,26 +14,10 @@ import { readComments } from "@/lib/comments-store";
 import { getHome } from "@/lib/home";
 import { renderCode } from "@/lib/code-view";
 import { docType } from "@/lib/doc-type";
-import { FileView } from "@/components/FileView";
-import { changedAgainstHead } from "@/lib/file-source";
 import { renderMarkdown } from "@/lib/markdown";
-import { parseRightTab } from "@/lib/prefs";
 import { servablePath, sessionCommentsPath, tildify } from "@/lib/sessions";
 import { loadSession as load } from "@/lib/session-view";
 
-/** The File rail for every document with source. `view=full` opens the full-window reader. */
-function fileRailFor(id: string, file: string, row: { repo: { root: string } | null }, view: string | string[] | undefined): FileRail {
-  const full = view === "full";
-  return { panel: filePane(id, file, row, full), href: `/s/${id}?tab=file`, commentHref: `/s/${id}?tab=comments` };
-}
-
-/** The File tab's pane: the raw source with lines that differ from HEAD marked. Reads the file once. */
-function filePane(id: string, file: string, row: { repo: { root: string } | null }, full: boolean) {
-  const src = readFileSync(file, "utf8");
-  const lines = src.replace(/\n$/, "").split("\n");
-  const changed = changedAgainstHead(row.repo?.root ?? null, file, lines.length);
-  return <FileView lines={lines} changed={changed} full={full} backHref={`/s/${id}?tab=file`} fullHref={`/s/${id}?tab=file&view=full`} />;
-}
 
 /**
  * The left rail: the 内容 tab and the table of contents under it. A document without a table
@@ -64,10 +48,9 @@ export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promis
 }
 
 /** One session: a registered markdown file, its comments, where it lives and which branch. */
-export default async function SessionPage({ params, searchParams }: PageProps<"/s/[id]">) {
+export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   await connection();
   const { id } = await params;
-  const search = await searchParams;
   const home = getHome();
   const found = await load(home, id);
   if (!found) notFound();
@@ -155,7 +138,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} />
-        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={null} rightTab={parseRightTab(search.tab)} fileRail={fileRailFor(id, file, row, search.view)} />
+        <DocView key={session.id} session={session.id} title={row.title} path={session.path} html={html} initialComments={codeComments} header={header} toc={null} />
       </>
     );
   }
@@ -179,8 +162,7 @@ export default async function SessionPage({ params, searchParams }: PageProps<"/
         reviews={reviews}
         header={header}
         toc={toc.length > 1 ? leftRail(<Toc toc={toc} />) : null}
-        rightTab={parseRightTab(search.tab)}
-        fileRail={fileRailFor(id, file, row, search.view)}
+
       />
     </>
   );
