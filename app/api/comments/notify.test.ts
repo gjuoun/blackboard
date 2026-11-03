@@ -68,6 +68,10 @@ const json = (payload: unknown, method = "POST") => ({
 const comment = (session: string) => POST(new NextRequest("http://127.0.0.1:38770/api/comments", json({ session, general: true, body: "**first** note", author: "jun" })));
 const reply = (session: string, id: string) =>
   PATCH(new NextRequest("http://127.0.0.1:38770/api/comments", json({ session, id, action: "reply", body: "answered", author: "agent" }, "PATCH")));
+const edit = (session: string, id: string, body: string) =>
+  PATCH(new NextRequest("http://127.0.0.1:38770/api/comments", json({ session, id, action: "edit", body }, "PATCH")));
+const resolve = (session: string, id: string) =>
+  PATCH(new NextRequest("http://127.0.0.1:38770/api/comments", json({ session, id, action: "resolve", author: "jun" }, "PATCH")));
 const bind = (session: string, url: string) => bindPost(new NextRequest("http://127.0.0.1/api/bind", json({ session, piSession: "pi-abc123", url })));
 
 describe("a submitted comment reaches the bound listener", () => {
@@ -91,20 +95,33 @@ describe("a submitted comment reaches the bound listener", () => {
     expect(payload.pageUrl).toMatch(new RegExp(`^http://(127\\.0\\.0\\.1|localhost):38770/s/${session}$`));
     expect(payload.at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
+});
 
-  test("a reply is one payload naming the thread it joined", async () => {
+/**
+ * A submit is the only turn: a reply, an edit and a resolve all land in the comment file, and the
+ * listener hears nothing more than the one payload the submit already sent.
+ */
+describe("only a submit wakes the session", () => {
+  test("a reply, an edit and a resolve are stored and send nothing", async () => {
     const { session } = await setup();
     const fake = start();
-    await bind(session, fake.url);
-    const { comment: stored } = await (await POST(new NextRequest("http://127.0.0.1:38770/api/comments", json({ session, general: true, body: "q", author: "jun" })))).json();
-    await until(fake.received, 1);
-    await reply(session, stored.id);
-    const [payload] = await until(fake.received, 2);
-    expect(fake.received).toHaveLength(2);
-    expect(fake.received[1].commentId).toBe(stored.id);
-    expect(fake.received[1].body).toBe("answered");
-    expect(fake.received[1].author).toBe("agent");
-    expect(payload.commentId).toBe(stored.id);
+    expect((await bind(session, fake.url)).status).toBe(200);
+    const { comment: stored } = await (await comment(session)).json();
+    const [submitted] = await until(fake.received, 1);
+    expect(submitted.commentId).toBe(stored.id);
+
+    expect((await reply(session, stored.id)).status).toBe(200);
+    expect((await edit(session, stored.id, "rewritten body")).status).toBe(200);
+    expect((await resolve(session, stored.id)).status).toBe(200);
+    await Bun.sleep(200);
+    expect(fake.received).toHaveLength(1);
+
+    const list = await (await GET(new NextRequest("http://127.0.0.1:38770/api/comments?session=" + session))).json();
+    expect(list.comments).toHaveLength(1);
+    expect(list.comments[0].replies).toHaveLength(1);
+    expect(list.comments[0].replies[0].body).toBe("answered");
+    expect(list.comments[0].body).toBe("rewritten body");
+    expect(list.comments[0].status).toBe("resolved");
   });
 });
 

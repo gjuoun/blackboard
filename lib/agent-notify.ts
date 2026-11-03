@@ -9,11 +9,11 @@ export type AgentPayload = {
   kind: "comment";
   session: string;
   doc: string;
-  /** The comment the payload is about; a reply names the thread it joined. */
+  /** The comment the payload is about. */
   commentId: string;
   /** Exactly one anchor kind, the same shape a comment stores. */
   anchor: { quote: Comment["quote"] } | { general: true };
-  /** The new text: the comment body, or the reply body. */
+  /** The comment body, as submitted. */
   body: string;
   author: string;
   at: string;
@@ -24,7 +24,7 @@ export type AgentPayload = {
 /** The budget of one notify. Short because the comment is already stored and nobody waits for this. */
 const TIMEOUT_MS = 500;
 
-/** The payload for a new comment or a new reply on it. */
+/** The payload for a submitted comment. */
 export function payloadFor(input: {
   session: string;
   doc: string;

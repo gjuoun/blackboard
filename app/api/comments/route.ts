@@ -91,9 +91,10 @@ function storeCall<A>(effect: Effect.Effect<A, IoFailure | LockTimeout>): Effect
 }
 
 /**
- * Tell the pi session bound to this doc that a comment or reply just arrived. The write already
- * landed: the lookup ignores a missing or unreadable agents file, and the POST itself is not
- * awaited, so a session that is gone cannot fail or slow down the submitter.
+ * Tell the pi session bound to this doc that a comment was just submitted. Only a submit calls
+ * this: a reply, an edit, a delete or a status change stays quiet. The write already landed: the
+ * lookup ignores a missing or unreadable agents file, and the POST itself is not awaited, so a
+ * session that is gone cannot fail or slow down the submitter.
  */
 function ping(req: NextRequest, at: Pick<Target, "home" | "session" | "doc">, comment: Comment, body: string, author: string) {
   return Effect.gen(function* () {
@@ -153,10 +154,10 @@ export async function PATCH(req: NextRequest) {
   return respond(patchProgram(req));
 }
 
-function patchProgram(req: NextRequest): Effect.Effect<Record<string, unknown>, ApiFailure, CommentsStore | SessionsStore | AgentsStore> {
+function patchProgram(req: NextRequest): Effect.Effect<Record<string, unknown>, ApiFailure, CommentsStore | SessionsStore> {
   return Effect.gen(function* () {
     const comments = yield* CommentsStore;
-    const { body: b, file, doc, home, session } = yield* patchTarget(req);
+    const { body: b, file, doc } = yield* patchTarget(req);
     const id = text(b.id, 64);
     if (!id) return yield* Effect.fail(new InvalidInput({ message: "id is required", status: 400, field: "id" }));
     const who = author(b.author);
@@ -167,7 +168,6 @@ function patchProgram(req: NextRequest): Effect.Effect<Record<string, unknown>, 
       const joinReplyId = b.replyId === undefined ? undefined : (text(b.replyId, 64) ?? undefined);
       if (b.replyId !== undefined && !joinReplyId) return yield* Effect.fail(new InvalidInput({ message: "replyId must be a reply id", status: 400, field: "replyId" }));
       const comment = yield* storeCall(comments.mutate(file, (f) => addReply(f, doc, id, { body, author: who, joinReplyId })));
-      yield* ping(req, { home, session, doc }, comment, body, who);
       return { comment: one(comment) };
     }
 

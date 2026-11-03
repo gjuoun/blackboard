@@ -73,17 +73,17 @@ describe("payloadFor", () => {
     });
   });
 
-  test("a quoted comment carries its selector, and a reply carries its own body and author", () => {
+  test("a quoted comment carries its selector, and the body and author given", () => {
     const payload = payloadFor({
       session: "abc123",
       doc: "design.md",
       comment: comment({ general: undefined, quote: { exact: "Later text.", prefix: "", suffix: "" } }),
-      body: "the reply body",
+      body: "the body as given",
       author: "agent",
       pageUrl: "http://127.0.0.1:38770/s/abc123",
     });
     expect(payload.anchor).toEqual({ quote: { exact: "Later text.", prefix: "", suffix: "" } });
-    expect(payload.body).toBe("the reply body");
+    expect(payload.body).toBe("the body as given");
     expect(payload.author).toBe("agent");
     expect(payload.at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
