@@ -92,14 +92,15 @@
 .file-line.modified { background: color-mix(in srgb, var(--warn) 14%, transparent); box-shadow: inset 3px 0 0 var(--warn); }
 .file-view[data-full="1"] { position: fixed; inset: 0; z-index: 50; background: var(--background); padding: 16px; overflow: auto; }
 .file-view[data-full="1"] .file-source { min-height: calc(100vh - 80px); }
-/* A streaming document: one section per block, with a header and an optional side rule. */
-.stream-block { position: relative; padding: 0.4em 0 0.4em 1em; margin: 0 0 1.6em; scroll-margin-top: calc(var(--bar-h) + 12px); }
+/* A streaming document: one numbered section per block, separated by a hairline. */
+.stream-block { margin: 0; padding: 1.1em 0 0.2em; border-top: 1px solid var(--border); scroll-margin-top: calc(var(--bar-h) + 12px); }
+.stream-block:first-of-type { border-top: 0; padding-top: 0; }
+.stream-block + .stream-block { margin-top: 1.8em; }
 .stream-block:target { outline: 1px dashed var(--border); outline-offset: 6px; border-radius: 8px; }
-.stream-head { display: flex; align-items: center; gap: 0.5em; margin-bottom: 0.4em; }
-.stream-pill { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); }
-.stream-rule-edit { border-left: 3px solid var(--warn); }
-.stream-rule-append { border-left: 3px solid var(--primary); }
-.stream-rule-edit .stream-pill { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
+.stream-block .stream-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 0.5em; font-size: 12px; color: var(--muted-foreground); }
+.stream-block .stream-num { font-family: var(--font-code); font-weight: 600; color: var(--foreground); }
+.stream-block .stream-act { letter-spacing: 0.08em; }
+.stream-block .stream-who { margin-left: auto; }
 .stream-timeline li a:target, .stream-timeline a[aria-current="true"] { font-weight: 600; }
 /* A source file is read as code: lines never wrap, the block scrolls sideways. */
 .code-file pre, .code-file pre code { white-space: pre; overflow-wrap: normal; }
