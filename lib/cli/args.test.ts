@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Cause, Effect, Exit, Result } from "effect";
 import type { CliError } from "../cli";
-import { BlockArgs, CommentArgs, decodeArgs, HeaderArgs, OpenArgs, ReviewArgs } from "./args";
+import { CommentArgs, decodeArgs, ReviewArgs } from "./args";
 
 /** The refusal a decode ends with, so a test asserts the message and code the CLI prints. */
 async function refusal<A>(effect: Effect.Effect<A, CliError>): Promise<{ message: string; code: number }> {
@@ -13,21 +13,6 @@ async function refusal<A>(effect: Effect.Effect<A, CliError>): Promise<{ message
 }
 
 describe("the option records", () => {
-  test("open: --kind is plain or stream", async () => {
-    expect(await refusal(decodeArgs(OpenArgs, { kind: "cloud" }))).toEqual({ message: '--kind takes "plain" or "stream"', code: 2 });
-    expect(await Effect.runPromise(decodeArgs(OpenArgs, { kind: "stream" }))).toEqual({ kind: "stream" });
-    expect(await Effect.runPromise(decodeArgs(OpenArgs, {}))).toEqual({});
-  });
-
-  test("header: --title is required", async () => {
-    expect(await refusal(decodeArgs(HeaderArgs, { owner: "jun" }))).toEqual({ message: "header needs --title <title>", code: 2 });
-    expect(await Effect.runPromise(decodeArgs(HeaderArgs, { title: "Log", owner: "jun" }))).toEqual({ title: "Log", owner: "jun" });
-  });
-
-  test("block: --status is writing or absent", async () => {
-    expect(await refusal(decodeArgs(BlockArgs, { status: "draft" }))).toEqual({ message: '--status takes "writing"', code: 2 });
-    expect(await Effect.runPromise(decodeArgs(BlockArgs, { status: "writing" }))).toEqual({ status: "writing" });
-  });
 
   test("comment: an empty --occurrence is not given, so the first match", async () => {
     const empty = await Effect.runPromise(decodeArgs(CommentArgs, { quote: "Later text.", occurrence: "" }));

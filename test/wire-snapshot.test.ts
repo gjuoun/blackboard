@@ -114,6 +114,8 @@ describe("the wire the routes answer today", () => {
     const { comment } = (await created.clone().json()) as { comment: { id: string } };
     await record("comments.POST.ok", created);
     await record("comments.GET.one", await get(fx.session));
+    await record("comments.POST.quoted.ok", await post({ session: fx.session, quote: { exact: "Later text.", prefix: "", suffix: "" }, body: "a passage note", author: "agent" }));
+    await record("comments.GET.two", await get(fx.session));
 
     // comments PATCH — validation, then each action
     await record("comments.PATCH.unknown-session", await patch({ session: "nosuchid", id: comment.id, action: "resolve" }));

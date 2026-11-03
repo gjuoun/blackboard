@@ -43,18 +43,18 @@
     "stderr": ""
   },
   {
-    "label": "open.bad-kind",
+    "label": "open.unknown-option",
     "argv": [
       "open",
       "--no-browser",
       "--no-server",
       "--kind",
-      "cloud",
+      "stream",
       "design.md"
     ],
-    "code": 2,
+    "code": 1,
     "stdout": "",
-    "stderr": "blackboard: --kind takes \"plain\" or \"stream\"\n"
+    "stderr": "blackboard: Unknown option '--kind'. To specify a positional argument starting with a '-', place it at the end of the command after '--', as in '-- \"--kind\"\n"
   },
   {
     "label": "open.not-markdown",
@@ -69,12 +69,24 @@
     "stderr": "blackboard: not a markdown file: <base>/docs/notes.txt\n"
   },
   {
+    "label": "open.jsonl",
+    "argv": [
+      "open",
+      "--no-browser",
+      "--no-server",
+      "log.jsonl"
+    ],
+    "code": 1,
+    "stdout": "",
+    "stderr": "blackboard: not a markdown file: <base>/docs/log.jsonl\n"
+  },
+  {
     "label": "sessions.one",
     "argv": [
       "sessions"
     ],
     "code": 0,
-    "stdout": "<id>  Design  <base>/docs/design.md  -  0 open  plain\n",
+    "stdout": "<id>  Design  <base>/docs/design.md  -  0 open\n",
     "stderr": ""
   },
   {
@@ -84,7 +96,7 @@
       "--json"
     ],
     "code": 0,
-    "stdout": "[\n  {\n    \"id\": \"<id>\",\n    \"path\": \"<base>/docs/design.md\",\n    \"createdAt\": \"<time>\",\n    \"openedAt\": \"<time>\",\n    \"kind\": \"plain\",\n    \"title\": \"Design\",\n    \"repo\": null,\n    \"branch\": null,\n    \"detached\": false,\n    \"worktree\": null,\n    \"project\": null,\n    \"missing\": false,\n    \"stats\": {\n      \"sections\": 0,\n      \"diagrams\": 0\n    },\n    \"location\": \"<base>/docs/design.md\",\n    \"updatedAt\": \"<time>\",\n    \"open\": 0\n  }\n]\n",
+    "stdout": "[\n  {\n    \"id\": \"<id>\",\n    \"path\": \"<base>/docs/design.md\",\n    \"createdAt\": \"<time>\",\n    \"openedAt\": \"<time>\",\n    \"title\": \"Design\",\n    \"repo\": null,\n    \"branch\": null,\n    \"detached\": false,\n    \"worktree\": null,\n    \"project\": null,\n    \"missing\": false,\n    \"stats\": {\n      \"sections\": 0,\n      \"diagrams\": 0\n    },\n    \"location\": \"<base>/docs/design.md\",\n    \"updatedAt\": \"<time>\",\n    \"open\": 0\n  }\n]\n",
     "stderr": ""
   },
   {
@@ -299,115 +311,6 @@
     "stderr": "blackboard: no session \"design.md\" (register the file with: blackboard open <file>)\n"
   },
   {
-    "label": "open.stream",
-    "argv": [
-      "open",
-      "--no-browser",
-      "--no-server",
-      "--kind",
-      "stream",
-      "--title",
-      "Log",
-      "log.jsonl"
-    ],
-    "code": 0,
-    "stdout": "<id>  http://127.0.0.1:9/s/<id>\n",
-    "stderr": ""
-  },
-  {
-    "label": "block.append",
-    "argv": [
-      "block",
-      "log.jsonl",
-      "--action",
-      "answer",
-      "--json",
-      "first block"
-    ],
-    "code": 0,
-    "stdout": "{\n  \"id\": \"b-<ulid>\",\n  \"n\": 1,\n  \"file\": \"<base>/docs/log.jsonl\",\n  \"url\": \"http://127.0.0.1:9/s/<id>#b-<ulid>\"\n}\n",
-    "stderr": ""
-  },
-  {
-    "label": "block.edit",
-    "argv": [
-      "block",
-      "log.jsonl",
-      "--action",
-      "edit",
-      "--edit",
-      "b-<ulid>",
-      "rewritten"
-    ],
-    "code": 0,
-    "stdout": "block b-<ulid> rewritten in <base>/docs/log.jsonl\nhttp://127.0.0.1:9/s/<id>#b-<ulid>\n",
-    "stderr": ""
-  },
-  {
-    "label": "block.bad-action",
-    "argv": [
-      "block",
-      "log.jsonl",
-      "--action",
-      "nope",
-      "x"
-    ],
-    "code": 2,
-    "stdout": "",
-    "stderr": "blackboard: action takes answer|edit|append\n"
-  },
-  {
-    "label": "block.not-a-stream",
-    "argv": [
-      "block",
-      "design.md",
-      "--action",
-      "answer",
-      "x"
-    ],
-    "code": 1,
-    "stdout": "",
-    "stderr": "blackboard: no session \"design.md\" (register the file with: blackboard open <file>)\n"
-  },
-  {
-    "label": "header.first",
-    "argv": [
-      "header",
-      "log.jsonl",
-      "--title",
-      "标题",
-      "--owner",
-      "jun"
-    ],
-    "code": 0,
-    "stdout": "header updated for <base>/docs/log.jsonl: 标题 (s-<ulid>, 1 blocks)\n",
-    "stderr": ""
-  },
-  {
-    "label": "header.again",
-    "argv": [
-      "header",
-      "log.jsonl",
-      "--title",
-      "标题",
-      "--owner",
-      "jun"
-    ],
-    "code": 0,
-    "stdout": "header updated for <base>/docs/log.jsonl: 标题 (s-<ulid>, 1 blocks)\n",
-    "stderr": ""
-  },
-  {
-    "label": "export.ok",
-    "argv": [
-      "export",
-      "log.jsonl"
-    ],
-    "code": 0,
-    "stdout": "# 标题\n\n## 1. 长答 · agent · <time>\n\nrewritten\n",
-    "stderr": ""
-  },
-  {
     "label": "serve.status",
     "argv": [
       "serve",
@@ -433,6 +336,6 @@
     ],
     "code": 2,
     "stdout": "",
-    "stderr": "blackboard: unknown command \"frobnicate\"\n\nblackboard — review markdown files and their comments, from the shell\n\nUsage:\n  blackboard open     <file> [--kind plain|stream] [--title <title>] [--no-browser]\n                                                 register a file, print \"<id>  <url>\", open it\n                                                 (starts the web app first when it is not running)\n  blackboard header   <session> --title <title> [--owner <name>]\n                                                 add or update a stream's metadata line (old files)\n  blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)\n  blackboard sessions [--json]                   every session: id, title, location, branch, open comments\n  blackboard close    <session>                  forget a session (its comments are kept)\n  blackboard comments <session> [--json]         every comment and its replies, resolved ones too\n  blackboard reply    <session> <id> <text>\n  blackboard resolve  <session> <comment-id>\n  blackboard reopen   <session> <comment-id>\n  blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>\n  blackboard comment  <session> --general <note>\n  blackboard block    <session> --action answer|edit|append [--edit <id>] <text|->\n\n<session> is a session id or a path to the registered file.\n<id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).\n\nOptions:\n  --kind <k>       open: plain (default) or stream (a .jsonl block file)\n  --title <t>      open --kind stream / header: the document title written into the metadata line\n  --owner <name>   header: the document owner written into the metadata line\n  --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)\n  --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or \"agent\")\n  --json           machine-readable output\n  --no-browser     open: do not launch the browser (or set BLACKBOARD_NO_BROWSER=1)\n  --no-server      open: do not start the web app (or set BLACKBOARD_NO_SERVER=1)\n  --port <n>       serve start / restart: port to listen on (default: from $BLACKBOARD_URL, else 38770)\n  --foreground     serve start: run in this terminal until Ctrl-C\n  --version        print the version\n\nExit codes: 0 ok, 1 command failed, 2 bad usage, 3 serve status: not running.\n"
+    "stderr": "blackboard: unknown command \"frobnicate\"\n\nblackboard — review markdown files and their comments, from the shell\n\nUsage:\n  blackboard open     <file> [--no-browser]      register a file, print \"<id>  <url>\", open it\n                                                 (starts the web app first when it is not running)\n  blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)\n  blackboard sessions [--json]                   every session: id, title, location, branch, open comments\n  blackboard close    <session>                  forget a session (its comments are kept)\n  blackboard comments <session> [--json]         every comment and its replies, resolved ones too\n  blackboard reply    <session> <id> <text>\n  blackboard resolve  <session> <comment-id>\n  blackboard reopen   <session> <comment-id>\n  blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>\n  blackboard comment  <session> --general <note>\n  blackboard review   <session> --round <n> <body>\n\n<session> is a session id or a path to the registered file.\n<id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).\n\nOptions:\n  --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)\n  --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or \"agent\")\n  --json           machine-readable output\n  --round <n>      review: the round this verdict reports on\n  --no-browser     open: do not launch the browser (or set BLACKBOARD_NO_BROWSER=1)\n  --no-server      open: do not start the web app (or set BLACKBOARD_NO_SERVER=1)\n  --port <n>       serve start / restart: port to listen on (default: from $BLACKBOARD_URL, else 38770)\n  --foreground     serve start: run in this terminal until Ctrl-C\n  --version        print the version\n\nExit codes: 0 ok, 1 command failed, 2 bad usage, 3 serve status: not running.\n"
   }
 ]

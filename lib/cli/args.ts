@@ -15,35 +15,6 @@ export function decodeArgs<T>(schema: Schema.Codec<T, unknown>, input: unknown):
   );
 }
 
-/** `open --kind`: a markdown file, or a .jsonl block file. */
-export const OpenArgs = Schema.Struct({
-  kind: Schema.optional(
-    Schema.Literals(["plain", "stream"]).annotate({ message: '--kind takes "plain" or "stream"' }),
-  ),
-});
-export type OpenArgs = typeof OpenArgs.Type;
-
-/** `header`: the title is required; an empty one is refused by the store, as it always was. */
-export const HeaderArgs = Schema.Struct({
-  title: Schema.optional(Schema.String),
-  owner: Schema.optional(Schema.String),
-}).pipe(
-  Schema.refine((args): args is { readonly title: string; readonly owner?: string } => args.title !== undefined, {
-    message: "header needs --title <title>",
-  }),
-);
-export type HeaderArgs = typeof HeaderArgs.Type;
-
-/** `block`: only --status has a value the CLI checks; --action is validated by the stream store. */
-export const BlockArgs = Schema.Struct({
-  action: Schema.optional(Schema.String),
-  status: Schema.optional(
-    Schema.Literals(["writing"]).annotate({ message: '--status takes "writing"' }),
-  ),
-  edit: Schema.optional(Schema.String),
-  images: Schema.optional(Schema.String),
-});
-export type BlockArgs = typeof BlockArgs.Type;
 
 /** A whole number written as text, which is how every numeric option arrives. */
 const WholeNumber = Schema.NumberFromString.pipe(

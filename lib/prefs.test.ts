@@ -7,7 +7,6 @@ import {
   DEFAULT_PREFS,
   PANEL_LIMITS,
   parsePrefs,
-  parseRightTab,
   serializePrefs,
   type StoredChrome,
 } from "./prefs";
@@ -134,13 +133,6 @@ test("boot: a throwing storage never breaks the page", () => {
   expect(root.attrs.size).toBe(0);
 });
 
-test("right tab: the URL selects Comments or File, anything else falls back", () => {
-  expect(parseRightTab("file")).toBe("file");
-  expect(parseRightTab("comments")).toBe("comments");
-  expect(parseRightTab("pr")).toBe("comments");
-  expect(parseRightTab("drawers")).toBe("comments");
-  expect(parseRightTab(undefined)).toBe("comments");
-});
 
 test("stored record type check: defaults satisfy the shape", () => {
   const s: StoredChrome = { ...DEFAULT_CHROME };

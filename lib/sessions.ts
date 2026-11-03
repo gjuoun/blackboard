@@ -13,9 +13,12 @@ import { Lock } from "./lock";
  * A session is one markdown file, anywhere on disk, that someone opened for review.
  * The registry is <home>/sessions.json — plain JSON, so an agent can read it from disk.
  */
-export type SessionKind = "plain" | "stream";
-/** A session is one registered file; stream sessions are .jsonl blocks, every other session is plain. */
-export type Session = { id: string; path: string; createdAt: string; openedAt: string; kind?: SessionKind };
+/**
+ * A session is one registered file. `kind` is a legacy field: a registry from the streaming era
+ * carries `"stream"` on `.jsonl` sessions, and such a session is kept on read but never openable.
+ * Sessions written now carry no kind.
+ */
+export type Session = { id: string; path: string; createdAt: string; openedAt: string; kind?: string };
 type Registry = { version: 1; sessions: Session[] };
 
 export const SCRATCHPAD_ID = "scratchpad";
@@ -62,7 +65,7 @@ function checkDoc(file: string, cwd: string): Checked {
   const real = realpathSync(/*turbopackIgnore: true*/ abs);
   const entryReal = statSync(real, { throwIfNoEntry: false });
   if (!entryReal || !entryReal.isFile() || !servableExtension(real)) return { ok: false, error: new SessionError(`not a markdown file: ${abs}`) };
-  // The 1 MB cap is for source files only: a stream grows by appending, and is not capped here.
+  // The 1 MB cap is for source files; a markdown doc is not capped.
   const isCode = (CODE_EXTENSIONS as readonly string[]).includes(extOf(real));
   if (isCode && entryReal.size > CODE_MAX_BYTES) return { ok: false, error: new SessionError(`over 1 MB: ${abs}`) };
   return { ok: true, path: real };
@@ -86,18 +89,15 @@ export function servablePath(s: Session): string | null {
 /** Stable per file: opening the same file again finds the same session. */
 export const sessionId = (realPath: string) => createHash("sha1").update(realPath).digest("hex").slice(0, 10);
 
-function upsert(reg: Registry, id: string, path: string, kind?: SessionKind): Session {
+function upsert(reg: Registry, id: string, path: string): Session {
   const t = now();
   const found = reg.sessions.find((s) => s.id === id);
   if (found) {
     found.path = path;
     found.openedAt = t;
-    // Re-opening without --kind keeps the recorded kind: the tab does not vanish because a
-    // later command omitted a flag.
-    if (kind) found.kind = kind;
     return { ...found };
   }
-  const s: Session = { id, path, createdAt: t, openedAt: t, kind: kind ?? "plain" };
+  const s: Session = { id, path, createdAt: t, openedAt: t };
   reg.sessions.push(s);
   return { ...s };
 }
@@ -133,7 +133,7 @@ export class SessionsStore extends Context.Service<
   {
     list(home: string): Effect.Effect<Session[], IoFailure>;
     get(home: string, id: string): Effect.Effect<Session | null, IoFailure>;
-    open(home: string, file: string, cwd?: string, kind?: SessionKind): Effect.Effect<Session, IoFailure | LockTimeout>;
+    open(home: string, file: string, cwd?: string): Effect.Effect<Session, IoFailure | LockTimeout>;
     close(home: string, id: string): Effect.Effect<Session, IoFailure | LockTimeout>;
     resolve(home: string, idOrPath: string, cwd?: string): Effect.Effect<Session | null, IoFailure | LockTimeout>;
     scratchpad(home: string): Effect.Effect<Session, IoFailure | LockTimeout>;
@@ -198,9 +198,9 @@ export const layer = Layer.effect(
       list,
       get,
       row,
-      open: (home, file, cwd = process.cwd(), kind) =>
+      open: (home, file, cwd = process.cwd()) =>
         Effect.flatMap(Effect.try({ try: () => realDoc(file, cwd), catch: failure }), (real) =>
-          update(home, (reg) => upsert(reg, sessionId(real), real, kind)),
+          update(home, (reg) => upsert(reg, sessionId(real), real)),
         ),
       close: (home, id) =>
         update(home, (reg) => {

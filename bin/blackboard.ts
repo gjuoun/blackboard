@@ -7,11 +7,10 @@
 import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
 import { Cause, Effect, Exit, Result } from "effect";
-import { CliError, cliFailure, formatComments, formatSessions } from "../lib/cli";
-import { BlockArgs, CommentArgs, decodeArgs, HeaderArgs, OpenArgs, ReviewArgs } from "../lib/cli/args";
+import { CliError, formatComments, formatSessions } from "../lib/cli";
+import { CommentArgs, decodeArgs, ReviewArgs } from "../lib/cli/args";
 import * as commentsCli from "../lib/cli/comments";
 import * as sessionsCli from "../lib/cli/sessions";
-import * as streamsCli from "../lib/cli/streams";
 import type { AppServices } from "../lib/effect/layers";
 import { errorMessage } from "../lib/effect/errors";
 import { runtime } from "../lib/effect/runtime";
@@ -22,11 +21,8 @@ import * as server from "../lib/server-ctl";
 const HELP = `blackboard — review markdown files and their comments, from the shell
 
 Usage:
-  blackboard open     <file> [--kind plain|stream] [--title <title>] [--no-browser]
-                                                 register a file, print "<id>  <url>", open it
+  blackboard open     <file> [--no-browser]      register a file, print "<id>  <url>", open it
                                                  (starts the web app first when it is not running)
-  blackboard header   <session> --title <title> [--owner <name>]
-                                                 add or update a stream's metadata line (old files)
   blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)
   blackboard sessions [--json]                   every session: id, title, location, branch, open comments
   blackboard close    <session>                  forget a session (its comments are kept)
@@ -36,18 +32,16 @@ Usage:
   blackboard reopen   <session> <comment-id>
   blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>
   blackboard comment  <session> --general <note>
-  blackboard block    <session> --action answer|edit|append [--edit <id>] <text|->
+  blackboard review   <session> --round <n> <body>
 
 <session> is a session id or a path to the registered file.
 <id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).
 
 Options:
-  --kind <k>       open: plain (default) or stream (a .jsonl block file)
-  --title <t>      open --kind stream / header: the document title written into the metadata line
-  --owner <name>   header: the document owner written into the metadata line
   --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)
   --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or "agent")
   --json           machine-readable output
+  --round <n>      review: the round this verdict reports on
   --no-browser     open: do not launch the browser (or set BLACKBOARD_NO_BROWSER=1)
   --no-server      open: do not start the web app (or set BLACKBOARD_NO_SERVER=1)
   --port <n>       serve start / restart: port to listen on (default: from $BLACKBOARD_URL, else 38770)
@@ -88,15 +82,8 @@ const OPTIONS = {
   author: { type: "string" },
   json: { type: "boolean" },
   quote: { type: "string" },
-  kind: { type: "string" },
-  title: { type: "string" },
-  owner: { type: "string" },
-  action: { type: "string" },
-  images: { type: "string" },
-  status: { type: "string" },
   general: { type: "boolean" },
   round: { type: "string" },
-  edit: { type: "string" },
   occurrence: { type: "string" },
   "no-browser": { type: "boolean" },
   "no-server": { type: "boolean" },
@@ -132,10 +119,9 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
 
     switch (cmd) {
       case "open": {
-        yield* need(1, "open <file> [--kind plain|stream] [--no-browser]");
-        const opts = yield* decodeArgs(OpenArgs, { kind: o.kind });
+        yield* need(1, "open <file> [--no-browser]");
         if (!o["no-server"] && process.env.BLACKBOARD_NO_SERVER !== "1") yield* ensureServer(home);
-        const opened = yield* sessionsCli.open(home, args[0], process.cwd(), opts.kind, opts.kind === "stream" ? { title: o.title, owner: author } : undefined);
+        const opened = yield* sessionsCli.open(home, args[0], process.cwd());
         print({ ...opened.session, url: opened.url }, `${opened.session.id}  ${opened.url}`);
         if (!o["no-browser"] && process.env.BLACKBOARD_NO_BROWSER !== "1") yield* launch(opened.url);
         return 0;
@@ -165,13 +151,6 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
           return r.running ? 0 : 3;
         }
         return yield* new CliError({ message: "usage: blackboard serve start|stop|restart|status [--port <n>] [--foreground]", code: 2 });
-      }
-      case "header": {
-        yield* need(1, "header <session> --title <title> [--owner <name>]");
-        const opts = yield* decodeArgs(HeaderArgs, { title: o.title, owner: o.owner });
-        const r = yield* streamsCli.setHeader(home, args[0], opts);
-        print(r, `header ${r.created ? "written" : "updated"} for ${r.file}: ${r.meta.title} (${r.meta.id}, ${r.blocks} blocks)`);
-        return 0;
       }
       case "sessions": {
         const rows = yield* sessionsCli.sessions(home);
@@ -204,38 +183,11 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
         print(c, `${cmd === "resolve" ? "resolved" : "reopened"} ${c.id} on ${c.doc}`);
         return 0;
       }
-      case "block": {
-        // Text is the rest of the argv, or stdin when the text is "-".
-        yield* need(1, "block <session> --action answer|edit|append [--status writing] [--images a,b] <text|->");
-        const opts = yield* decodeArgs(BlockArgs, { action: o.action, status: o.status, edit: o.edit, images: o.images });
-        const raw = args.slice(1).join(" ");
-        const text = raw === "-" ? yield* Effect.tryPromise({
-          try: () => new Response(Bun.stdin.stream()).text(),
-          catch: (error) => cliFailure({ message: errorMessage(error) }),
-        }) : raw;
-        const images = opts.images ? opts.images.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
-        if (opts.edit !== undefined) {
-          // Changing a block keeps its id; the file is rewritten atomically.
-          const e = yield* streamsCli.editBlock(home, args[0], opts.edit, text);
-          print(e, `block ${e.id} rewritten in ${e.file}\n${e.url}`);
-          return 0;
-        }
-        const b = yield* streamsCli.appendBlock(home, args[0], { action: opts.action ?? "", text, author, images, status: opts.status });
-        print(b, `block ${b.n} (${b.id}) appended to ${b.file}\n${b.url}`);
-        return 0;
-      }
       case "review": {
         yield* need(1, "review <session> --round <n> <body>");
         const opts = yield* decodeArgs(ReviewArgs, { round: o.round });
         const r = yield* commentsCli.review(home, args[0], opts.round, args.slice(1).join(" "), author);
         print(r, `review ${r.id} for round ${r.round} on ${r.doc}: ${r.verdict}`);
-        return 0;
-      }
-      case "export": {
-        yield* need(1, "export <session>");
-        const md = yield* streamsCli.exportBlocks(home, args[0]);
-        if (o.json) console.log(JSON.stringify({ markdown: md }));
-        else process.stdout.write(md);
         return 0;
       }
       case "comment": {
