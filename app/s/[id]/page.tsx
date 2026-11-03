@@ -18,22 +18,6 @@ import { renderMarkdown } from "@/lib/markdown";
 import { servablePath, sessionCommentsPath, tildify } from "@/lib/sessions";
 import { loadSession as load } from "@/lib/session-view";
 
-
-/**
- * The left rail: the 内容 tab and the table of contents under it. A document without a table
- * of contents (a code file, a flat doc) passes no rail at all, so no empty tab strip shows.
- */
-function leftRail(toc: React.ReactNode): React.ReactNode {
-  return (
-    <>
-      <div className="rail-tabs" role="tablist" aria-label="Navigation" data-testid="left-tabs">
-        <span role="tab" className="rail-tab" aria-selected="true" data-testid="left-tab-contents">内容</span>
-      </div>
-      {toc}
-    </>
-  );
-}
-
 /** The tab title is the doc's own title; the description names the file, never its folder. */
 export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promise<Metadata> {
   await connection();
@@ -161,7 +145,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
         initialComments={renderedComments}
         reviews={reviews}
         header={header}
-        toc={toc.length > 1 ? leftRail(<Toc toc={toc} />) : null}
+        toc={toc.length > 1 ? <Toc toc={toc} /> : null}
 
       />
     </>

@@ -83,7 +83,6 @@ const ratio = (a: string, b: string) => {
 
 const CSS = read("app/syntax.css").replace(/\/\*[\s\S]*?\*\//g, "");
 const THEMES = read("app/themes.css").replace(/\/\*[\s\S]*?\*\//g, "");
-const GLOBALS = read("app/globals.css").replace(/\/\*[\s\S]*?\*\//g, "");
 
 /** token -> hex for one palette block of themes.css. */
 function palette(id: string): Map<string, string> {
@@ -94,15 +93,6 @@ function palette(id: string): Map<string, string> {
 
 /** Each hljs scope rule: the token it reads from the palette, which must be one of the hue tokens. */
 const HUE_TOKENS = ["primary", "success", "warn", "destructive", "muted-foreground", "foreground"];
-
-describe("rail tab state", () => {
-  test("the active rail tab merges into the pane instead of carrying a primary top line", () => {
-    const active = /\.rail-tab\[aria-selected="true"\]\s*\{([^}]*)\}/.exec(GLOBALS)?.[1] ?? "";
-    expect(active).not.toContain("box-shadow");
-    expect(active).not.toContain("border-top");
-    expect(active).toMatch(/font-weight: 600/);
-  });
-});
 
 describe("syntax palette mapping", () => {
   test("the stylesheet uses palette tokens only, never a literal colour", () => {
