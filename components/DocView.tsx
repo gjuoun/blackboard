@@ -151,9 +151,9 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
     <div className="doc-grid grid min-h-[calc(100vh-var(--bar-h))] transition-[grid-template-columns] duration-200 [html[data-resizing]_&]:transition-none" style={vars as React.CSSProperties}>
       {desktop ? (
         <aside className={cn("hidden border-border relative overflow-x-clip border-r md:block", chrome.tocOpen && toc ? "" : "invisible border-0")} aria-hidden={!chrome.tocOpen} data-testid="toc-panel">
-          {/* No top padding: the TOC's heading starts flush under the top bar, the same top edge the
-              comments pane uses. A p-3 wrapper here put 12px above it and read as a stray gap. */}
-          <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto px-3 pb-3">
+          {/* The rails share one rhythm: 20px of top padding, so the Contents heading and the first
+              comment sit on the same line under the bar. 12px of side padding is the rail scale. */}
+          <div className="sticky top-[var(--bar-h)] max-h-[calc(100vh-var(--bar-h))] overflow-y-auto px-3 pt-5 pb-3">
             {toc}
           </div>
           <PanelResizer
@@ -165,7 +165,9 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
           />
         </aside>
       ) : null}
-      <main className="relative min-w-0 px-4 pt-6 pb-[calc(6rem+env(safe-area-inset-bottom))] max-md:pt-[calc(env(safe-area-inset-top)+0.75rem)] md:px-10 md:pt-8 md:pb-24" ref={mainRef}>
+      {/* The document column gets more air than the rails: 20px under the phone's safe area and 40px
+          under the desktop bar, because it opens with the path chips and then the title. */}
+      <main className="relative min-w-0 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] max-md:pt-[calc(env(safe-area-inset-top)+1.25rem)] md:px-10 md:pt-10 md:pb-24" ref={mainRef}>
         <div className="mx-auto min-w-0 max-w-[760px]">
           {header}
           <DocBody html={html} ref={bodyRef} onClick={onDocClick} onMouseMove={onDocMove} onMouseLeave={onDocLeave} />
@@ -187,7 +189,7 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
         chrome.cmOpen ? (
           <aside className="hidden border-border bg-background relative border-l md:block" data-testid="comments-panel">
             <div className="sticky top-[var(--bar-h)] flex max-h-[calc(100vh-var(--bar-h))] flex-col">
-              <div className="min-h-0 flex-1 overflow-y-auto p-3.5" data-testid="comments-pane">
+              <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-5 pb-3.5" data-testid="comments-pane">
                 {panel}
               </div>
             </div>
