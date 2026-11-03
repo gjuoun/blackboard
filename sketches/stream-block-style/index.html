@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stream block style · Blackboard</title>
+<link rel="stylesheet" href="mock.css" />
+</head>
+<body data-variant="a">
+<header class="bar">
+  <span class="brand"><span class="brand-mark"></span>Blackboard</span>
+  <span class="mock-chip">mock</span>
+  <span class="bar-title">Blackboard 严肃化第一轮：清理、规则、Effect 边界</span>
+  <div class="bar-actions">
+    <button class="icon-btn desk active" title="流式文档 · 时间线" aria-label="Streaming document timeline" aria-current="page"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden><circle cx="12" cy="5" r="2.2" fill="currentColor"/><circle cx="12" cy="19" r="2.2" fill="currentColor"/><path d="M12 7.5v9"/></svg></button>
+    <span class="bar-sep desk"></span>
+    <button class="icon-btn desk" title="Comments" aria-label="Comments"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+    <button class="icon-btn desk" title="More" aria-label="More"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
+    <nav class="switcher" aria-label="variant"><a href="#a" data-v="a">A</a><a href="#b" data-v="b">B</a><a href="#c" data-v="c">C</a></nav>
+  </div>
+</header>
+<div class="layout">
+  <aside class="rail"><div class="rail-inner">
+    <p class="rail-label">时间线</p>
+    <h2 class="stream-title">Blackboard 严肃化第一轮：清理、规则、Effect 边界</h2>
+    <ol class="stream-timeline">
+      <li><a href="#b-01M6EM3GQS6TXPTABZK16YT1RV"><span class="t-title">一页结论</span><span class="t-meta">admin · 17:14:55</span></a></li>
+      <li><a href="#b-01M6EM3GVKD5Q4QEP6VYW5HN6K"><span class="t-title">规则定了哪些（docs/engineering-contract.md）</span><span class="t-meta">admin · 17:14:55</span></a></li>
+      <li><a href="#b-01M6EM3GZC85ZNQ0528H4DY3N3"><span class="t-title">Effect 改造：只做边界，一次一刀</span><span class="t-meta">admin · 17:14:55</span></a></li>
+    </ol>
+  </div></aside>
+  <main class="main"><div class="doc-inner">
+    <div class="chips"><span class="chip">~/.notebook/project/gjuoun/blackboard/stream-2026-11-02-serious-round.jsonl</span></div>
+<section class="variant variant-a" aria-label="variant a">
+  <section id="b-01M6EM3GQS6TXPTABZK16YT1RV" class="block v-a" data-n="1" data-action="answer"><p class="meta-line">admin · 17:14:55</p>
+    <div class="doc-body">
+      <h3 id="一页结论">一页结论</h3>
+      <ul>
+      <li><strong>第一部分（清理 + 规则）已完成 → PR #32</strong>：删死代码、把测试夹具移出 <code>lib</code>、<code>lib</code> 恢复 framework-free、删掉 12 个没用到的 shadcn 子组件和 2 个依赖、两个超 300 行的 UI 文件按概念拆开、linter 从"警告"改成"强制"。源码侧 54 个文件 +461 −609。</li>
+      <li><strong>第二部分（Effect 改造）已完成第一刀 → PR #33</strong>（栈在 #32 上）：<code>effect@4.1.2</code>，三个文件共 107 行（errors / runtime / respond），9 个 route handler 全部变成边界适配器。<strong>线上 JSON 一个字节没变</strong>，45 例 wire 快照做证。</li>
+      <li><strong>数字</strong>：#32 typecheck 0 / lint 0 / test 384 pass；#33 test 385 pass、<code>bun run build</code> 通过、<code>app/api</code> 与 <code>lib/effect</code> 里 <code>try/catch</code> 归零。</li>
+      <li><strong>两个 PR 都还没合并</strong>——按你说的，你先读代码。</li>
+      </ul>
+      <h3 id="这一轮改动的地方">这一轮改动的地方</h3>
+      <table>
+      <thead>
+      <tr>
+      <th>层</th>
+      <th>之前</th>
+      <th>之后</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+      <td>死代码</td>
+      <td><code>lib/export.ts</code>（只有测试引用）</td>
+      <td>连同 7 个测试一起删除</td>
+      </tr>
+      <tr>
+      <td>测试夹具</td>
+      <td>放在 <code>lib/</code>，被打进 <code>dist/blackboard.mjs</code></td>
+      <td>移到 <code>test/fixtures/</code></td>
+      </tr>
+      <tr>
+      <td><code>lib</code> 纯净度</td>
+      <td><code>lib/og.tsx</code> 引 <code>next/og</code></td>
+      <td>移到 <code>app/_og/render.tsx</code>，eslint 禁止 <code>lib</code> 引 next/react/components</td>
+      </tr>
+      <tr>
+      <td>文件长度</td>
+      <td>DocView 438、TopBar 310</td>
+      <td>260 / 204（拆出 useDocAnchors、PassageComposer、TabStrip、tabs-store）</td>
+      </tr>
+      <tr>
+      <td>依赖</td>
+      <td><code>cn</code>、<code>hast-util-to-string</code> 无引用</td>
+      <td>删除，<code>bun.lock</code> −4 行</td>
+      </tr>
+      <tr>
+      <td>规则</td>
+      <td>只有 Next 自动生成的一段</td>
+      <td><code>docs/engineering-contract.md</code>（9 节，可执行）</td>
+      </tr>
+      </tbody>
+      </table>
+    </div>
+  </section>
+  <section id="b-01M6EM3GVKD5Q4QEP6VYW5HN6K" class="block v-a" data-n="2" data-action="append"><p class="meta-line"><span class="act">追加 · </span>admin · 17:14:55</p>
+    <div class="doc-body">
+      <h3 id="规则定了哪些docsengineering-contractmd">规则定了哪些（docs/engineering-contract.md）</h3>
+      <ol>
+      <li><strong>门槛</strong> — <code>typecheck</code> / <code>lint</code> / <code>test</code> 三条，必须原样跑、不许接管道（接了 <code>| tail</code> 会把红灯读成绿灯）。</li>
+      <li><strong>依赖方向单向</strong> — <code>app/</code> 只是边界适配器（解析请求 → 调 lib → 塑形响应，不放业务）；<code>lib/</code> framework-free；<code>components/</code> 可以引 <code>lib</code>，反向不行；<code>bin/</code> 只管语法，行为都在 <code>lib/cli.ts</code>。</li>
+      <li><strong>文件纪律</strong> — 单文件 300 行硬上限；一个文件一个概念；不允许"只为缩短 import 路径"的转发层；测试与代码同目录，测试专用工具放 <code>test/</code>。</li>
+      <li><strong>出站面只过 plain data</strong> — JSON、SSE、CLI stdout、server component 传给 client 的 props；Effect 不出服务端，浏览器 bundle 里零 Effect。</li>
+      <li><strong>Effect 代码禁 try/catch</strong> — <code>Effect.try</code> / tagged error / <code>catchTag</code> / <code>ensuring</code> / <code>acquireUseRelease</code>；进程最外层例外，转成 exit code 或 wire error。</li>
+      <li><strong>死代码政策</strong> — 无未用导出、无注释掉的代码、无"以防万一"的 flag；唯一例外是 <code>lib/features.ts</code> 里带理由和复活条件的正式开关。</li>
+      <li><strong>渲染路径红线</strong> — 渲染循环里不许有 per-node 同步 IO；贵插件按内容开关；改渲染必须给前后基准数。</li>
+      <li><strong>公开仓库卫生</strong> — 源码/注释/提交信息里不出现内部卡号、私有主机名、本机绝对路径、密钥。</li>
+      </ol>
+      <h3 id="为什么规则不在-agentsmd">为什么规则不在 AGENTS.md</h3>
+      <p>写 <code>AGENTS.md</code> 被 Hermes 的护栏拦下了（agent 指令文件需要你本人确认，你不在场就超时）。所以规则先落在 <code>docs/engineering-contract.md</code>，内容一字不差就是要塞进 <code>AGENTS.md</code> 的那份。你在的时候我把它搬过去，或者你直接批准那次写入。</p>
+    </div>
+  </section>
+  <section id="b-01M6EM3GZC85ZNQ0528H4DY3N3" class="block v-a" data-n="3" data-action="append"><p class="meta-line"><span class="act">追加 · </span>admin · 17:14:55</p>
+    <div class="doc-body">
+      <h3 id="effect-改造只做边界一次一刀">Effect 改造：只做边界，一次一刀</h3>
+      <p><strong>三个文件，107 行，全部在 <code>lib/effect/</code></strong></p>
+      <ul>
+      <li><code>errors.ts</code>（55 行）— tagged failure 联合：<code>SessionNotFound</code> / <code>CommentNotFound</code> / <code>ReplyNotFound</code> / <code>InvalidInput</code> / <code>LockTimeout</code> / <code>IoFailure</code> / <code>GitFailure</code> / <code>ImageRejected</code>。每个都带<strong>今天线上就在用的 status 和 error 字符串</strong>，所以"失败 → 响应"是机械映射，措辞不变。</li>
+      <li><code>runtime.ts</code>（19 行）— 全进程一个 <code>ManagedRuntime</code>，<code>globalThis</code> 缓存（dev HMR 每次热更都会重新求值模块，不缓存就每次泄漏一个 fiber scope）。本轮 Layer 故意为空：仓库还是普通函数，没有服务要 provide。<strong>不做 per-request runtime</strong>。</li>
+      <li><code>respond.ts</code>（33 行）— <code>respond(effect, status)</code> / <code>respondRaw(effect)</code>：跑程序，失败回 <code>{error}</code> + status，成功回 body，defect 回 500。<strong>全仓库只允许这里调 <code>runPromise</code>。</strong></li>
+      </ul>
+      <p><strong>9 个 route handler 全部变成一行 <code>return respond(program(req))</code></strong></p>
+      <ul>
+      <li><code>comments</code> 不再有 <code>json()</code> 的 try/catch，也不再有 <code>/not found/</code> → 404 的 catch，改成 typed tag。</li>
+      <li><code>asset</code> 的 <code>stat</code> try/catch、<code>watch</code> 的三处 try/catch（enqueue / <code>fs.watch</code> / <code>close</code>）全部消失。</li>
+      </ul>
+      <h3 id="怎么证明线上没变">怎么证明"线上没变"</h3>
+      <ul>
+      <li><code>test/wire-snapshot.test.ts</code>：9 个 handler × 45 个用例，记录 <code>{status, contentType, headers, body}</code>。<strong>先用改造前的代码生成并单独提交</strong>，重构提交之后这个文件 diff 为空。</li>
+      <li>四条 rg 门槛，真实输出：<code>app/api</code>+<code>lib/effect</code> 的 <code>try {</code>/<code>catch (</code> 为空；<code>components</code> 里没有 <code>from "effect"</code>；产物 chunk 里没有 <code>ManagedRuntime|TaggedError</code>；<code>runPromise</code> 只出现在 <code>respond.ts</code>。</li>
+      <li>结论：测试数 <code>391 → 384</code>（#32 删掉 7 个属于被删模块的测试）<code>→ 385</code>（#33 新增一个快照测试）。</li>
+      </ul>
+    </div>
+  </section>
+  </section>
+<section class="variant variant-b" aria-label="variant b">
+  <section id="b-01M6EM3GQS6TXPTABZK16YT1RV" class="block v-b" data-n="1" data-action="answer"><header class="num-line"><span class="num">#1</span><span class="act">长答</span><span class="who">admin · 17:14:55</span></header>
+    <div class="doc-body">
+      <h3 id="一页结论">一页结论</h3>
+      <ul>
+      <li><strong>第一部分（清理 + 规则）已完成 → PR #32</strong>：删死代码、把测试夹具移出 <code>lib</code>、<code>lib</code> 恢复 framework-free、删掉 12 个没用到的 shadcn 子组件和 2 个依赖、两个超 300 行的 UI 文件按概念拆开、linter 从"警告"改成"强制"。源码侧 54 个文件 +461 −609。</li>
+      <li><strong>第二部分（Effect 改造）已完成第一刀 → PR #33</strong>（栈在 #32 上）：<code>effect@4.1.2</code>，三个文件共 107 行（errors / runtime / respond），9 个 route handler 全部变成边界适配器。<strong>线上 JSON 一个字节没变</strong>，45 例 wire 快照做证。</li>
+      <li><strong>数字</strong>：#32 typecheck 0 / lint 0 / test 384 pass；#33 test 385 pass、<code>bun run build</code> 通过、<code>app/api</code> 与 <code>lib/effect</code> 里 <code>try/catch</code> 归零。</li>
+      <li><strong>两个 PR 都还没合并</strong>——按你说的，你先读代码。</li>
+      </ul>
+      <h3 id="这一轮改动的地方">这一轮改动的地方</h3>
+      <table>
+      <thead>
+      <tr>
+      <th>层</th>
+      <th>之前</th>
+      <th>之后</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+      <td>死代码</td>
+      <td><code>lib/export.ts</code>（只有测试引用）</td>
+      <td>连同 7 个测试一起删除</td>
+      </tr>
+      <tr>
+      <td>测试夹具</td>
+      <td>放在 <code>lib/</code>，被打进 <code>dist/blackboard.mjs</code></td>
+      <td>移到 <code>test/fixtures/</code></td>
+      </tr>
+      <tr>
+      <td><code>lib</code> 纯净度</td>
+      <td><code>lib/og.tsx</code> 引 <code>next/og</code></td>
+      <td>移到 <code>app/_og/render.tsx</code>，eslint 禁止 <code>lib</code> 引 next/react/components</td>
+      </tr>
+      <tr>
+      <td>文件长度</td>
+      <td>DocView 438、TopBar 310</td>
+      <td>260 / 204（拆出 useDocAnchors、PassageComposer、TabStrip、tabs-store）</td>
+      </tr>
+      <tr>
+      <td>依赖</td>
+      <td><code>cn</code>、<code>hast-util-to-string</code> 无引用</td>
+      <td>删除，<code>bun.lock</code> −4 行</td>
+      </tr>
+      <tr>
+      <td>规则</td>
+      <td>只有 Next 自动生成的一段</td>
+      <td><code>docs/engineering-contract.md</code>（9 节，可执行）</td>
+      </tr>
+      </tbody>
+      </table>
+    </div>
+  </section>
+  <section id="b-01M6EM3GVKD5Q4QEP6VYW5HN6K" class="block v-b" data-n="2" data-action="append"><header class="num-line"><span class="num">#2</span><span class="act">追加</span><span class="who">admin · 17:14:55</span></header>
+    <div class="doc-body">
+      <h3 id="规则定了哪些docsengineering-contractmd">规则定了哪些（docs/engineering-contract.md）</h3>
+      <ol>
+      <li><strong>门槛</strong> — <code>typecheck</code> / <code>lint</code> / <code>test</code> 三条，必须原样跑、不许接管道（接了 <code>| tail</code> 会把红灯读成绿灯）。</li>
+      <li><strong>依赖方向单向</strong> — <code>app/</code> 只是边界适配器（解析请求 → 调 lib → 塑形响应，不放业务）；<code>lib/</code> framework-free；<code>components/</code> 可以引 <code>lib</code>，反向不行；<code>bin/</code> 只管语法，行为都在 <code>lib/cli.ts</code>。</li>
+      <li><strong>文件纪律</strong> — 单文件 300 行硬上限；一个文件一个概念；不允许"只为缩短 import 路径"的转发层；测试与代码同目录，测试专用工具放 <code>test/</code>。</li>
+      <li><strong>出站面只过 plain data</strong> — JSON、SSE、CLI stdout、server component 传给 client 的 props；Effect 不出服务端，浏览器 bundle 里零 Effect。</li>
+      <li><strong>Effect 代码禁 try/catch</strong> — <code>Effect.try</code> / tagged error / <code>catchTag</code> / <code>ensuring</code> / <code>acquireUseRelease</code>；进程最外层例外，转成 exit code 或 wire error。</li>
+      <li><strong>死代码政策</strong> — 无未用导出、无注释掉的代码、无"以防万一"的 flag；唯一例外是 <code>lib/features.ts</code> 里带理由和复活条件的正式开关。</li>
+      <li><strong>渲染路径红线</strong> — 渲染循环里不许有 per-node 同步 IO；贵插件按内容开关；改渲染必须给前后基准数。</li>
+      <li><strong>公开仓库卫生</strong> — 源码/注释/提交信息里不出现内部卡号、私有主机名、本机绝对路径、密钥。</li>
+      </ol>
+      <h3 id="为什么规则不在-agentsmd">为什么规则不在 AGENTS.md</h3>
+      <p>写 <code>AGENTS.md</code> 被 Hermes 的护栏拦下了（agent 指令文件需要你本人确认，你不在场就超时）。所以规则先落在 <code>docs/engineering-contract.md</code>，内容一字不差就是要塞进 <code>AGENTS.md</code> 的那份。你在的时候我把它搬过去，或者你直接批准那次写入。</p>
+    </div>
+  </section>
+  <section id="b-01M6EM3GZC85ZNQ0528H4DY3N3" class="block v-b" data-n="3" data-action="append"><header class="num-line"><span class="num">#3</span><span class="act">追加</span><span class="who">admin · 17:14:55</span></header>
+    <div class="doc-body">
+      <h3 id="effect-改造只做边界一次一刀">Effect 改造：只做边界，一次一刀</h3>
+      <p><strong>三个文件，107 行，全部在 <code>lib/effect/</code></strong></p>
+      <ul>
+      <li><code>errors.ts</code>（55 行）— tagged failure 联合：<code>SessionNotFound</code> / <code>CommentNotFound</code> / <code>ReplyNotFound</code> / <code>InvalidInput</code> / <code>LockTimeout</code> / <code>IoFailure</code> / <code>GitFailure</code> / <code>ImageRejected</code>。每个都带<strong>今天线上就在用的 status 和 error 字符串</strong>，所以"失败 → 响应"是机械映射，措辞不变。</li>
+      <li><code>runtime.ts</code>（19 行）— 全进程一个 <code>ManagedRuntime</code>，<code>globalThis</code> 缓存（dev HMR 每次热更都会重新求值模块，不缓存就每次泄漏一个 fiber scope）。本轮 Layer 故意为空：仓库还是普通函数，没有服务要 provide。<strong>不做 per-request runtime</strong>。</li>
+      <li><code>respond.ts</code>（33 行）— <code>respond(effect, status)</code> / <code>respondRaw(effect)</code>：跑程序，失败回 <code>{error}</code> + status，成功回 body，defect 回 500。<strong>全仓库只允许这里调 <code>runPromise</code>。</strong></li>
+      </ul>
+      <p><strong>9 个 route handler 全部变成一行 <code>return respond(program(req))</code></strong></p>
+      <ul>
+      <li><code>comments</code> 不再有 <code>json()</code> 的 try/catch，也不再有 <code>/not found/</code> → 404 的 catch，改成 typed tag。</li>
+      <li><code>asset</code> 的 <code>stat</code> try/catch、<code>watch</code> 的三处 try/catch（enqueue / <code>fs.watch</code> / <code>close</code>）全部消失。</li>
+      </ul>
+      <h3 id="怎么证明线上没变">怎么证明"线上没变"</h3>
+      <ul>
+      <li><code>test/wire-snapshot.test.ts</code>：9 个 handler × 45 个用例，记录 <code>{status, contentType, headers, body}</code>。<strong>先用改造前的代码生成并单独提交</strong>，重构提交之后这个文件 diff 为空。</li>
+      <li>四条 rg 门槛，真实输出：<code>app/api</code>+<code>lib/effect</code> 的 <code>try {</code>/<code>catch (</code> 为空；<code>components</code> 里没有 <code>from "effect"</code>；产物 chunk 里没有 <code>ManagedRuntime|TaggedError</code>；<code>runPromise</code> 只出现在 <code>respond.ts</code>。</li>
+      <li>结论：测试数 <code>391 → 384</code>（#32 删掉 7 个属于被删模块的测试）<code>→ 385</code>（#33 新增一个快照测试）。</li>
+      </ul>
+    </div>
+  </section>
+  </section>
+<section class="variant variant-c" aria-label="variant c">
+  <section id="b-01M6EM3GQS6TXPTABZK16YT1RV" class="block v-c" data-n="1" data-action="answer">
+    <div class="doc-body">
+      <h3 id="一页结论">一页结论</h3>
+      <ul>
+      <li><strong>第一部分（清理 + 规则）已完成 → PR #32</strong>：删死代码、把测试夹具移出 <code>lib</code>、<code>lib</code> 恢复 framework-free、删掉 12 个没用到的 shadcn 子组件和 2 个依赖、两个超 300 行的 UI 文件按概念拆开、linter 从"警告"改成"强制"。源码侧 54 个文件 +461 −609。</li>
+      <li><strong>第二部分（Effect 改造）已完成第一刀 → PR #33</strong>（栈在 #32 上）：<code>effect@4.1.2</code>，三个文件共 107 行（errors / runtime / respond），9 个 route handler 全部变成边界适配器。<strong>线上 JSON 一个字节没变</strong>，45 例 wire 快照做证。</li>
+      <li><strong>数字</strong>：#32 typecheck 0 / lint 0 / test 384 pass；#33 test 385 pass、<code>bun run build</code> 通过、<code>app/api</code> 与 <code>lib/effect</code> 里 <code>try/catch</code> 归零。</li>
+      <li><strong>两个 PR 都还没合并</strong>——按你说的，你先读代码。</li>
+      </ul>
+      <h3 id="这一轮改动的地方">这一轮改动的地方</h3>
+      <table>
+      <thead>
+      <tr>
+      <th>层</th>
+      <th>之前</th>
+      <th>之后</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+      <td>死代码</td>
+      <td><code>lib/export.ts</code>（只有测试引用）</td>
+      <td>连同 7 个测试一起删除</td>
+      </tr>
+      <tr>
+      <td>测试夹具</td>
+      <td>放在 <code>lib/</code>，被打进 <code>dist/blackboard.mjs</code></td>
+      <td>移到 <code>test/fixtures/</code></td>
+      </tr>
+      <tr>
+      <td><code>lib</code> 纯净度</td>
+      <td><code>lib/og.tsx</code> 引 <code>next/og</code></td>
+      <td>移到 <code>app/_og/render.tsx</code>，eslint 禁止 <code>lib</code> 引 next/react/components</td>
+      </tr>
+      <tr>
+      <td>文件长度</td>
+      <td>DocView 438、TopBar 310</td>
+      <td>260 / 204（拆出 useDocAnchors、PassageComposer、TabStrip、tabs-store）</td>
+      </tr>
+      <tr>
+      <td>依赖</td>
+      <td><code>cn</code>、<code>hast-util-to-string</code> 无引用</td>
+      <td>删除，<code>bun.lock</code> −4 行</td>
+      </tr>
+      <tr>
+      <td>规则</td>
+      <td>只有 Next 自动生成的一段</td>
+      <td><code>docs/engineering-contract.md</code>（9 节，可执行）</td>
+      </tr>
+      </tbody>
+      </table>
+    </div>
+  </section>
+  <section id="b-01M6EM3GVKD5Q4QEP6VYW5HN6K" class="block v-c" data-n="2" data-action="append">
+    <div class="doc-body">
+      <h3 id="规则定了哪些docsengineering-contractmd">规则定了哪些（docs/engineering-contract.md）</h3>
+      <ol>
+      <li><strong>门槛</strong> — <code>typecheck</code> / <code>lint</code> / <code>test</code> 三条，必须原样跑、不许接管道（接了 <code>| tail</code> 会把红灯读成绿灯）。</li>
+      <li><strong>依赖方向单向</strong> — <code>app/</code> 只是边界适配器（解析请求 → 调 lib → 塑形响应，不放业务）；<code>lib/</code> framework-free；<code>components/</code> 可以引 <code>lib</code>，反向不行；<code>bin/</code> 只管语法，行为都在 <code>lib/cli.ts</code>。</li>
+      <li><strong>文件纪律</strong> — 单文件 300 行硬上限；一个文件一个概念；不允许"只为缩短 import 路径"的转发层；测试与代码同目录，测试专用工具放 <code>test/</code>。</li>
+      <li><strong>出站面只过 plain data</strong> — JSON、SSE、CLI stdout、server component 传给 client 的 props；Effect 不出服务端，浏览器 bundle 里零 Effect。</li>
+      <li><strong>Effect 代码禁 try/catch</strong> — <code>Effect.try</code> / tagged error / <code>catchTag</code> / <code>ensuring</code> / <code>acquireUseRelease</code>；进程最外层例外，转成 exit code 或 wire error。</li>
+      <li><strong>死代码政策</strong> — 无未用导出、无注释掉的代码、无"以防万一"的 flag；唯一例外是 <code>lib/features.ts</code> 里带理由和复活条件的正式开关。</li>
+      <li><strong>渲染路径红线</strong> — 渲染循环里不许有 per-node 同步 IO；贵插件按内容开关；改渲染必须给前后基准数。</li>
+      <li><strong>公开仓库卫生</strong> — 源码/注释/提交信息里不出现内部卡号、私有主机名、本机绝对路径、密钥。</li>
+      </ol>
+      <h3 id="为什么规则不在-agentsmd">为什么规则不在 AGENTS.md</h3>
+      <p>写 <code>AGENTS.md</code> 被 Hermes 的护栏拦下了（agent 指令文件需要你本人确认，你不在场就超时）。所以规则先落在 <code>docs/engineering-contract.md</code>，内容一字不差就是要塞进 <code>AGENTS.md</code> 的那份。你在的时候我把它搬过去，或者你直接批准那次写入。</p>
+    </div>
+  </section>
+  <section id="b-01M6EM3GZC85ZNQ0528H4DY3N3" class="block v-c" data-n="3" data-action="append">
+    <div class="doc-body">
+      <h3 id="effect-改造只做边界一次一刀">Effect 改造：只做边界，一次一刀</h3>
+      <p><strong>三个文件，107 行，全部在 <code>lib/effect/</code></strong></p>
+      <ul>
+      <li><code>errors.ts</code>（55 行）— tagged failure 联合：<code>SessionNotFound</code> / <code>CommentNotFound</code> / <code>ReplyNotFound</code> / <code>InvalidInput</code> / <code>LockTimeout</code> / <code>IoFailure</code> / <code>GitFailure</code> / <code>ImageRejected</code>。每个都带<strong>今天线上就在用的 status 和 error 字符串</strong>，所以"失败 → 响应"是机械映射，措辞不变。</li>
+      <li><code>runtime.ts</code>（19 行）— 全进程一个 <code>ManagedRuntime</code>，<code>globalThis</code> 缓存（dev HMR 每次热更都会重新求值模块，不缓存就每次泄漏一个 fiber scope）。本轮 Layer 故意为空：仓库还是普通函数，没有服务要 provide。<strong>不做 per-request runtime</strong>。</li>
+      <li><code>respond.ts</code>（33 行）— <code>respond(effect, status)</code> / <code>respondRaw(effect)</code>：跑程序，失败回 <code>{error}</code> + status，成功回 body，defect 回 500。<strong>全仓库只允许这里调 <code>runPromise</code>。</strong></li>
+      </ul>
+      <p><strong>9 个 route handler 全部变成一行 <code>return respond(program(req))</code></strong></p>
+      <ul>
+      <li><code>comments</code> 不再有 <code>json()</code> 的 try/catch，也不再有 <code>/not found/</code> → 404 的 catch，改成 typed tag。</li>
+      <li><code>asset</code> 的 <code>stat</code> try/catch、<code>watch</code> 的三处 try/catch（enqueue / <code>fs.watch</code> / <code>close</code>）全部消失。</li>
+      </ul>
+      <h3 id="怎么证明线上没变">怎么证明"线上没变"</h3>
+      <ul>
+      <li><code>test/wire-snapshot.test.ts</code>：9 个 handler × 45 个用例，记录 <code>{status, contentType, headers, body}</code>。<strong>先用改造前的代码生成并单独提交</strong>，重构提交之后这个文件 diff 为空。</li>
+      <li>四条 rg 门槛，真实输出：<code>app/api</code>+<code>lib/effect</code> 的 <code>try {</code>/<code>catch (</code> 为空；<code>components</code> 里没有 <code>from "effect"</code>；产物 chunk 里没有 <code>ManagedRuntime|TaggedError</code>；<code>runPromise</code> 只出现在 <code>respond.ts</code>。</li>
+      <li>结论：测试数 <code>391 → 384</code>（#32 删掉 7 个属于被删模块的测试）<code>→ 385</code>（#33 新增一个快照测试）。</li>
+      </ul>
+    </div>
+  </section>
+  </section>
+  </div></main>
+</div>
+<div class="pill" aria-hidden="true"><span></span></div>
+<script>
+  const set = () => {
+    const v = /^[abc]$/.test(location.hash.slice(1)) ? location.hash.slice(1) : "a";
+    document.body.dataset.variant = v;
+    for (const a of document.querySelectorAll(".switcher a")) a.setAttribute("aria-current", a.dataset.v === v ? "true" : "false");
+  };
+  addEventListener("hashchange", set); set();
+</script>
+</body>
+</html>
