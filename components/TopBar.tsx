@@ -134,11 +134,15 @@ export function TopBar() {
                 <ListTree />
               </Button>
             ) : null}
-            <Button variant="ghost" size="sm" aria-pressed={desktop ? chrome.cmOpen : chrome.sheet === "cm"} aria-label="Comments" title="Comments" data-testid="toggle-comments" onClick={() => togglePanel("cm", desktop)} className={cn("shrink-0 gap-1.5 px-2", (desktop ? chrome.cmOpen : chrome.sheet === "cm") && "bg-card border-border border")}>
-              <MessageSquare />
-              {doc.open > 0 ? <span className="bg-primary-soft text-primary rounded-full px-1.5 text-xs leading-[18px] font-semibold">{doc.open}</span> : null}
-            </Button>
           </>
+        ) : null}
+        {/* Every session kind carries comments — a stream included — so the comments toggle is not
+            gated on readability. A stream (readable=false) still has no TOC button above. */}
+        {doc ? (
+          <Button variant="ghost" size="sm" aria-pressed={desktop ? chrome.cmOpen : chrome.sheet === "cm"} aria-label="Comments" title="Comments" data-testid="toggle-comments" onClick={() => togglePanel("cm", desktop)} className={cn("shrink-0 gap-1.5 px-2", (desktop ? chrome.cmOpen : chrome.sheet === "cm") && "bg-card border-border border")}>
+            <MessageSquare />
+            {doc.open > 0 ? <span className="bg-primary-soft text-primary rounded-full px-1.5 text-xs leading-[18px] font-semibold">{doc.open}</span> : null}
+          </Button>
         ) : null}
 
         {/* Reading settings live in the bar at every width: one icon keeps the palette and font

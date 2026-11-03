@@ -1,0 +1,128 @@
+/*
+ * Stream-block-style mock — three quieter visual languages for a stream block.
+ * Sketch only: tokens, fonts and .doc-body rules mirror app/themes.css + app/globals.css
+ * (copied from sketches/reading-config), so what Jun judges here is what the build would ship.
+ * The block bodies are the real markdown output of lib/markdown.ts for blocks 1-3 of
+ * stream-2026-11-02-serious-round.jsonl (see README.md).
+ */
+
+@font-face { font-family: "QB Sans Latin"; src: local("QuBlackSans-Regular"); font-weight: 400; unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F; }
+@font-face { font-family: "QB Sans Latin"; src: local("QuBlackSans-Bold"); font-weight: 700; unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F; }
+@font-face { font-family: "QB Sans CJK"; src: local("QuBlackSans-Regular"); font-weight: 400; unicode-range: U+2E80-2EFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF; }
+@font-face { font-family: "QB Sans CJK"; src: local("QuBlackSans-Bold"); font-weight: 700; unicode-range: U+2E80-2EFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF; }
+@font-face { font-family: "QB Mono Latin"; src: local("QuBlackMono-Regular"); unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F; }
+@font-face { font-family: "QB Mono CJK"; src: local("QuBlackMono-Regular"); unicode-range: U+2E80-2EFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF; }
+
+:root {
+  color-scheme: light;
+  --bar-h: 52px;
+  --background: #faf8f5; --foreground: #2b2622; --card: #ffffff;
+  --primary: #b3532f; --muted: #f1ebe4; --muted-foreground: #6f675e;
+  --accent: #efe9e2; --border: #ebe5de; --code: #f6f2ed; --primary-soft: #f8e6df;
+  --font-latin: "QB Sans Latin"; --font-cjk: "QB Sans CJK", "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-read: var(--font-latin), var(--font-cjk);
+  --font-mono-latin: "QB Mono Latin"; --font-mono-cjk: "QB Mono CJK", "Sarasa Mono SC", monospace;
+  --font-code: var(--font-mono-latin), var(--font-mono-cjk);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--background); color: var(--foreground); font-family: var(--font-read); font-size: 15px; line-height: 1.6; }
+
+/* ---- the bar, as on a stream page: brand + tabs, then the icon group (timeline active) ---- */
+.bar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 6px; height: var(--bar-h); padding: 0 12px; background: color-mix(in srgb, var(--background) 90%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 8px; padding: 0 6px; font-weight: 700; font-size: 15px; }
+.brand-mark { width: 10px; height: 10px; background: var(--primary); rotate: 45deg; border-radius: 2px; }
+.mock-chip { font-family: var(--font-code); font-size: 11px; color: var(--muted-foreground); border: 1px dashed var(--border); border-radius: 999px; padding: 1px 8px; }
+.bar-title { display: none; min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 14px; }
+.bar-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: var(--muted-foreground); cursor: pointer; }
+.icon-btn:hover { background: var(--accent); color: var(--foreground); }
+.icon-btn.active { background: var(--primary-soft); color: var(--primary); border: 1px solid var(--primary); }
+.bar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+.switcher { display: flex; gap: 2px; margin-left: 8px; border: 1px solid var(--border); border-radius: 999px; padding: 2px; background: var(--card); }
+.switcher a { font-family: var(--font-code); font-size: 11.5px; line-height: 1; color: var(--muted-foreground); text-decoration: none; padding: 5px 9px; border-radius: 999px; }
+.switcher a[aria-current="true"] { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+
+/* ---- layout: timeline rail (desktop) + the doc column ---- */
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); min-height: calc(100vh - var(--bar-h)); }
+.rail { border-right: 1px solid var(--border); position: relative; }
+.rail-inner { position: sticky; top: var(--bar-h); max-height: calc(100vh - var(--bar-h)); overflow-y: auto; padding: 12px; }
+.rail-label { font-size: 12px; font-weight: 600; color: var(--muted-foreground); letter-spacing: 0.04em; margin: 0 0 8px; }
+.stream-title { margin: 0 0 8px; padding: 0 0 10px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; }
+.stream-timeline { margin: 0; padding: 0; list-style: none; font-size: 13px; }
+.stream-timeline li { position: relative; padding-left: 20px; padding-bottom: 12px; }
+.stream-timeline li::before { content: ""; position: absolute; left: 5px; top: 7px; width: 8px; height: 8px; border-radius: 999px; background: var(--border); }
+.stream-timeline a { display: block; color: var(--foreground); text-decoration: none; }
+.stream-timeline a:hover { color: var(--primary); }
+.stream-timeline .t-title { display: block; font-weight: 500; }
+.stream-timeline .t-meta { display: block; font-size: 12px; color: var(--muted-foreground); }
+
+.main { padding: 32px 40px 96px; min-width: 0; }
+.doc-inner { max-width: 760px; margin: 0 auto; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; font-size: 12px; }
+.chip { font-family: var(--font-code); font-size: 11.5px; color: var(--foreground); background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---- doc-body: copied from app/globals.css ---- */
+.doc-body { font-family: var(--font-read); max-width: 760px; line-height: 1.85; overflow-wrap: break-word; }
+.doc-body > :first-child { margin-top: 0; }
+.doc-body h1, .doc-body h2, .doc-body h3, .doc-body h4 { line-height: 1.3; font-weight: 700; }
+.doc-body h3 { font-size: 1.12rem; margin: 1.6em 0 0.4em; }
+.doc-body p, .doc-body ul, .doc-body ol { margin: 0.6em 0; }
+.doc-body ul, .doc-body ol { padding-left: 1.5em; }
+.doc-body ul { list-style: disc; } .doc-body ol { list-style: decimal; }
+.doc-body li { margin: 0.2em 0; }
+.doc-body li::marker { color: var(--muted-foreground); }
+.doc-body a { color: var(--primary); }
+.doc-body :not(pre) > code { font-family: var(--font-code); font-size: 0.85em; background: var(--code); border: 1px solid var(--border); padding: 0.05em 0.4em; border-radius: 6px; }
+.doc-body pre { font-family: var(--font-code); font-size: 0.82rem; line-height: 1.65; margin: 1em 0; padding: 14px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; }
+.doc-body pre code { font-family: inherit; font-size: inherit; }
+.doc-body table { max-width: 100%; display: block; overflow-x: auto; border-collapse: separate; border-spacing: 0; margin: 1em 0; font-size: 0.92em; }
+.doc-body th, .doc-body td { border: 1px solid var(--border); border-width: 0 1px 1px 0; padding: 6px 13px; text-align: left; }
+.doc-body tr > :first-child { border-left-width: 1px; }
+.doc-body thead th { border-top-width: 1px; background: var(--muted); font-weight: 600; }
+.doc-body tbody tr:nth-child(2n) { background: color-mix(in srgb, var(--muted) 45%, transparent); }
+
+/* ---- variant routing: the hash picks one of the three; the others are not rendered ---- */
+.variant { display: none; }
+body[data-variant="a"] .variant-a { display: block; }
+body[data-variant="b"] .variant-b { display: block; }
+body[data-variant="c"] .variant-c { display: block; }
+
+/* ---- the variants. Every one keeps the section id (timeline jumps) and readable spacing. ---- */
+.block { scroll-margin-top: calc(var(--bar-h) + 12px); }
+.block:target { outline: 1px dashed var(--border); outline-offset: 6px; border-radius: 8px; }
+
+/* A - quiet meta line: no rule, no pill; author and time, plus the action word only when the
+   block is not a plain answer. Nothing else. */
+.v-a { margin: 0 0 2.6em; }
+.v-a .meta-line { margin: 0 0 0.5em; font-size: 12px; color: var(--muted-foreground); }
+.v-a .meta-line .act { margin-right: 2px; }
+
+/* B - numbered sections: #n and the action word open each block, hairline border-top separates. */
+.v-b { margin: 0; padding: 1.1em 0 0.2em; border-top: 1px solid var(--border); }
+.v-b:first-of-type { border-top: 0; padding-top: 0; }
+.v-b + .v-b { margin-top: 1.8em; }
+.v-b .num-line { display: flex; align-items: baseline; gap: 10px; margin: 0 0 0.5em; font-size: 12px; color: var(--muted-foreground); }
+.v-b .num { font-family: var(--font-code); font-size: 12px; color: var(--foreground); font-weight: 600; }
+.v-b .act { letter-spacing: 0.08em; }
+.v-b .who { margin-left: auto; }
+
+/* C - headless: no per-block header at all; spacing is the only separation, the timeline (and
+   only the timeline) carries author and time. */
+.v-c { margin: 0 0 3em; }
+
+/* ---- phone: the app rules - no tab strip, no rail (sheets instead), title in the bar,
+   reading tools as the fixed bottom pill ---- */
+@media (max-width: 767px) {
+  .brand, .mock-chip, .bar-actions .desk { display: none; }
+  .bar { gap: 4px; }
+  .bar-title { display: block; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .rail { display: none; }
+  .main { padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px calc(6rem + env(safe-area-inset-bottom, 0px)); }
+  .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .pill { display: flex; position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px)); z-index: 30; align-items: center; justify-content: center; height: 32px; width: 56px; border-radius: 999px; border: 1px solid var(--border); background: color-mix(in srgb, var(--background) 95%, transparent); box-shadow: 0 4px 12px rgb(0 0 0 / 0.08); }
+  .pill span { width: 32px; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--muted-foreground) 50%, transparent); }
+}
+.pill { display: none; }
