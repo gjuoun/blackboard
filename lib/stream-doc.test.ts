@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { exportStream, parseStream, type StreamMeta } from "./stream-doc";
+import { blockTime } from "./block-time";
 import { renderStream } from "./stream-html";
 
 const line = (o: Record<string, unknown>) => JSON.stringify(o);
@@ -130,6 +131,14 @@ describe("stream doc", () => {
     expect(html).not.toContain("data-action");
     expect(html).toContain("正在写第 2 块");
     expect(html).not.toContain("<input");
+  });
+
+  test("stream: header time is the local clock, the ISO rides in title", async () => {
+    const iso = "2026-11-02T17:14:55.097Z";
+    const { blocks } = parseStream(line({ id: "a", n: 1, action: "answer", author: "admin", at: iso, body: "x" }));
+    const html = await renderStream(blocks);
+    expect(html).toContain(`<header class="stream-head" title="${iso}">`);
+    expect(html).toContain(`<span class="stream-who">admin · ${blockTime(iso).time}</span>`);
   });
 
   test("stream: export is markdown sections", () => {

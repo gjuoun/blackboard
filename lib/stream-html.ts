@@ -4,6 +4,7 @@
  */
 import { ACTION_LABEL, type StreamBlock } from "./stream-doc";
 import { renderMarkdown } from "./markdown";
+import { blockTime } from "./block-time";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -12,9 +13,10 @@ export async function renderStream(blocks: readonly StreamBlock[]): Promise<stri
   for (const b of blocks) {
     const { html } = await renderMarkdown(b.body);
     const writing = b.status === "writing";
+    const { time, iso } = blockTime(b.at);
     parts.push(
       `<section id="${esc(b.id)}" class="stream-block" data-testid="stream-block" data-id="${esc(b.id)}" data-n="${b.n}">` +
-        `<header class="stream-head"><span class="stream-num">#${b.n}</span><span class="stream-act">${ACTION_LABEL[b.action]}</span><span class="stream-who">${esc(b.author)} · ${esc(b.at)}</span></header>` +
+        `<header class="stream-head" title="${esc(iso)}"><span class="stream-num">#${b.n}</span><span class="stream-act">${ACTION_LABEL[b.action]}</span><span class="stream-who">${esc(b.author)} · ${esc(time)}</span></header>` +
         `<div class="doc-body">${html}</div>` +
         (writing ? `<p class="stream-writing text-muted-foreground text-xs">agent 正在写第 ${b.n} 块…</p>` : "") +
       `</section>`,

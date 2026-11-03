@@ -1,3 +1,4 @@
+import { blockTime } from "@/lib/block-time";
 import { blockTitle } from "@/lib/block-title";
 import type { StreamBlock } from "@/lib/stream-doc";
 
@@ -16,15 +17,18 @@ export function StreamTimeline({ blocks, title }: { blocks: readonly StreamBlock
         </h2>
       ) : null}
       <ol className="stream-timeline m-0 list-none p-3 text-[13px]" data-testid="stream-timeline">
-        {blocks.map((b) => (
-          <li key={b.id} className="relative pl-5 pb-3">
-            <span aria-hidden className="absolute left-[5px] top-[7px] size-2 rounded-full bg-border" />
-            <a href={`#${b.id}`} data-testid="timeline-entry" data-id={b.id} data-n={b.n} className="block text-foreground no-underline hover:text-primary">
-              <span className="block font-medium">{blockTitle(b)}</span>
-              <span className="text-muted-foreground block text-xs">{b.author} · {b.at}</span>
-            </a>
-          </li>
-        ))}
+        {blocks.map((b) => {
+          const { time, iso } = blockTime(b.at);
+          return (
+            <li key={b.id} className="relative pl-5 pb-3">
+              <span aria-hidden className="absolute left-[5px] top-[7px] size-2 rounded-full bg-border" />
+              <a href={`#${b.id}`} title={iso} data-testid="timeline-entry" data-id={b.id} data-n={b.n} className="block text-foreground no-underline hover:text-primary">
+                <span className="block font-medium">{blockTitle(b)}</span>
+                <span className="text-muted-foreground block text-xs">{b.author} · {time}</span>
+              </a>
+            </li>
+          );
+        })}
       </ol>
     </div>
   );
