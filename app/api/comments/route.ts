@@ -1,6 +1,8 @@
 import { basename } from "node:path";
 import { Effect } from "effect";
 import type { NextRequest } from "next/server";
+import { notifyAgent, payloadFor } from "@/lib/agent-notify";
+import { AgentsStore } from "@/lib/agents-store";
 import type { QuoteSelector } from "@/lib/anchor";
 import { IMAGE_ID } from "@/lib/comment-images";
 import { renderComments, type RenderedComment } from "@/lib/comment-markdown";
@@ -88,6 +90,20 @@ function storeCall<A>(effect: Effect.Effect<A, IoFailure | LockTimeout>): Effect
   );
 }
 
+/**
+ * Tell the pi session bound to this doc that a comment or reply just arrived. The write already
+ * landed: the lookup ignores a missing or unreadable agents file, and the POST itself is not
+ * awaited, so a session that is gone cannot fail or slow down the submitter.
+ */
+function ping(req: NextRequest, at: Pick<Target, "home" | "session" | "doc">, comment: Comment, body: string, author: string) {
+  return Effect.gen(function* () {
+    const agents = yield* AgentsStore;
+    const binding = yield* agents.get(at.home, at.session.id).pipe(Effect.catch(() => Effect.succeed(null)));
+    const pageUrl = new URL(req.url).origin + `/s/${at.session.id}`;
+    notifyAgent(binding, payloadFor({ session: at.session.id, doc: at.doc, comment, body, author, pageUrl }));
+  });
+}
+
 /** GET ?session= — the doc comments, open and resolved. */
 export async function GET(req: NextRequest) {
   return respond(
@@ -106,7 +122,7 @@ export async function POST(req: NextRequest) {
   return respond(
     Effect.gen(function* () {
       const comments = yield* CommentsStore;
-      const { body: b, file, doc } = yield* postTarget(req);
+      const { body: b, file, doc, home, session } = yield* postTarget(req);
       const q = quote(b.quote);
       const body = text(b.body, MAX_BODY);
       if (!body) return yield* Effect.fail(bodyRequired());
@@ -119,6 +135,7 @@ export async function POST(req: NextRequest) {
       const kind = q ? { quote: q } : { general: true as const };
       const who = author(b.author);
       const comment = yield* storeCall(comments.mutate(file, (f) => addComment(f, doc, { ...kind, body, author: who, images })));
+      yield* ping(req, { home, session, doc }, comment, body, who);
       return { comment: one(comment) };
     }),
     201,
@@ -136,10 +153,10 @@ export async function PATCH(req: NextRequest) {
   return respond(patchProgram(req));
 }
 
-function patchProgram(req: NextRequest): Effect.Effect<Record<string, unknown>, ApiFailure, CommentsStore | SessionsStore> {
+function patchProgram(req: NextRequest): Effect.Effect<Record<string, unknown>, ApiFailure, CommentsStore | SessionsStore | AgentsStore> {
   return Effect.gen(function* () {
     const comments = yield* CommentsStore;
-    const { body: b, file, doc } = yield* patchTarget(req);
+    const { body: b, file, doc, home, session } = yield* patchTarget(req);
     const id = text(b.id, 64);
     if (!id) return yield* Effect.fail(new InvalidInput({ message: "id is required", status: 400, field: "id" }));
     const who = author(b.author);
@@ -149,7 +166,9 @@ function patchProgram(req: NextRequest): Effect.Effect<Record<string, unknown>, 
       if (!body) return yield* Effect.fail(bodyRequired());
       const joinReplyId = b.replyId === undefined ? undefined : (text(b.replyId, 64) ?? undefined);
       if (b.replyId !== undefined && !joinReplyId) return yield* Effect.fail(new InvalidInput({ message: "replyId must be a reply id", status: 400, field: "replyId" }));
-      return { comment: one(yield* storeCall(comments.mutate(file, (f) => addReply(f, doc, id, { body, author: who, joinReplyId })))) };
+      const comment = yield* storeCall(comments.mutate(file, (f) => addReply(f, doc, id, { body, author: who, joinReplyId })));
+      yield* ping(req, { home, session, doc }, comment, body, who);
+      return { comment: one(comment) };
     }
 
     if (b.action === "edit") {
