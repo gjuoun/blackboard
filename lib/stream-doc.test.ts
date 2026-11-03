@@ -114,7 +114,7 @@ describe("stream doc", () => {
     expect(Object.keys(blocks[0])).not.toContain("input");
   });
 
-  test("stream: header shows action pill and anchor", async () => {
+  test("stream: header shows number, action word and author", async () => {
     const { blocks } = parseStream([
       line({ id: "a", n: 1, action: "edit", author: "agent", at: "t", body: "## Changed\n\nText" }),
       line({ id: "b", n: 2, action: "append", author: "agent", at: "t", body: "x", status: "writing" }),
@@ -123,9 +123,11 @@ describe("stream doc", () => {
     // the anchor is the block's own id, never its display number
     expect(html).toContain('id="a"');
     expect(html).not.toContain('id="b1"');
-    expect(html).toContain("stream-pill\">改正文<");
-    expect(html).toContain("stream-rule-edit");
-    expect(html).toContain("stream-rule-append");
+    expect(html).toContain('<span class="stream-num">#1</span><span class="stream-act">改正文</span><span class="stream-who">agent · t</span>');
+    expect(html).toContain('<span class="stream-num">#2</span><span class="stream-act">追加</span>');
+    expect(html).not.toContain("stream-pill");
+    expect(html).not.toContain("stream-rule");
+    expect(html).not.toContain("data-action");
     expect(html).toContain("正在写第 2 块");
     expect(html).not.toContain("<input");
   });
