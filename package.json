@@ -28,6 +28,12 @@
     "bin/blackboard",
     "dist",
     "server",
+    "!server/server",
+    "!server/**/*.tsbuildinfo",
+    "!server/sketches",
+    "!server/test",
+    "!server/docs",
+    "!server/scripts",
     "LICENSE",
     "README.md"
   ],
