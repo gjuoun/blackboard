@@ -300,6 +300,17 @@ the list says which choices stay aligned. Regenerate the shipped subsets with
   the card URLs in the page are absolute. In `bun dev` Next always uses `localhost`.
 - `docs/social-preview.png` is the same default card; upload it under GitHub's Settings → Social preview.
 
+## Releasing
+
+Bump `version` in `package.json`, commit it, then tag and push:
+
+```sh
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+CI runs the gates, publishes to npm with provenance — `beta` when the version carries a `-`, else
+`latest` — and creates the GitHub release. The first publish is manual; see `.github/workflows/release.yml`.
+
 ## Credits
 
 The idea of reviewing planning docs side-by-side with a coding agent was learned from

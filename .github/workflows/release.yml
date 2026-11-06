@@ -1,0 +1,96 @@
+# Release: push a `vX.Y.Z` tag and this publishes the package and opens the GitHub release.
+#
+# The first publish has to be manual: npm cannot attach a trusted publisher to a package that does
+# not exist yet. Once @gjuoun/blackboard is on the registry, `npm trust github --allow-publish`
+# lets the publish step authenticate with OIDC instead — then delete the NPM_TOKEN secret.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Check tag matches package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          version="$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$version" ]; then
+            echo "::error::tag $GITHUB_REF_NAME means version $tag but package.json says $version"
+            exit 1
+          fi
+
+      - name: Pick dist-tag
+        id: dist_tag
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          case "$version" in
+            *-*) tag=beta ;;
+            *) tag=latest ;;
+          esac
+          echo "dist_tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "publishing $version to the $tag tag"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Test
+        run: bun test
+
+      # `npm publish --ignore-scripts` skips prepack/prepublishOnly, so the artifacts are built here.
+      - name: Build app
+        run: bun run build
+
+      - name: Assemble server
+        run: bun run build:server
+
+      - name: Build CLI
+        run: bun run build:cli
+
+      - name: Publish to npm
+        run: npm publish --access public --provenance --ignore-scripts --tag ${{ steps.dist_tag.outputs.dist_tag }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create the GitHub release
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "release $GITHUB_REF_NAME already exists; leaving it as it is"
+          else
+            gh release create "$GITHUB_REF_NAME" --generate-notes --title "$GITHUB_REF_NAME"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,78 @@
+# Gates for every change: the same commands AGENTS.md makes mandatory before a commit.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Cache Bun installs
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Test
+        run: bun test
+
+      - name: Build app
+        run: bun run build
+
+      - name: Assemble server
+        run: bun run build:server
+
+      - name: Build CLI
+        run: bun run build:cli
+
+      # `next build` traces the source tree into server/. A pack that jumps past the limit means
+      # the copy is dragging sketches/, test/, docs/ and scripts/ in again (scripts/build-server.ts).
+      - name: Packaging canary
+        run: |
+          npm pack --dry-run --json --ignore-scripts > /tmp/pack.json
+          node -e '
+          const pack = require("/tmp/pack.json")[0];
+          const files = Array.isArray(pack.files) ? pack.files.length : pack.entryCount;
+          const mb = (pack.unpackedSize / 1024 / 1024).toFixed(1);
+          console.log(files + " files, " + mb + " MB unpacked");
+          require("fs").appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            "### package size\n\n| files | unpacked |\n| --- | --- |\n| " + files + " | " + mb + " MB |\n",
+          );
+          if (files > 1800) {
+            console.error(
+              "::error::npm pack carries " + files + " files (limit 1800): server/ is tracing the whole source tree — check scripts/build-server.ts",
+            );
+            process.exit(1);
+          }
+          '
