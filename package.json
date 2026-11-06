@@ -43,7 +43,6 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "bun test",
-    "prepack": "bun run build && bun run build:server && bun run build:cli",
     "prepublishOnly": "bun run typecheck && bun run lint && bun test",
     "build:server": "bun scripts/build-server.ts"
   },

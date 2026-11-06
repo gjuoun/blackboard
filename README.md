@@ -51,8 +51,8 @@ blackboard open docs/design.md       # registers the file and opens its tab
 ```
 
 `bun run build && bun run build:server` makes the production app that `blackboard serve start`
-runs (`server/`); `bun run build:cli` bundles the command for Node (`dist/`). All three run on
-`npm pack` / `npm publish`.
+runs (`server/`); `bun run build:cli` bundles the command for Node (`dist/`). npm lifecycle hooks
+no longer build them — run them yourself before `npm pack` / `npm publish`.
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
@@ -309,7 +309,10 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
 CI runs the gates, publishes to npm with provenance — `beta` when the version carries a `-`, else
-`latest` — and creates the GitHub release. The first publish is manual; see `.github/workflows/release.yml`.
+`latest` — and creates the GitHub release. The first publish is manual: `npm publish --tag beta
+--access public` is one command; to inspect the tarball first, run `bun run build` and then
+`npm pack`. The build is owned by CI (`release.yml` runs `build:server` and `build:cli`); npm
+lifecycle hooks no longer rebuild. See `.github/workflows/release.yml`.
 
 ## Credits
 
