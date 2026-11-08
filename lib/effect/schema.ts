@@ -39,6 +39,15 @@ export const CommentPatchBody = Schema.Struct({
 });
 export type CommentPatchBody = typeof CommentPatchBody.Type;
 
+/** POST /api/reading: one document's state change, or `read-all` for every document. */
+export const READING_ACTIONS = ["read", "unread", "progress", "read-all"] as const;
+export const ReadingPostBody = Schema.Struct({
+  session: Schema.optional(Schema.String),
+  action: Schema.optional(Schema.Literals(READING_ACTIONS)),
+  progress: Schema.optional(Schema.Unknown),
+});
+export type ReadingPostBody = typeof ReadingPostBody.Type;
+
 /** The request body as a value; a body that is not JSON is null, exactly as a hand-written catch returned. */
 export const jsonBody = (req: Request): Effect.Effect<unknown | null> =>
   Effect.tryPromise(() => req.json()).pipe(Effect.catch(() => Effect.succeed(null)));
@@ -99,3 +108,11 @@ export const patchReject = (action: unknown) => (key: string): ApiFailure => {
   }
   return sessionNotFound(400);
 };
+
+/** POST /api/reading: a progress field of the wrong type names itself; everything else is an unknown document. */
+export const readingReject = (key: string): ApiFailure =>
+  key === "progress"
+    ? new InvalidInput({ message: "progress must be a number from 0 to 1", status: 400, field: "progress" })
+    : key === "action"
+      ? new InvalidInput({ message: "unknown action", status: 400, field: "action" })
+      : sessionNotFound(400);
