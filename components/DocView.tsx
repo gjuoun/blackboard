@@ -2,7 +2,7 @@
 
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { QuoteSelector } from "@/lib/anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
 import type { Review } from "@/lib/comments-store";
@@ -14,6 +14,7 @@ import { CommentPanel } from "./CommentPanel";
 import { ComposerLine } from "./ComposerLine";
 import { DocBody } from "./DocBody";
 import { PassageComposer } from "./PassageComposer";
+import { interceptHashClick, useVirtualDoc, VirtualDocProvider } from "./useVirtualDoc";
 import { useComments } from "./useComments";
 import { useDocAnchors } from "./useDocAnchors";
 import { useLiveDoc } from "./useLiveDoc";
@@ -48,6 +49,10 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
   };
 
   const { comments, error, add, addGeneral, reply, setResolved, reload, edit, remove, editReply, removeReply } = useComments(session, initialComments, author.trim() || "jun");
+  // The rendered body lives here so both the virtualizer and the anchoring can watch it: the
+  // virtualizer chunks it when the doc is long, the anchoring keeps working against its map.
+  const bodyRef = useRef<HTMLElement>(null);
+  const virt = useVirtualDoc({ html, bodyRef });
   const chrome = useChrome();
   const desktop = useIsDesktop();
   useLiveDoc(session, reload);
@@ -74,7 +79,14 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
     return () => removeEventListener("resize", onResize);
   }, [chrome.tocW, chrome.cmW]);
 
-  const { bodyRef, mainRef, draft, setDraft, activeId, flashId, onDocMove, onDocLeave, onDocClick, activate, panelComments } = useDocAnchors({ comments, html });
+  const { mainRef, draft, setDraft, activeId, flashId, onDocMove, onDocLeave, onDocClick: onAnchorClick, activate, panelComments } = useDocAnchors({ comments, html, bodyRef, virt: virt.handle, virtVersion: virt.version });
+
+  // In a virtualized doc an in-doc `#heading` link may point at an unmounted block: the native
+  // jump has nothing to find, so the virtualizer lands it instead.
+  const onDocClick = (e: React.MouseEvent<HTMLElement>) => {
+    if (interceptHashClick(e, virt.handle)) return;
+    onAnchorClick(e);
+  };
 
   const startComment = () => {
     if (!draft) return;
@@ -148,6 +160,7 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
     else if (resizing?.which === "cm") vars["--cm-w"] = resizing.width + "px";
   }
   return (
+    <VirtualDocProvider value={virt}>
     <div className="doc-grid grid min-h-[calc(100vh-var(--bar-h))] transition-[grid-template-columns] duration-200 [html[data-resizing]_&]:transition-none" style={vars as React.CSSProperties}>
       {desktop ? (
         <aside className={cn("hidden border-border relative overflow-x-clip border-r md:block", chrome.tocOpen && toc ? "" : "invisible border-0")} aria-hidden={!chrome.tocOpen} data-testid="toc-panel">
@@ -226,5 +239,6 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
         </>
       )}
     </div>
+    </VirtualDocProvider>
   );
 }

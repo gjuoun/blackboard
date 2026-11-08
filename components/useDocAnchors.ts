@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { anchor, makeSelector, type QuoteSelector, type TextRange } from "@/lib/anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
-import { buildTextMap, offsetOf, rangeOf } from "@/lib/text-map";
+import { buildTextMap, offsetOf, rangeOf, type TextMap } from "@/lib/text-map";
 import type { PanelComment } from "./CommentPanel";
 
 /** A passage the reader has selected, in document pixels, ready for the Comment button. */
@@ -12,12 +12,17 @@ export type Draft = { selector: QuoteSelector; top: number; left: number };
 // CSS Custom Highlight API: Chrome 105+, Safari 17.2+. Absent elsewhere; comments still list.
 const highlights = () => (typeof CSS !== "undefined" && "highlights" in CSS ? CSS.highlights : null);
 
+/** A virtualized doc's live handle: its text map covers the whole document, mounted or not. */
+export type VirtMapSource = { textMap(): TextMap | null };
+
 /**
  * Anchors every comment to the doc's text and follows the reader: the passages to highlight, the
  * comment under the pointer, the selection a Comment button can post, and the panel's ordering.
+ * When the doc is virtualized, every offset comes from the virtualizer's whole-document map
+ * (snapshotted before any block was unmounted), so selectors and ordering mean exactly what
+ * they mean on a plain doc; only highlight painting is limited to mounted blocks.
  */
-export function useDocAnchors({ comments, html }: { comments: RenderedComment[]; html: string }) {
-  const bodyRef = useRef<HTMLElement>(null);
+export function useDocAnchors({ comments, html, bodyRef, virt, virtVersion }: { comments: RenderedComment[]; html: string; bodyRef: RefObject<HTMLElement | null>; virt: VirtMapSource; virtVersion: number }) {
   const mainRef = useRef<HTMLElement>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -25,11 +30,20 @@ export function useDocAnchors({ comments, html }: { comments: RenderedComment[];
   const [flashId, setFlashId] = useState<string | null>(null);
   const [anchors, setAnchors] = useState<Record<string, TextRange | null>>({});
 
+  // The doc's text in comment coordinates: the virtualizer's whole-document map when it took
+  // over, the live walk otherwise (identical to a plain doc, which it is).
+  const mapOf = useCallback((): TextMap | null => {
+    const cached = virt.textMap();
+    if (cached) return cached;
+    const body = bodyRef.current;
+    return body ? buildTextMap(body) : null;
+  }, [virt, bodyRef]);
+
   // Anchor every comment against the current text and draw the highlights.
   useEffect(() => {
     const body = bodyRef.current;
-    if (!body) return;
-    const map = buildTextMap(body);
+    const map = mapOf();
+    if (!body || !map) return;
     const next: Record<string, TextRange | null> = {};
     const open: Range[] = [];
     const active: Range[] = [];
@@ -51,7 +65,7 @@ export function useDocAnchors({ comments, html }: { comments: RenderedComment[];
       hl.set("bb-comment-active", new Highlight(...active));
     }
     setAnchors((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
-  }, [comments, html, activeId, hoverId]);
+  }, [comments, html, activeId, hoverId, mapOf, bodyRef, virtVersion]);
   useEffect(() => () => highlights()?.clear(), []);
 
   // Track the reader's selection inside the doc and offer a Comment button next to it.
@@ -63,7 +77,8 @@ export function useDocAnchors({ comments, html }: { comments: RenderedComment[];
       if (!body || !main || !sel || sel.rangeCount === 0 || sel.isCollapsed) return setDraft(null);
       const range = sel.getRangeAt(0);
       if (!body.contains(range.commonAncestorContainer)) return setDraft(null);
-      const map = buildTextMap(body);
+      const map = mapOf();
+      if (!map) return setDraft(null);
       const start = offsetOf(map, range.startContainer, range.startOffset);
       const end = offsetOf(map, range.endContainer, range.endOffset);
       if (end <= start || !map.text.slice(start, end).trim()) return setDraft(null);
@@ -73,19 +88,20 @@ export function useDocAnchors({ comments, html }: { comments: RenderedComment[];
     };
     document.addEventListener("selectionchange", onChange);
     return () => document.removeEventListener("selectionchange", onChange);
-  }, []);
+  }, [mapOf, bodyRef]);
 
   // Which open comment's passage is under a point, if any (the shortest one when they overlap).
   const hitAt = useCallback(
     (x: number, y: number): string | null => {
       const body = bodyRef.current;
-      if (!body) return null;
       const d = document as Document & { caretRangeFromPoint?: (x: number, y: number) => Range | null };
       const pos = d.caretPositionFromPoint?.(x, y);
       const r = pos ? null : d.caretRangeFromPoint?.(x, y);
       const node = pos?.offsetNode ?? r?.startContainer;
-      if (!node || !body.contains(node)) return null;
-      const at = offsetOf(buildTextMap(body), node, pos?.offset ?? r?.startOffset ?? 0);
+      if (!node || !body || !body.contains(node)) return null;
+      const map = mapOf();
+      if (!map) return null;
+      const at = offsetOf(map, node, pos?.offset ?? r?.startOffset ?? 0);
       let best: { id: string; len: number } | null = null;
       for (const c of comments) {
         const range = anchors[c.id];
@@ -95,7 +111,7 @@ export function useDocAnchors({ comments, html }: { comments: RenderedComment[];
       }
       return best?.id ?? null;
     },
-    [anchors, comments],
+    [anchors, comments, mapOf, bodyRef],
   );
 
   // Hovering a highlight shows a pointer and a stronger highlight, so it reads as clickable.
@@ -110,7 +126,7 @@ export function useDocAnchors({ comments, html }: { comments: RenderedComment[];
         setHoverId(id);
       });
     },
-    [hitAt],
+    [hitAt, bodyRef],
   );
   const onDocLeave = useCallback(() => {
     cancelAnimationFrame(frame.current);
@@ -138,8 +154,9 @@ export function useDocAnchors({ comments, html }: { comments: RenderedComment[];
     setActiveId(id);
     const body = bodyRef.current;
     const r = anchors[id];
-    if (!body || !r) return;
-    const range = rangeOf(buildTextMap(body), r.start, r.end);
+    const map = mapOf();
+    if (!body || !r || !map) return;
+    const range = rangeOf(map, r.start, r.end);
     const rect = range?.getBoundingClientRect();
     if (rect && (rect.top < 100 || rect.bottom > innerHeight)) scrollBy({ top: rect.top - innerHeight / 3, behavior: "smooth" });
   };
@@ -160,5 +177,5 @@ export function useDocAnchors({ comments, html }: { comments: RenderedComment[];
     });
   }, [comments, anchors]);
 
-  return { bodyRef, mainRef, draft, setDraft, activeId, flashId, onDocMove, onDocLeave, onDocClick, activate, panelComments };
+  return { mainRef, draft, setDraft, activeId, flashId, onDocMove, onDocLeave, onDocClick, activate, panelComments };
 }
