@@ -1,4 +1,5 @@
 import { Effect } from "effect";
+import Link from "next/link";
 import { connection } from "next/server";
 import { SessionTable, type HomeRow, type HomeSort } from "@/components/SessionTable";
 import { runtime } from "@/lib/effect/runtime";
@@ -52,9 +53,17 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const sort = one(q.sort);
   return (
     <main className="mx-auto max-w-5xl px-4 pt-6 pb-16 md:px-6 md:pt-10">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Sessions</h1>
-        <p className="text-muted-foreground text-sm">Local markdown review</p>
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Sessions</h1>
+          <p className="text-muted-foreground text-sm">Local markdown review</p>
+        </div>
+        <Link
+          href="/workspace"
+          className="border-border bg-card hover:bg-accent inline-flex h-9 items-center rounded-lg border px-3 text-sm"
+        >
+          Reading workspace
+        </Link>
       </header>
       <SessionTable
         rows={rows}
