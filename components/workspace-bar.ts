@@ -14,7 +14,6 @@ export type WorkspaceBar = {
   onFilter: (value: "all" | "unread" | "reading") => void;
   counts: WorkspaceCounts;
   pending: number;
-  onMarkAll: () => void;
 };
 
 // The workspace page publishes its bar props here so the top bar (in the root layout, above the
