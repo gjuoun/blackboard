@@ -21,6 +21,15 @@ export type CjkId = (typeof CJK_IDS)[number];
 export const MONO_IDS = ["qublack-mono", "sarasa-mono", "jetbrains", "sf-mono"] as const;
 export type MonoId = (typeof MONO_IDS)[number];
 
+/** Document body sizes in px; "default" leaves the stylesheet's size alone. */
+export const DOC_SIZE_IDS = ["default", "13", "14", "15", "16", "17"] as const;
+export type DocSizeId = (typeof DOC_SIZE_IDS)[number];
+export const DOC_SIZE_LABEL: Record<DocSizeId, string> = { default: "Default", "13": "13", "14": "14", "15": "15", "16": "16", "17": "17" };
+
+/** The doc column: fit keeps the 760px cap, wide lets the body use the window. */
+export const TEXT_WIDTH_IDS = ["fit", "wide"] as const;
+export type TextWidthId = (typeof TEXT_WIDTH_IDS)[number];
+
 /** The reading subset of the persisted record. */
 type Prefs = {
   theme: ThemeId;
@@ -29,6 +38,14 @@ type Prefs = {
   fontMono: MonoId;
   tocW: number;
   cmW: number;
+  docSize: DocSizeId;
+  textWidth: TextWidthId;
+  /** Reopen a document at the position it was left, from the stored progress. */
+  resumeOnOpen: boolean;
+  /** Tapping a row counts as reading the document (the workspace's default). */
+  markReadOnOpen: boolean;
+  /** The repo the workspace list opens filtered to; "" is every repo. */
+  docRepo: string;
 };
 
 export const DEFAULT_PREFS: Prefs = {
@@ -38,6 +55,11 @@ export const DEFAULT_PREFS: Prefs = {
   fontMono: "qublack-mono",
   tocW: 240,
   cmW: 340,
+  docSize: "default",
+  textWidth: "fit",
+  resumeOnOpen: true,
+  markReadOnOpen: true,
+  docRepo: "",
 };
 
 /** The rest of `bb-chrome`: what the top bar and the doc page already persist. */
@@ -88,7 +110,7 @@ export function parsePrefs(raw: string | null): StoredChrome {
     data = null;
   }
   const o = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
-  const bool = (k: keyof ChromeFlags) => (typeof o[k] === "boolean" ? (o[k] as boolean) : DEFAULT_CHROME[k]);
+  const bool = <K extends keyof StoredChrome>(k: K): StoredChrome[K] => (typeof o[k] === "boolean" ? (o[k] as StoredChrome[K]) : DEFAULT_CHROME[k]);
   return {
     theme: inList(THEME_IDS, o.theme) ? o.theme : DEFAULT_PREFS.theme,
     fontLatin: inList(LATIN_IDS, o.fontLatin) ? o.fontLatin : DEFAULT_PREFS.fontLatin,
@@ -100,6 +122,11 @@ export function parsePrefs(raw: string | null): StoredChrome {
     cmOpen: bool("cmOpen"),
     showResolved: bool("showResolved"),
     wrapCode: bool("wrapCode"),
+    docSize: inList(DOC_SIZE_IDS, o.docSize) ? o.docSize : DEFAULT_PREFS.docSize,
+    textWidth: inList(TEXT_WIDTH_IDS, o.textWidth) ? o.textWidth : DEFAULT_PREFS.textWidth,
+    resumeOnOpen: bool("resumeOnOpen"),
+    markReadOnOpen: bool("markReadOnOpen"),
+    docRepo: typeof o.docRepo === "string" ? o.docRepo : DEFAULT_PREFS.docRepo,
   };
 }
 
@@ -116,6 +143,11 @@ export function serializePrefs(s: StoredChrome): string {
     cmOpen: s.cmOpen,
     showResolved: s.showResolved,
     wrapCode: s.wrapCode,
+    docSize: s.docSize,
+    textWidth: s.textWidth,
+    resumeOnOpen: s.resumeOnOpen,
+    markReadOnOpen: s.markReadOnOpen,
+    docRepo: s.docRepo,
   });
 }
 
@@ -126,8 +158,10 @@ export function applyPrefs(el: HTMLElement, p: Prefs): void {
   el.setAttribute("data-font-latin", p.fontLatin);
   el.setAttribute("data-font-cjk", p.fontCjk);
   el.setAttribute("data-font-mono", p.fontMono);
+  el.toggleAttribute("data-doc-wide", p.textWidth === "wide");
   el.style.setProperty("--toc-w", clampPanel(p.tocW, "toc") + "px");
   el.style.setProperty("--cm-w", clampPanel(p.cmW, "cm") + "px");
+  el.style.setProperty("--doc-size", p.docSize === "default" ? "" : p.docSize + "px");
 }
 
 /**
@@ -151,6 +185,9 @@ export function bootScript(): string {
     "var t=[" + PANEL_LIMITS.toc.min + "," + PANEL_LIMITS.toc.max + "," + PANEL_LIMITS.cm.min + "," + PANEL_LIMITS.cm.max + "];" +
     'if(typeof s.tocW==="number"&&isFinite(s.tocW))r.style.setProperty("--toc-w",Math.min(t[1],Math.max(t[0],Math.round(s.tocW)))+"px");' +
     'if(typeof s.cmW==="number"&&isFinite(s.cmW))r.style.setProperty("--cm-w",Math.min(t[3],Math.max(t[2],Math.round(s.cmW)))+"px");' +
+    "var sizes=" + JSON.stringify(DOC_SIZE_IDS) + ";" +
+    'if(sizes.indexOf(s.docSize)>0)r.style.setProperty("--doc-size",s.docSize+"px");' +
+    'if(s.textWidth==="wide")r.setAttribute("data-doc-wide","");' +
     "}catch(e){}})();"
   );
 }

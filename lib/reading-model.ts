@@ -89,9 +89,13 @@ export function unreadEntry(at: string, sourceMtime = 0): ReadingEntry {
   return { status: "unread", progress: 0, readAt: at, sourceMtime };
 }
 
-/** Pointing at a row counts as reading it (the sketch's rule); scrolling refines the position. */
-export function markRead(at: string, sourceMtime: number): ReadingEntry {
-  return { status: "read", progress: 1, readAt: at, sourceMtime };
+/**
+ * Marking read is an explicit act, and it never moves the document: the stored position carries
+ * over untouched (0 for a never-scrolled doc), because `progress` means position only — never
+ * "finished". Otherwise the resume effect would open a marked doc at its end.
+ */
+export function markRead(at: string, sourceMtime: number, progress = 0): ReadingEntry {
+  return { status: "read", progress: clampProgress(progress), readAt: at, sourceMtime };
 }
 
 /** Marking unread clears the position, so an unread row never shows a stale progress bar. */
@@ -99,11 +103,15 @@ export function markUnread(at: string, sourceMtime: number): ReadingEntry {
   return { status: "unread", progress: 0, readAt: at, sourceMtime };
 }
 
-/** Scrolling: mid-document is `reading`, the bottom is `read`. Progress is the current position. */
-export function withProgress(progress: unknown, at: string, sourceMtime: number): ReadingEntry {
+/**
+ * Scrolling records the position: the status becomes `reading` and `progress` is where the reader
+ * left off, so the next open can resume there. Reaching the bottom never marks a document read —
+ * read is an explicit act (`markRead`). A document already marked read stays read when it is
+ * scrolled again, with only its position updated.
+ */
+export function withProgress(progress: unknown, at: string, sourceMtime: number, prev?: ReadingStatus): ReadingEntry {
   const p = clampProgress(progress);
-  const atEnd = p >= 0.98;
-  return { status: atEnd ? "read" : "reading", progress: atEnd ? 1 : p, readAt: at, sourceMtime };
+  return { status: prev === "read" ? "read" : "reading", progress: p, readAt: at, sourceMtime };
 }
 
 /**

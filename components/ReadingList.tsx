@@ -4,8 +4,6 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { WorkspaceDoc } from "@/lib/reading-model";
 
-const pctOf = (doc: WorkspaceDoc) => Math.round(doc.progress * 100);
-
 /** The 9px state dot: solid for unread, hollow for reading, invisible when read. */
 function StateDot({ status }: { status: WorkspaceDoc["status"] }) {
   return (
@@ -22,8 +20,10 @@ function StateDot({ status }: { status: WorkspaceDoc["status"] }) {
 }
 
 /**
- * One email-style row: the state dot, the title line, the mono sub line (path, branch, position)
- * and the meta column the hover actions replace. Selection is a tinted background only.
+ * One email-style row: the state dot, the title line, the mono sub line (path, branch) and the
+ * meta column the hover actions replace. Selection is a tinted background only. No progress is
+ * shown anywhere: a document left mid-way is just "reading" (the hollow dot), and the position it
+ * was left at is only used to resume.
  */
 function Row({ doc, selected, onSelect, onMark }: { doc: WorkspaceDoc; selected: boolean; onSelect: (id: string) => void; onMark: (id: string, action: "read" | "unread") => void }) {
   const unread = doc.status === "unread";
@@ -56,22 +56,16 @@ function Row({ doc, selected, onSelect, onMark }: { doc: WorkspaceDoc; selected:
           <span className="max-w-[52%] truncate" title={doc.path}>
             {doc.location}
           </span>
-          {doc.status === "reading" ? (
-            <span data-testid="rw-progress" className="flex shrink-0 items-center gap-1.5">
-              <span className="bg-muted block h-[3px] w-[54px] overflow-hidden rounded-full">
-                <span className="bg-primary block h-full rounded-full" style={{ width: `${pctOf(doc)}%` }} />
-              </span>
-              <span className="text-primary text-[10.5px]">{pctOf(doc)}%</span>
-            </span>
-          ) : null}
           {doc.branch ? <span className="truncate opacity-75">⎇ {doc.branch}</span> : null}
         </div>
       </div>
       <div className="text-muted-foreground min-w-[84px] text-right text-[11.5px] leading-[1.4] transition-opacity group-hover:opacity-0 group-data-[selected=true]:opacity-0">
-        <b className="text-foreground block text-[11.5px] font-medium">{doc.status === "reading" ? `read ${pctOf(doc)}%` : doc.updated}</b>
+        <b className="text-foreground block text-[11.5px] font-medium">{doc.status === "reading" ? "Reading" : doc.updated}</b>
         {doc.status === "unread" ? "not opened" : null}
       </div>
-      <div className="absolute top-1/2 right-2.5 flex -translate-y-1/2 gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-data-[selected=true]:opacity-100">
+      {/* Row actions are a desktop affordance: on a phone the whole row is the tap target, and the
+          mark/open actions live in the preview's ⋯ menu. */}
+      <div className="absolute top-1/2 right-2.5 hidden -translate-y-1/2 gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-data-[selected=true]:opacity-100 md:flex">
         <button
           type="button"
           data-action={unread ? "read" : "unread"}
@@ -100,8 +94,8 @@ export function ReadingList({ docs, selected, onSelect, onMark }: { docs: Worksp
       ))}
       {docs.length === 0 ? <p className="text-muted-foreground px-2.5 pt-6 text-[13px]">No documents in this view.</p> : null}
       <p className="text-muted-foreground mx-2.5 mt-[22px] text-[11.5px] leading-[1.7]">
-        One list, newest update first. Unread is bold with a solid dot; opening counts as read, and editing a document makes it unread again. A row left mid-document keeps its
-        position. Replies written with <code className="bg-muted rounded px-1 font-mono">blackboard comment</code> do not move it.
+        One list, newest update first. Unread is bold with a solid dot; opening counts as read, and editing a document makes it unread again. A row left mid-document shows the hollow
+        dot and resumes where it was left. Replies written with <code className="bg-muted rounded px-1 font-mono">blackboard comment</code> do not move it.
       </p>
     </div>
   );

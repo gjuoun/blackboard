@@ -39,16 +39,23 @@ describe("progress", () => {
     expect(clampProgress(Number.NaN)).toBe(0);
   });
 
-  test("mid-document is reading, the bottom is read", () => {
+  test("any position is reading — the bottom never marks a document read", () => {
     expect(withProgress(0.15, at, 1)).toEqual({ status: "reading", progress: 0.15, readAt: at, sourceMtime: 1 });
     expect(withProgress(0.5, at, 1).status).toBe("reading");
     expect(withProgress(0.9, at, 1).status).toBe("reading");
-    expect(withProgress(0.98, at, 1)).toEqual({ status: "read", progress: 1, readAt: at, sourceMtime: 1 });
-    expect(withProgress(1, at, 1).status).toBe("read");
+    expect(withProgress(0.98, at, 1)).toEqual({ status: "reading", progress: 0.98, readAt: at, sourceMtime: 1 });
+    expect(withProgress(1, at, 1).status).toBe("reading");
   });
 
-  test("mark read keeps a full bar, mark unread clears it", () => {
-    expect(markRead(at, 7)).toEqual({ status: "read", progress: 1, readAt: at, sourceMtime: 7 });
+  test("a document already read stays read when it is scrolled", () => {
+    expect(withProgress(0.2, at, 1, "read")).toEqual({ status: "read", progress: 0.2, readAt: at, sourceMtime: 1 });
+    expect(withProgress(0.2, at, 1, "reading").status).toBe("reading");
+    expect(withProgress(0.2, at, 1, "unread").status).toBe("reading");
+  });
+
+  test("mark read keeps the stored position, mark unread clears it", () => {
+    expect(markRead(at, 7)).toEqual({ status: "read", progress: 0, readAt: at, sourceMtime: 7 });
+    expect(markRead(at, 7, 0.42)).toEqual({ status: "read", progress: 0.42, readAt: at, sourceMtime: 7 });
     expect(markUnread(at, 7)).toEqual({ status: "unread", progress: 0, readAt: at, sourceMtime: 7 });
   });
 });

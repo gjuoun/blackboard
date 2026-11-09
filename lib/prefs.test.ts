@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+  applyPrefs,
   bootScript,
   clampPanel,
   clampPanels,
@@ -17,6 +18,7 @@ function fakeRoot() {
   const classes = new Set<string>();
   const el = {
     setAttribute: (k: string, v: string) => void attrs.set(k, v),
+    toggleAttribute: (k: string, on: boolean) => void (on ? attrs.set(k, "") : attrs.delete(k)),
     classList: { toggle: (c: string, on: boolean) => void (on ? classes.add(c) : classes.delete(c)) },
     style: { setProperty: (k: string, v: string) => void styles.set(k, v) },
   } as unknown as HTMLElement;
@@ -59,6 +61,24 @@ test("parse: widths are clamped and strings are not numbers", () => {
   const got = parsePrefs(JSON.stringify({ tocW: 9999, cmW: "400" }));
   expect(got.tocW).toBe(PANEL_LIMITS.toc.max);
   expect(got.cmW).toBe(DEFAULT_PREFS.cmW);
+});
+
+test("parse: the reading behaviour and workspace keys validate like the rest", () => {
+  const got = parsePrefs(JSON.stringify({ docSize: "99", textWidth: "huge", resumeOnOpen: "yes", markReadOnOpen: false, docRepo: 42 }));
+  expect(got).toMatchObject({ docSize: "default", textWidth: "fit", resumeOnOpen: true, markReadOnOpen: false, docRepo: "" });
+  const kept = parsePrefs(JSON.stringify({ docSize: "15", textWidth: "wide", docRepo: "blackboard" }));
+  expect(kept).toMatchObject({ docSize: "15", textWidth: "wide", docRepo: "blackboard" });
+});
+
+test("apply: the doc size and the wide flag paint on <html>", () => {
+  const root = fakeRoot();
+  applyPrefs(root.el, { ...DEFAULT_PREFS, docSize: "16", textWidth: "wide" });
+  expect(root.styles.get("--doc-size")).toBe("16px");
+  expect(root.attrs.has("data-doc-wide")).toBe(true);
+  const back = fakeRoot();
+  applyPrefs(back.el, { ...DEFAULT_PREFS, docSize: "default", textWidth: "fit" });
+  expect(back.styles.get("--doc-size")).toBe("");
+  expect(back.attrs.has("data-doc-wide")).toBe(false);
 });
 
 test("serialize: only the known keys survive", () => {
@@ -124,6 +144,15 @@ test("boot: font ids and widths are applied, bad ones ignored", () => {
   expect(root.attrs.get("data-font-mono")).toBeUndefined();
   expect(root.styles.get("--toc-w")).toBe(PANEL_LIMITS.toc.max + "px");
   expect(root.styles.get("--cm-w")).toBe("300px");
+});
+
+test("boot: the doc size and the wide flag paint before the first frame", () => {
+  const root = runBoot(JSON.stringify({ docSize: "15", textWidth: "wide" }));
+  expect(root.styles.get("--doc-size")).toBe("15px");
+  expect(root.attrs.has("data-doc-wide")).toBe(true);
+  const quiet = runBoot(JSON.stringify({ docSize: "default" }));
+  expect(quiet.styles.get("--doc-size")).toBeUndefined();
+  expect(quiet.attrs.has("data-doc-wide")).toBe(false);
 });
 
 test("boot: a throwing storage never breaks the page", () => {
