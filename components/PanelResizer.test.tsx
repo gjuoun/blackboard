@@ -25,4 +25,27 @@ describe("PanelResizer", () => {
     // The default reset width is the same cmW the persisted record uses.
     expect(DEFAULT_PREFS.cmW).toBe(340);
   });
+
+  test("the inbox rail grip carries the rail range and sits on its inner edge", () => {
+    const html = renderToStaticMarkup(<PanelResizer which="rail" breakpoint="lg" width={236} other={384} onDraft={noop} onCommit={noop} />);
+    expect(html).toContain('aria-label="Resize inbox rail"');
+    expect(html).toContain('data-testid="resize-rail"');
+    expect(html).toContain('aria-valuemin="' + PANEL_LIMITS.rail.min + '"');
+    expect(html).toContain('aria-valuemax="' + PANEL_LIMITS.rail.max + '"');
+    // A left-edge panel: the grip lives on its right edge and only exists from lg.
+    expect(html).toContain("right-0");
+    expect(html).toContain("lg:block");
+    expect(DEFAULT_PREFS.railW).toBe(236);
+  });
+
+  test("the preview grip is a right-edge panel, live from md", () => {
+    const html = renderToStaticMarkup(<PanelResizer which="preview" width={384} other={236} onDraft={noop} onCommit={noop} />);
+    expect(html).toContain('aria-label="Resize preview pane"');
+    expect(html).toContain('data-testid="resize-preview"');
+    expect(html).toContain('aria-valuemin="' + PANEL_LIMITS.preview.min + '"');
+    expect(html).toContain('aria-valuemax="' + PANEL_LIMITS.preview.max + '"');
+    expect(html).toContain("left-0");
+    expect(html).toContain("md:block");
+    expect(DEFAULT_PREFS.previewW).toBe(384);
+  });
 });

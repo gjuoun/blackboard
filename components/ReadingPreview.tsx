@@ -147,14 +147,6 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
         </div>
       ) : null}
 
-      {/* Desktop: just the close button; the status row the badge used to sit on is gone. */}
-      <div className="hidden flex-none items-center px-4 pt-3 md:flex">
-        <span className="flex-1" />
-        <button type="button" onClick={onClose} title="Close preview" aria-label="Close preview" className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-6 place-items-center rounded-md text-xs">
-          ✕
-        </button>
-      </div>
-
       {/* 10px of bottom padding inside the scroll, so the last reply is never under the reply bar. */}
       <div
         ref={bodyRef}
@@ -167,7 +159,7 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
         className="min-h-0 flex-1 overflow-auto px-[18px] pb-2.5"
         onClick={() => menuOpen && setMenuOpen(false)}
       >
-        <h2 data-testid="rw-preview-title" className="mt-3 text-[18px] leading-[1.42] font-bold tracking-[-0.01em]">
+        <h2 data-testid="rw-preview-title" className="mt-3.5 text-[18px] leading-[1.42] font-bold tracking-[-0.01em]">
           {doc.title}
         </h2>
         <div className="text-muted-foreground border-border mt-[9px] flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b pb-3 font-mono text-[10.5px]">

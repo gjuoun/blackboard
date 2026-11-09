@@ -46,6 +46,17 @@
   .doc-grid { grid-template-columns: var(--toc-w, 240px) minmax(0, 1fr) var(--cm-w, 340px); }
 }
 
+/* The inbox's column template: one column on a phone, list + preview from md, rail + list +
+   preview from lg. The list keeps a 320px floor; the side widths read the variables the boot
+   script and the drag grips set, so a stored width paints on the first frame. */
+.inbox-grid { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 768px) {
+  .inbox-grid { grid-template-columns: minmax(320px, 1fr) var(--preview-w, 384px); }
+}
+@media (min-width: 1024px) {
+  .inbox-grid { grid-template-columns: var(--rail-w, 236px) minmax(320px, 1fr) var(--preview-w, 384px); }
+}
+
 @layer base {
   * { @apply border-border outline-ring/50; }
   html { -webkit-text-size-adjust: 100%; }

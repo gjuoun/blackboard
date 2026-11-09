@@ -3,6 +3,7 @@ import {
   applyPrefs,
   bootScript,
   clampPanel,
+  clampInbox,
   clampPanels,
   DEFAULT_CHROME,
   DEFAULT_PREFS,
@@ -122,6 +123,37 @@ test("clamp: doc floor wins over the requested widths", () => {
 
 test("clamp: a narrower viewport shrinks the comments panel first", () => {
   expect(clampPanels({ tocW: 420, cmW: 560 }, 1200)).toEqual({ tocW: 420, cmW: 300 });
+});
+
+test("parse: the inbox widths clamp to their own ranges", () => {
+  const got = parsePrefs(JSON.stringify({ railW: 999, previewW: 9999 }));
+  expect(got.railW).toBe(PANEL_LIMITS.rail.max);
+  expect(got.previewW).toBe(PANEL_LIMITS.preview.max);
+  // Garbage keeps the layout's defaults.
+  const bad = parsePrefs(JSON.stringify({ railW: "wide", previewW: null }));
+  expect(bad.railW).toBe(DEFAULT_PREFS.railW);
+  expect(bad.previewW).toBe(DEFAULT_PREFS.previewW);
+});
+
+test("clamp: the inbox floor keeps the list, preview gives width back first", () => {
+  // lg: 320 + 760 + 320 = 1400 > 1100, over 300 — the preview shrinks alone.
+  expect(clampInbox({ railW: 320, previewW: 760 }, 1100)).toEqual({ railW: 320, previewW: 460 });
+  // The overflow at any lg viewport can never out-eat the preview's room, so the rail keeps its
+  // stored width even at the floor of lg.
+  expect(clampInbox({ railW: 320, previewW: 760 }, 1024)).toEqual({ railW: 320, previewW: 384 });
+  // Below lg the rail is not rendered, so it is not asked to shrink; the preview takes it all.
+  expect(clampInbox({ railW: 320, previewW: 500 }, 900)).toEqual({ railW: 320, previewW: 500 });
+  expect(clampInbox({ railW: 320, previewW: 700 }, 900)).toEqual({ railW: 320, previewW: 580 });
+});
+
+test("apply + boot: the inbox widths paint like the other panels", () => {
+  const root = fakeRoot();
+  applyPrefs(root.el, { ...DEFAULT_PREFS, railW: 300, previewW: 560 });
+  expect(root.styles.get("--rail-w")).toBe("300px");
+  expect(root.styles.get("--preview-w")).toBe("560px");
+  const boot = runBoot(JSON.stringify({ railW: 10, previewW: 9999 }));
+  expect(boot.styles.get("--rail-w")).toBe(PANEL_LIMITS.rail.min + "px");
+  expect(boot.styles.get("--preview-w")).toBe(PANEL_LIMITS.preview.max + "px");
 });
 
 test("boot: empty storage keeps defaults", () => {

@@ -1,10 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { clampInbox, LIST_MIN, type PanelKey } from "@/lib/prefs";
 import { countStatuses, filterDocs, type PreviewData, type ReadingFilter, type ReadingResult, type WorkspaceData } from "@/lib/reading-model";
 import { cn } from "@/lib/utils";
-import { useChrome } from "./chrome";
+import { setChrome, useChrome, useIsDesktop } from "./chrome";
+import { PanelResizer } from "./PanelResizer";
 import { ReadingHeader } from "./ReadingHeader";
 import { ReadingList } from "./ReadingList";
 import { ReadingPreview } from "./ReadingPreview";
@@ -13,6 +15,18 @@ import { usePreviewScroll } from "./usePreviewScroll";
 import { setWorkspaceBar } from "./workspace-bar";
 import { WorkspaceNew } from "./WorkspaceNew";
 import { isWorkspaceView, VIEW_FILTERS, WorkspaceTabBar, type WorkspaceView } from "./WorkspaceTabBar";
+
+/** A media query as a hook, same subscribe pattern as the chrome store's desktop flag. */
+const useMediaQuery = (query: string) =>
+  useSyncExternalStore(
+    (l) => {
+      const mq = matchMedia(query);
+      mq.addEventListener("change", l);
+      return () => mq.removeEventListener("change", l);
+    },
+    () => matchMedia(query).matches,
+    () => false,
+  );
 
 const post = (url: string, body: unknown) =>
   fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
@@ -68,7 +82,7 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
   const setView = useCallback(
     (v: WorkspaceView) => {
       if (v === "settings") {
-        router.push("/workspace/settings");
+        router.push("/inbox/settings");
         return;
       }
       // A tab switch always lands on the list: an open preview closes with it.
@@ -77,7 +91,7 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
       setLoading(false);
       setViewState(v);
       const f = VIEW_FILTERS[v];
-      router.replace(f ? `/workspace?f=${f}` : "/workspace?f=new", { scroll: false });
+      router.replace(f ? `/inbox?f=${f}` : "/inbox?f=new", { scroll: false });
     },
     [router],
   );
@@ -222,6 +236,25 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
     return () => setWorkspaceBar(null);
   }, [query, repo, initial.repos, filter, setView, counts, pending, onMarkAll]);
 
+  // The width being dragged right now: local until the pointer is released, so the column can
+  // follow the grip without a localStorage write per pixel — the same model the doc page uses.
+  const [resizing, setResizing] = useState<{ which: PanelKey; width: number } | null>(null);
+  const desktop = useIsDesktop();
+  // The rail is only in the grid from lg; below it the preview resizes against the window alone.
+  const railOpen = useMediaQuery("(min-width: 1024px)");
+
+  // A narrower window must not leave the list squeezed to nothing: re-clamp both side panels.
+  // Only a viewport where the preview sits beside the list counts; below md nothing is resizable.
+  useEffect(() => {
+    const onResize = () => {
+      if (!matchMedia("(min-width: 768px)").matches) return;
+      const next = clampInbox({ railW: chrome.railW, previewW: chrome.previewW }, innerWidth);
+      if (next.railW !== chrome.railW || next.previewW !== chrome.previewW) setChrome(next);
+    };
+    addEventListener("resize", onResize);
+    return () => removeEventListener("resize", onResize);
+  }, [chrome.railW, chrome.previewW]);
+
   const selectedDoc = docs.find((doc) => doc.id === selected) ?? null;
   const listVisible = view !== "new";
 
@@ -229,8 +262,31 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
     <div data-testid="rw-shell" className="flex h-[calc(100dvh-var(--bar-h))] flex-col overflow-hidden max-md:h-dvh">
       <ReadingHeader query={query} onQuery={setQuery} counts={counts} view={view} />
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_384px] lg:grid-cols-[236px_minmax(0,1fr)_384px]">
-        <ReadingRail filter={filter} onFilter={(f) => setView(f)} counts={counts} />
+      {/* Column widths ride CSS variables (--rail-w / --preview-w) that the boot script paints
+          before the first frame, so a stored width shows without a layout jump; the media queries
+          in .inbox-grid match the Tailwind breakpoints the columns use. A live drag overrides the
+          variable inline so the grip stays under the pointer. */}
+      <div
+        className="inbox-grid grid min-h-0 flex-1 [html[data-resizing]_&]:transition-none"
+        style={{
+          ...(resizing?.which === "rail" ? { "--rail-w": resizing.width + "px" } : null),
+          ...(resizing?.which === "preview" ? { "--preview-w": resizing.width + "px" } : null),
+        } as React.CSSProperties}
+      >
+        <div className="relative hidden lg:block">
+          <ReadingRail filter={filter} onFilter={(f) => setView(f)} counts={counts} />
+          {desktop ? (
+            <PanelResizer
+              which="rail"
+              floor={LIST_MIN}
+              width={resizing?.which === "rail" ? resizing.width : chrome.railW}
+              other={chrome.previewW}
+              breakpoint="lg"
+              onDraft={(w) => setResizing(w === null ? null : { which: "rail", width: w })}
+              onCommit={(w) => setChrome({ railW: w })}
+            />
+          ) : null}
+        </div>
 
         <section className={cn("min-h-0 min-w-0 flex-col overflow-hidden", listVisible ? "flex" : "hidden md:flex")}>
           <div className="min-h-0 flex-1 overflow-auto">
@@ -240,7 +296,17 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
 
         {view === "new" ? <WorkspaceNew /> : null}
 
-        <div className={cn("min-h-0 flex-col md:flex", selected ? "max-md:fixed max-md:inset-0 max-md:z-30 max-md:flex" : "max-md:hidden")}>
+        <div className={cn("relative min-h-0 flex-col md:flex", selected ? "max-md:fixed max-md:inset-0 max-md:z-30 max-md:flex" : "max-md:hidden")}>
+          {desktop ? (
+            <PanelResizer
+              which="preview"
+              floor={LIST_MIN}
+              width={resizing?.which === "preview" ? resizing.width : chrome.previewW}
+              other={railOpen ? chrome.railW : 0}
+              onDraft={(w) => setResizing(w === null ? null : { which: "preview", width: w })}
+              onCommit={(w) => setChrome({ previewW: w })}
+            />
+          ) : null}
           <ReadingPreview
             key={selected ?? "empty"}
             doc={selectedDoc}
