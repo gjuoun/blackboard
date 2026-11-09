@@ -110,11 +110,6 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
     [patch],
   );
 
-  const onMarkAll = useCallback(() => {
-    setDocs((prev) => prev.map((doc) => (doc.status === "read" ? doc : { ...doc, status: "read" })));
-    void write({ action: "read-all" });
-  }, [write]);
-
   const { docsRef, cancelProgress, holdProgress, onProgress } = usePreviewScroll({ selected, docs, setDocs, write });
 
   const mark = useCallback(
@@ -232,9 +227,9 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
   // The desktop top bar folds the inbox controls into itself; publish them while this page is
   // mounted and clear the slot on the way out so no other page inherits them.
   useEffect(() => {
-    setWorkspaceBar({ query, onQuery: setQuery, repo, repos: initial.repos, onRepo: setRepo, filter, onFilter: (f) => setView(f), counts, pending, onMarkAll });
+    setWorkspaceBar({ query, onQuery: setQuery, repo, repos: initial.repos, onRepo: setRepo, filter, onFilter: (f) => setView(f), counts, pending });
     return () => setWorkspaceBar(null);
-  }, [query, repo, initial.repos, filter, setView, counts, pending, onMarkAll]);
+  }, [query, repo, initial.repos, filter, setView, counts, pending]);
 
   // The width being dragged right now: local until the pointer is released, so the column can
   // follow the grip without a localStorage write per pixel — the same model the doc page uses.

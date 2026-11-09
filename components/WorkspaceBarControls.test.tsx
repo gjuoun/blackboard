@@ -16,7 +16,6 @@ mock.module("./workspace-bar", () => ({
     onFilter() {},
     counts: { total: 3, unread: 2, reading: 1, read: 0 },
     pending: 4,
-    onMarkAll() {},
   }),
 }));
 

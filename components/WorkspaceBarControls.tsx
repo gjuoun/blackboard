@@ -110,9 +110,6 @@ export function WorkspaceBarControls() {
         <span className="hidden whitespace-nowrap xl:inline">awaiting replies</span>
       </span>
 
-      <button type="button" data-testid="rw-mark-all" onClick={bar.onMarkAll} className="bg-primary text-primary-foreground h-[30px] shrink-0 rounded-lg px-2.5 text-[12.5px] whitespace-nowrap hover:brightness-105">
-        Mark all read
-      </button>
       <Link
         href="/inbox/settings"
         aria-label="Workspace settings"
