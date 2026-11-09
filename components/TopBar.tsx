@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { copyText } from "@/lib/clipboard";
 import { closeTab } from "@/lib/tabs";
 import { cn } from "@/lib/utils";
 import { setChrome, togglePanel, useChrome, useIsDesktop } from "./chrome";
@@ -62,6 +63,9 @@ export function TopBar() {
     document.documentElement.toggleAttribute("data-wrap-code", chrome.wrapCode);
   }, [chrome.wrapCode]);
   const copy = (text: string) => void navigator.clipboard?.writeText(text);
+  const copyTitle = () => {
+    if (current) void copyText(current.title);
+  };
   const docToggles = (
     <>
       <DropdownMenuCheckboxItem checked={chrome.showResolved} onCheckedChange={(v) => setChrome({ showResolved: v })}>
@@ -139,6 +143,7 @@ export function TopBar() {
                   <Link href="/">← Sessions</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => copy(window.location.href)}>Copy link</DropdownMenuItem>
+                <DropdownMenuItem disabled={!current} onSelect={copyTitle}>Copy title</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {docToggles}
               </>
@@ -151,6 +156,9 @@ export function TopBar() {
                 <DropdownMenuLabel>This document</DropdownMenuLabel>
                 <DropdownMenuItem inset onSelect={() => copy(doc.path)}>
                   Copy file path
+                </DropdownMenuItem>
+                <DropdownMenuItem inset disabled={!current} onSelect={copyTitle}>
+                  Copy title
                 </DropdownMenuItem>
                 {docToggles}
                 <DropdownMenuSeparator />
