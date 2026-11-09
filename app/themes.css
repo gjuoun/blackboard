@@ -1,18 +1,27 @@
 /*
- * Palettes. Every colour in the UI comes from these tokens, so a palette is one complete block:
+ * Palettes: two colour families (warm, cold) x two modes (light, dark), four blocks.
+ * Every colour in the UI comes from these tokens, so a palette is one complete block:
  * swap `data-theme` on <html> and the whole set is replaced — nothing is inherited from another
- * theme, and no token is declared only for a dark variant.
+ * theme, and no token is declared only for a dark variant. Radius, type and spacing are shared:
+ * only colours change between blocks.
  *
  * The shape follows shadcn/ui's token vocabulary (semantic roles, each surface paired with a
  * -foreground, plus the --radius scale and the @theme inline mapping in globals.css) and Radix
- * Themes' dark-theme guidance: a theme declares its own color-scheme and its own complete set
- * instead of patching a shared one. Values are sRGB hex on purpose — the one deliberate deviation
- * from shadcn's oklch defaults — so the contrast gate in lib/theme.test.ts can parse every token.
+ * dark-mode guidance (a dark block brightens the primary instead of darkening it, surfaces rise
+ * instead of sinking). Blackboard's own composite tokens on top of this vocabulary
+ * (--primary-soft, --code, --mark, --hl*, --warn, --success*, --destructive-soft) live in
+ * theme/composite.css — a block here is exactly the shadcn set, so a stock shadcn theme can
+ * drop in untouched.
  *
- * To add a palette: copy a block, give it a new data-theme name, list it in lib/prefs.ts THEME_IDS
- * with its mode in THEME_MODE, and run `bun test lib/theme.test.ts`.
+ * To add a palette: copy a block, give it a new data-theme name, mirror it in
+ * theme/composite.css, list it in lib/prefs.ts THEME_IDS with its mode in THEME_MODE, and run
+ * `bun test lib/theme.test.ts`.
+ *
+ * Migration: the earlier paper / plain / night palettes are gone. lib/prefs.ts maps a stored
+ * legacy id on read (paper -> warm-light, plain -> cold-light, night -> warm-dark), so a browser
+ * that chose one of them opens on its nearest counterpart and rewrites the record with the new id.
  */
-[data-theme="paper"] {
+[data-theme="warm-light"] {
   color-scheme: light;
   --background: #faf8f5;
   --foreground: #2b2622;
@@ -32,84 +41,74 @@
   --border: #ebe5de;
   --input: #ebe5de;
   --ring: #b3532f;
-  --primary-soft: #f8e6df;
-  --code: #f6f2ed;
-  --mark: #fbe9a6;
-  --mark-line: #d4a72c;
-  --hl: rgba(255, 196, 0, 0.35);
-  --hl-hover: rgba(255, 170, 0, 0.5);
-  --hl-active: rgba(255, 140, 0, 0.55);
-  --warn: #9a6700;
-  --success: #2f7d4f;
-  --success-soft: #ebf7ef;
-  --destructive-soft: #fdecee;
   --radius: 0.75rem;
 }
 
-[data-theme="plain"] {
+[data-theme="warm-dark"] {
+  color-scheme: dark;
+  --background: #1b1714;
+  --foreground: #f2eae2;
+  --card: #221d19;
+  --card-foreground: #f2eae2;
+  --popover: #221d19;
+  --popover-foreground: #f2eae2;
+  --primary: #e0805a;
+  --primary-foreground: #1b1714;
+  --secondary: #2a231e;
+  --secondary-foreground: #f2eae2;
+  --muted: #2a231e;
+  --muted-foreground: #b3a89d;
+  --accent: #2a231e;
+  --accent-foreground: #f2eae2;
+  --destructive: #ff7b72;
+  --border: #332b25;
+  --input: #332b25;
+  --ring: #e0805a;
+  --radius: 0.75rem;
+}
+
+[data-theme="cold-light"] {
   color-scheme: light;
   --background: #ffffff;
-  --foreground: #18181b;
+  --foreground: #1f2328;
   --card: #ffffff;
-  --card-foreground: #18181b;
+  --card-foreground: #1f2328;
   --popover: #ffffff;
-  --popover-foreground: #18181b;
-  --primary: #1f6feb;
+  --popover-foreground: #1f2328;
+  --primary: #3074bf;
   --primary-foreground: #ffffff;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #5f6368;
-  --accent: #f4f4f5;
-  --accent-foreground: #18181b;
-  --destructive: #d1242f;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --ring: #1f6feb;
-  --primary-soft: #e8f0fe;
-  --code: #f6f7f9;
-  --mark: #fff3a3;
-  --mark-line: #b58f00;
-  --hl: rgba(255, 214, 0, 0.32);
-  --hl-hover: rgba(255, 200, 0, 0.46);
-  --hl-active: rgba(255, 180, 0, 0.55);
-  --warn: #8a5a00;
-  --success: #1a7f37;
-  --success-soft: #e8f6ec;
-  --destructive-soft: #fcebed;
+  --secondary: #f4f6f8;
+  --secondary-foreground: #1f2328;
+  --muted: #f4f6f8;
+  --muted-foreground: #5b6570;
+  --accent: #eaf1fa;
+  --accent-foreground: #1f2328;
+  --destructive: #c62b2b;
+  --border: #dde3e9;
+  --input: #dde3e9;
+  --ring: #3074bf;
   --radius: 0.75rem;
 }
 
-[data-theme="night"] {
+[data-theme="cold-dark"] {
   color-scheme: dark;
-  --background: #0f1115;
-  --foreground: #e6e6e6;
-  --card: #151920;
-  --card-foreground: #e6e6e6;
-  --popover: #151920;
-  --popover-foreground: #e6e6e6;
-  --primary: #7aa2f7;
-  --primary-foreground: #0b0e13;
-  --secondary: #1b2028;
-  --secondary-foreground: #e6e6e6;
-  --muted: #1b2028;
-  --muted-foreground: #9aa0a6;
-  --accent: #1f2530;
-  --accent-foreground: #e6e6e6;
-  --destructive: #f85149;
-  --border: #262a31;
-  --input: #262a31;
-  --ring: #7aa2f7;
-  --primary-soft: #16233a;
-  --code: #171b22;
-  --mark: #4a3c0d;
-  --mark-line: #c8a02a;
-  --hl: rgba(255, 196, 0, 0.25);
-  --hl-hover: rgba(255, 170, 0, 0.38);
-  --hl-active: rgba(255, 140, 0, 0.48);
-  --warn: #d29922;
-  --success: #3fb950;
-  --success-soft: #12261a;
-  --destructive-soft: #2a1416;
+  --background: #0f141a;
+  --foreground: #e6edf3;
+  --card: #151b22;
+  --card-foreground: #e6edf3;
+  --popover: #151b22;
+  --popover-foreground: #e6edf3;
+  --primary: #58a6ff;
+  --primary-foreground: #0f141a;
+  --secondary: #1b232c;
+  --secondary-foreground: #e6edf3;
+  --muted: #1b232c;
+  --muted-foreground: #9fb0c0;
+  --accent: #1b232c;
+  --accent-foreground: #e6edf3;
+  --destructive: #ff7b72;
+  --border: #26313c;
+  --input: #26313c;
+  --ring: #58a6ff;
   --radius: 0.75rem;
 }

@@ -45,9 +45,19 @@ test("parse: legacy chrome payload keeps its booleans and gains the new defaults
   expect(got).toMatchObject({ tocOpen: false, cmOpen: false, showResolved: true, wrapCode: true, ...DEFAULT_PREFS });
 });
 
-test("parse: unknown theme falls back to paper and keeps a known one", () => {
-  expect(parsePrefs(JSON.stringify({ theme: "solarized" })).theme).toBe("paper");
-  expect(parsePrefs(JSON.stringify({ theme: "night" })).theme).toBe("night");
+test("parse: unknown theme falls back to warm-light and keeps a known one", () => {
+  expect(parsePrefs(JSON.stringify({ theme: "solarized" })).theme).toBe("warm-light");
+  expect(parsePrefs(JSON.stringify({ theme: "cold-dark" })).theme).toBe("cold-dark");
+});
+
+test("parse: the retired palettes migrate to their nearest replacement", () => {
+  const migrated = { paper: "warm-light", plain: "cold-light", night: "warm-dark" } as const;
+  for (const [oldId, newId] of Object.entries(migrated)) {
+    expect({ oldId, theme: parsePrefs(JSON.stringify({ theme: oldId })).theme }).toEqual({ oldId, theme: newId });
+  }
+  // The migration writes the new id back, so the old one does not survive another round trip.
+  const out = JSON.parse(serializePrefs(parsePrefs(JSON.stringify({ ...DEFAULT_CHROME, theme: "night" }))));
+  expect(out.theme).toBe("warm-dark");
 });
 
 test("parse: unknown font ids fall back per picker", () => {
@@ -82,10 +92,10 @@ test("apply: the doc size and the wide flag paint on <html>", () => {
 });
 
 test("serialize: only the known keys survive", () => {
-  const raw = JSON.stringify({ ...DEFAULT_CHROME, theme: "night", stale: "x" });
+  const raw = JSON.stringify({ ...DEFAULT_CHROME, theme: "cold-dark", stale: "x" });
   const out = JSON.parse(serializePrefs(parsePrefs(raw)));
   expect(out).not.toHaveProperty("stale");
-  expect(out).toMatchObject({ theme: "night", tocOpen: true });
+  expect(out).toMatchObject({ theme: "cold-dark", tocOpen: true });
 });
 
 test("clamp: toc min and max", () => {
@@ -120,15 +130,22 @@ test("boot: empty storage keeps defaults", () => {
   expect(root.styles.get("--toc-w")).toBeUndefined();
 });
 
-test("boot: night sets data-theme and dark", () => {
-  const root = runBoot(JSON.stringify({ theme: "night" }));
-  expect(root.attrs.get("data-theme")).toBe("night");
+test("boot: a dark palette sets data-theme and dark before paint", () => {
+  const root = runBoot(JSON.stringify({ theme: "cold-dark" }));
+  expect(root.attrs.get("data-theme")).toBe("cold-dark");
   expect(root.classes.has("dark")).toBe(true);
 });
 
-test("boot: dark theme sets class only for dark palettes", () => {
-  expect(runBoot(JSON.stringify({ theme: "paper" })).classes.has("dark")).toBe(false);
-  expect(runBoot(JSON.stringify({ theme: "plain" })).classes.has("dark")).toBe(false);
+test("boot: dark sets the class only for dark palettes", () => {
+  expect(runBoot(JSON.stringify({ theme: "warm-light" })).classes.has("dark")).toBe(false);
+  expect(runBoot(JSON.stringify({ theme: "cold-light" })).classes.has("dark")).toBe(false);
+});
+
+test("boot: a retired palette paints its replacement on the first frame", () => {
+  const root = runBoot(JSON.stringify({ theme: "night" }));
+  expect(root.attrs.get("data-theme")).toBe("warm-dark");
+  expect(root.classes.has("dark")).toBe(true);
+  expect(runBoot(JSON.stringify({ theme: "paper" })).attrs.get("data-theme")).toBe("warm-light");
 });
 
 test("boot: unknown theme keeps default", () => {

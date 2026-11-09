@@ -1,0 +1,61 @@
+/*
+ * Blackboard's composite tokens: the palette colours the app layers on top of the shadcn
+ * vocabulary in themes.css — soft tints, the code surface, highlight marks, the custom-highlight
+ * API colours and the status hues. One block per theme id, same four palettes, and a block
+ * declares the whole set so a theme switch never leaves a stale value behind.
+ */
+[data-theme="warm-light"] {
+  --primary-soft: #f8e6df;
+  --code: #f6f2ed;
+  --mark: #fbe9a6;
+  --mark-line: #d4a72c;
+  --hl: rgba(255, 196, 0, 0.35);
+  --hl-hover: rgba(255, 170, 0, 0.5);
+  --hl-active: rgba(255, 140, 0, 0.55);
+  --warn: #9a6700;
+  --success: #2f7d4f;
+  --success-soft: #ebf7ef;
+  --destructive-soft: #fdecee;
+}
+
+[data-theme="warm-dark"] {
+  --primary-soft: #3a241c;
+  --code: #241f1b;
+  --mark: #4a3a12;
+  --mark-line: #d4a72c;
+  --hl: rgba(224, 128, 90, 0.22);
+  --hl-hover: rgba(224, 128, 90, 0.32);
+  --hl-active: rgba(224, 128, 90, 0.42);
+  --warn: #e3b341;
+  --success: #7bc98a;
+  --success-soft: #14261a;
+  --destructive-soft: #2a1416;
+}
+
+[data-theme="cold-light"] {
+  --primary-soft: #e7f0fb;
+  --code: #f6f8fa;
+  --mark: #fff1a8;
+  --mark-line: #b58f00;
+  --hl: rgba(48, 116, 191, 0.16);
+  --hl-hover: rgba(48, 116, 191, 0.24);
+  --hl-active: rgba(48, 116, 191, 0.32);
+  --warn: #8a5a00;
+  --success: #1d7a34;
+  --success-soft: #eaf6ec;
+  --destructive-soft: #fdecec;
+}
+
+[data-theme="cold-dark"] {
+  --primary-soft: #16324d;
+  --code: #141a21;
+  --mark: #3d3410;
+  --mark-line: #c8a02a;
+  --hl: rgba(88, 166, 255, 0.18);
+  --hl-hover: rgba(88, 166, 255, 0.26);
+  --hl-active: rgba(88, 166, 255, 0.34);
+  --warn: #d29922;
+  --success: #3fb950;
+  --success-soft: #12261a;
+  --destructive-soft: #2a1416;
+}
