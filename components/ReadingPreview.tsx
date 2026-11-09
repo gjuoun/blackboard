@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { PreviewData, WorkspaceDoc } from "@/lib/reading-model";
-
-const pctOf = (doc: WorkspaceDoc) => Math.round(doc.progress * 100);
+import { PreviewReplyBar } from "./PreviewReplyBar";
 
 /** A keyboard cap, the same shape as the sketch's `kbd`. */
 function Kbd({ children }: { children: string }) {
@@ -34,15 +33,31 @@ export type ReadingPreviewProps = {
   preview: PreviewData | null;
   loading: boolean;
   error: string | null;
+  /** Reopen at the position the document was left (the stored progress), when true. */
+  resume: boolean;
   onClose: () => void;
   onMark: (id: string, action: "read" | "unread") => void;
   onProgress: (progress: number) => void;
   onReply: (text: string) => Promise<boolean>;
 };
 
-export function ReadingPreview({ doc, preview, loading, error, onClose, onMark, onProgress, onReply }: ReadingPreviewProps) {
+export function ReadingPreview({ doc, preview, loading, error, resume, onClose, onMark, onProgress, onReply }: ReadingPreviewProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const resumed = useRef(false);
+
+  // Resume: once the document's HTML is in the pane, jump to the stored position exactly once.
+  useEffect(() => {
+    if (resumed.current || !resume || !preview) return;
+    resumed.current = true;
+    const el = bodyRef.current;
+    if (el && doc) {
+      const max = el.scrollHeight - el.clientHeight;
+      el.scrollTop = max * doc.progress;
+    }
+  }, [resume, preview, doc]);
 
   const send = async () => {
     const body = text.trim();
@@ -53,9 +68,13 @@ export function ReadingPreview({ doc, preview, loading, error, onClose, onMark, 
     if (ok) setText("");
   };
 
+  const copyLink = () => {
+    void navigator.clipboard?.writeText(`${location.origin}/s/${doc?.id}`);
+  };
+
   if (!doc) {
     return (
-      <aside aria-label="Preview" data-testid="rw-preview" className="border-border bg-card flex min-h-0 min-w-0 flex-col overflow-hidden border-l">
+      <aside aria-label="Preview" data-testid="rw-preview" className="border-border bg-card relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l">
         <div data-testid="rw-empty" className="text-muted-foreground flex flex-1 flex-col justify-center gap-1.5 px-[26px] py-7">
           <div className="border-border bg-background mb-1 grid size-[34px] place-items-center rounded-[9px] border text-[15px]">◫</div>
           <p className="text-foreground m-0 text-sm font-semibold">Select a document</p>
@@ -66,35 +85,88 @@ export function ReadingPreview({ doc, preview, loading, error, onClose, onMark, 
     );
   }
 
-  const reading = doc.status === "reading";
+  const unread = doc.status === "unread";
   return (
-    <aside aria-label="Preview" data-testid="rw-preview" className="border-border bg-card flex min-h-0 min-w-0 flex-col overflow-hidden border-l">
-      <div className="flex flex-none items-center gap-2 px-4 pt-3">
-        {doc.status === "read" ? (
-          <span />
-        ) : (
-          <span
-            data-testid="rw-preview-badge"
-            data-status={doc.status}
-            className={cn(
-              "rounded-full px-2 py-[1px] font-mono text-[10.5px] tracking-[0.03em]",
-              doc.status === "unread" ? "bg-primary-soft text-primary" : "ring-primary text-primary ring-1 ring-inset",
-            )}
+    <aside aria-label="Preview" data-testid="rw-preview" className="border-border bg-card relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l">
+      {/* Phone: the mail-detail bar — ‹ back, the title centred, the ⋯ menu. No status badge, no
+          progress: the state dot lives in the list row only. */}
+      <div className="border-border flex h-[52px] flex-none items-center gap-2 border-b px-2.5 md:hidden">
+        <button type="button" onClick={onClose} aria-label="Back to list" title="Back to list" data-testid="rw-back" className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-[34px] place-items-center rounded-[9px] pb-1 text-[22px]">
+          ‹
+        </button>
+        <span data-testid="rw-mobile-title" className="min-w-0 flex-1 truncate text-center text-[13px] font-semibold">
+          {doc.title}
+        </span>
+        <button
+          type="button"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-label="More"
+          aria-expanded={menuOpen}
+          title="More"
+          data-testid="rw-menu-open"
+          className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-[34px] place-items-center rounded-[9px] text-base"
+        >
+          ⋯
+        </button>
+      </div>
+      {menuOpen ? (
+        <div data-testid="rw-menu" className="border-border bg-card absolute top-[46px] right-2.5 z-20 w-[168px] rounded-[10px] border p-[5px] shadow-[0_20px_44px_-30px_rgba(0,0,0,0.65)] md:hidden">
+          <button
+            type="button"
+            data-testid="rw-menu-mark"
+            onClick={() => {
+              onMark(doc.id, unread ? "read" : "unread");
+              setMenuOpen(false);
+            }}
+            className="hover:bg-accent flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[12.5px]"
           >
-            {reading ? `Reading ${pctOf(doc)}%` : "Unread"}
-          </span>
-        )}
+            <span>{unread ? "Mark read" : "Mark unread"}</span>
+            <span className="text-muted-foreground ml-auto text-[11px]">●</span>
+          </button>
+          <Link
+            href={`/s/${doc.id}`}
+            data-testid="rw-menu-open-doc"
+            onClick={() => setMenuOpen(false)}
+            className="hover:bg-accent flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[12.5px]"
+          >
+            <span>Open document</span>
+            <span className="text-muted-foreground ml-auto text-[11px]">↗</span>
+          </Link>
+          <button
+            type="button"
+            data-testid="rw-menu-copy"
+            onClick={() => {
+              copyLink();
+              setMenuOpen(false);
+            }}
+            className="hover:bg-accent flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[12.5px]"
+          >
+            <span>Copy link</span>
+            <span className="text-muted-foreground ml-auto text-[11px]">⧉</span>
+          </button>
+        </div>
+      ) : null}
+
+      {/* Desktop: just the close button; the status row the badge used to sit on is gone. */}
+      <div className="hidden flex-none items-center px-4 pt-3 md:flex">
         <span className="flex-1" />
         <button type="button" onClick={onClose} title="Close preview" aria-label="Close preview" className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-6 place-items-center rounded-md text-xs">
           ✕
         </button>
       </div>
 
-      <div data-testid="rw-preview-body" onScroll={(e) => {
-        const el = e.currentTarget;
-        const max = el.scrollHeight - el.clientHeight;
-        onProgress(max > 4 ? el.scrollTop / max : 1);
-      }} className="min-h-0 flex-1 overflow-auto px-[18px] pb-[18px]">
+      {/* 10px of bottom padding inside the scroll, so the last reply is never under the reply bar. */}
+      <div
+        ref={bodyRef}
+        data-testid="rw-preview-body"
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          const max = el.scrollHeight - el.clientHeight;
+          onProgress(max > 4 ? el.scrollTop / max : 1);
+        }}
+        className="min-h-0 flex-1 overflow-auto px-[18px] pb-2.5"
+        onClick={() => menuOpen && setMenuOpen(false)}
+      >
         <h2 data-testid="rw-preview-title" className="mt-3 text-[18px] leading-[1.42] font-bold tracking-[-0.01em]">
           {doc.title}
         </h2>
@@ -134,7 +206,8 @@ export function ReadingPreview({ doc, preview, loading, error, onClose, onMark, 
           </>
         ) : null}
 
-        <div className="mt-4 flex gap-2">
+        {/* The desktop actions stay inside the scroll; on a phone these live in the ⋯ menu. */}
+        <div className="mt-4 hidden gap-2 md:flex">
           <button
             type="button"
             data-testid="rw-preview-toggle"
@@ -147,10 +220,14 @@ export function ReadingPreview({ doc, preview, loading, error, onClose, onMark, 
             Open ↗
           </Link>
         </div>
-        <div className="text-muted-foreground mt-3.5 flex flex-wrap items-center gap-1.5 text-[11px]">{KEYS}</div>
+        <div className="text-muted-foreground mt-3.5 hidden flex-wrap items-center gap-1.5 text-[11px] md:flex">{KEYS}</div>
       </div>
 
-      <div className="border-border bg-card flex-none border-t px-4 pt-2.5 pb-3.5">
+      {/* Phone: the pinned reply affordance — a pill that expands into the inline composer. */}
+      <PreviewReplyBar onReply={onReply} />
+
+      {/* Desktop: the reply box as it was. */}
+      <div className="border-border bg-card hidden flex-none border-t px-4 pt-2.5 pb-3.5 md:block">
         <div className="text-muted-foreground mb-1.5 text-[10.5px]">Replies are added as comments on this document</div>
         <div className="flex items-center gap-2">
           <input

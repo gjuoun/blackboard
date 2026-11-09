@@ -2,7 +2,7 @@
 
 import type { WorkspaceCounts } from "@/lib/reading-model";
 
-/** The list toolbar: a repo filter (status filters too on narrow screens) and the live counts. */
+/** The list toolbar: the repo filter and the live counts. Desktop only — a phone filters from the bottom tab bar. */
 export function ReadingToolbar({
   filter,
   onFilter,
@@ -18,15 +18,16 @@ export function ReadingToolbar({
   onRepo: (value: string) => void;
   counts: WorkspaceCounts;
 }) {
-  const filters = [
-    { key: "all", label: "All documents" },
-    { key: "unread", label: "Unread" },
-    { key: "reading", label: "Reading" },
-  ] as const;
   return (
-    <div className="border-border bg-background/95 flex flex-none items-center gap-2 border-b px-[18px] py-3">
+    <div className="border-border bg-background/95 hidden flex-none items-center gap-2 border-b px-[18px] py-3 md:flex">
       <div className="flex items-center gap-1 lg:hidden">
-        {filters.map((f) => (
+        {(
+          [
+            { key: "all", label: "All documents" },
+            { key: "unread", label: "Unread" },
+            { key: "reading", label: "Reading" },
+          ] as const
+        ).map((f) => (
           <button
             key={f.key}
             type="button"

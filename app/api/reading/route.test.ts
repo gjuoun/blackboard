@@ -43,13 +43,13 @@ const send = (payload: unknown) =>
 const stored = (home: string) => readReadingState(readingStatePath(home)).docs;
 
 describe("POST /api/reading", () => {
-  test("marks one document read and persists it", async () => {
+  test("marks one document read and persists the position it had", async () => {
     const { home, designId } = await setup();
     const res = await send({ session: designId, action: "read" });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ docs: { [designId]: { status: "read", progress: 1 } } });
+    expect(await res.json()).toEqual({ docs: { [designId]: { status: "read", progress: 0 } } });
     // The file on disk is what a restarted server reads back.
-    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 1 });
+    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 0 });
     expect(stored(home)[designId].sourceMtime).toBeGreaterThan(0);
   });
 
@@ -62,7 +62,7 @@ describe("POST /api/reading", () => {
     expect(stored(home)[designId]).toMatchObject({ status: "unread", progress: 0 });
   });
 
-  test("records a mid-document position as reading, and the bottom as read", async () => {
+  test("records a position as reading — even the bottom never marks it read", async () => {
     const { home, designId } = await setup();
     const mid = await send({ session: designId, action: "progress", progress: 0.42 });
     expect(mid.status).toBe(200);
@@ -70,19 +70,37 @@ describe("POST /api/reading", () => {
     expect(stored(home)[designId]).toMatchObject({ status: "reading", progress: 0.42 });
 
     const end = await send({ session: designId, action: "progress", progress: 0.98 });
-    expect(await end.json()).toEqual({ docs: { [designId]: { status: "read", progress: 1 } } });
-    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 1 });
+    expect(await end.json()).toEqual({ docs: { [designId]: { status: "reading", progress: 0.98 } } });
+    expect(stored(home)[designId]).toMatchObject({ status: "reading", progress: 0.98 });
   });
 
-  test("read-all marks every registered document read", async () => {
+  test("scrolling a read document updates only its position", async () => {
+    const { home, designId } = await setup();
+    await send({ session: designId, action: "read" });
+    const res = await send({ session: designId, action: "progress", progress: 0.3 });
+    expect(await res.json()).toEqual({ docs: { [designId]: { status: "read", progress: 0.3 } } });
+    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 0.3 });
+  });
+
+  test("marking read after scrolling keeps the position — never jumps to the end", async () => {
+    const { home, designId } = await setup();
+    await send({ session: designId, action: "progress", progress: 0.42 });
+    const res = await send({ session: designId, action: "read" });
+    expect(await res.json()).toEqual({ docs: { [designId]: { status: "read", progress: 0.42 } } });
+    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 0.42 });
+  });
+
+  test("read-all marks every document read without touching positions", async () => {
     const { home, designId, notesId } = await setup();
+    await send({ session: designId, action: "progress", progress: 0.5 });
     const res = await send({ action: "read-all" });
     expect(res.status).toBe(200);
     const { docs } = await res.json();
-    expect(docs[designId]).toEqual({ status: "read", progress: 1 });
-    expect(docs[notesId]).toEqual({ status: "read", progress: 1 });
-    expect(stored(home)[designId].status).toBe("read");
-    expect(stored(home)[notesId].status).toBe("read");
+    // The scrolled doc keeps its position; the never-opened one stays at 0.
+    expect(docs[designId]).toEqual({ status: "read", progress: 0.5 });
+    expect(docs[notesId]).toEqual({ status: "read", progress: 0 });
+    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 0.5 });
+    expect(stored(home)[notesId]).toMatchObject({ status: "read", progress: 0 });
   });
 
   test("an unknown session is refused with a plain message", async () => {

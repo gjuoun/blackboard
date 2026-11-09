@@ -32,13 +32,13 @@ describe("reading state file", () => {
     await mutate(home, (file) => {
       file.docs.a = entry("unread", 0);
       file.docs.b = withProgress(0.42, at, 200);
-      file.docs.c = markRead(at, 300);
+      file.docs.c = markRead(at, 300, 0.87);
     });
     // A fresh read is what a restarted process sees.
     const back = readReadingState(readingStatePath(home));
     expect(back.docs.a.status).toBe("unread");
     expect(back.docs.b).toEqual({ status: "reading", progress: 0.42, readAt: at, sourceMtime: 200 });
-    expect(back.docs.c).toMatchObject({ status: "read", progress: 1 });
+    expect(back.docs.c).toMatchObject({ status: "read", progress: 0.87 });
     const raw = JSON.parse(readFileSync(readingStatePath(home), "utf8"));
     expect(raw.version).toBe(1);
   });

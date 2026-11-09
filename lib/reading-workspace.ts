@@ -133,7 +133,15 @@ export const applyReading = (
 
     if (input.action === "read-all") {
       const all = yield* sessions.list(home);
-      const entries = yield* Effect.forEach(all, (session) => Effect.map(mtimeOf(session.path), (mtime) => [session.id, markRead(at, mtime)] as const));
+      const file = yield* state.read(home);
+      const entries = yield* Effect.forEach(all, (session) =>
+        Effect.map(mtimeOf(session.path), (mtime) => {
+          // Each document keeps the position its current record holds (0 when there is none or it
+          // is stale): read-all never moves a document, so reopening lands where it was left.
+          const prev = effectiveEntry(file.docs[session.id], mtime, at);
+          return [session.id, markRead(at, mtime, prev.progress)] as const;
+        }),
+      );
       yield* state.mutate(home, (file) => {
         for (const [id, entry] of entries) {
           file.docs[id] = entry;
@@ -150,8 +158,13 @@ export const applyReading = (
       return yield* Effect.fail(badProgress());
     }
     const mtime = yield* mtimeOf(session.path);
+    const prevEntry = effectiveEntry((yield* state.read(home)).docs[session.id], mtime, at);
     const entry =
-      input.action === "read" ? markRead(at, mtime) : input.action === "unread" ? markUnread(at, mtime) : withProgress(input.progress, at, mtime);
+      input.action === "read"
+        ? markRead(at, mtime, prevEntry.progress)
+        : input.action === "unread"
+          ? markUnread(at, mtime)
+          : withProgress(input.progress, at, mtime, prevEntry.status);
     yield* state.mutate(home, (file) => {
       file.docs[session.id] = entry;
     });

@@ -60,7 +60,9 @@
 
 /* ---- Doc body: the rendered markdown (raw HTML, so it is styled here, not with utility classes) ---- */
 /* The document follows the reading picks; the chrome keeps --font-ui. */
-.doc-body { font-family: var(--font-read); max-width: 760px; line-height: 1.85; overflow-wrap: break-word; }
+.doc-body { font-family: var(--font-read); font-size: var(--doc-size, 1rem); max-width: 760px; line-height: 1.85; overflow-wrap: break-word; }
+/* The “wide” reading width: the body column takes the window, no 760px cap. */
+html[data-doc-wide] .doc-body, html[data-doc-wide] .doc-grid main > div { max-width: none; }
 /* The settings panel's live specimen: prose in the reading stack, code in the mono pair. */
 .reading-specimen { font-family: var(--font-read); }
 .reading-specimen code { font-family: var(--font-code); font-size: 0.85em; background: var(--code); border: 1px solid var(--border); padding: 0.05em 0.35em; border-radius: 6px; }

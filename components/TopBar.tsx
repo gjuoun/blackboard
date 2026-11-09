@@ -38,6 +38,8 @@ export function TopBar() {
   const active = sessionIdOf(pathname);
   const doc = chrome.doc && chrome.doc.id === active ? chrome.doc : null;
   const onHome = pathname === "/";
+  // The workspace owns the phone's bottom edge with its tab bar; the reading-tools pill must not sit on it.
+  const onWorkspace = pathname.startsWith("/workspace");
   const current = tabs.find((t) => t.id === active);
 
   // Phone bottom bar: collapsed (a pill) or expanded (the icon row). The default look is CSS; this is only the tap state.
@@ -85,7 +87,10 @@ export function TopBar() {
       <div
         data-testid="bar-actions"
         data-expanded={expanded}
-        className="md:contents max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:flex max-md:items-center max-md:gap-1 max-md:bg-background/95 max-md:border-border max-md:data-[expanded=true]:border-t max-md:px-2 max-md:pt-1.5 max-md:pb-[calc(0.375rem+env(safe-area-inset-bottom))] max-md:data-[expanded=false]:right-auto max-md:data-[expanded=false]:left-1/2 max-md:data-[expanded=false]:-translate-x-1/2 max-md:data-[expanded=false]:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:data-[expanded=false]:rounded-full max-md:data-[expanded=false]:border max-md:data-[expanded=false]:px-1 max-md:data-[expanded=false]:pt-0 max-md:data-[expanded=false]:pb-0 max-md:data-[expanded=false]:shadow-md"
+        className={cn(
+          "md:contents max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-30 max-md:flex max-md:items-center max-md:gap-1 max-md:bg-background/95 max-md:border-border max-md:data-[expanded=true]:border-t max-md:px-2 max-md:pt-1.5 max-md:pb-[calc(0.375rem+env(safe-area-inset-bottom))] max-md:data-[expanded=false]:right-auto max-md:data-[expanded=false]:left-1/2 max-md:data-[expanded=false]:-translate-x-1/2 max-md:data-[expanded=false]:bottom-[calc(0.75rem+env(safe-area-inset-bottom))] max-md:data-[expanded=false]:rounded-full max-md:data-[expanded=false]:border max-md:data-[expanded=false]:px-1 max-md:data-[expanded=false]:pt-0 max-md:data-[expanded=false]:pb-0 max-md:data-[expanded=false]:shadow-md",
+          onWorkspace && "max-md:hidden",
+        )}
       >
         <div data-testid="bar-tools" data-expanded={expanded} className="md:contents max-md:flex max-md:flex-1 max-md:items-center max-md:justify-around max-md:gap-1 max-md:data-[expanded=false]:hidden">
         {doc?.readable ? (
