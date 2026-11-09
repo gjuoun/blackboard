@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { setChrome, togglePanel, useChrome, useIsDesktop } from "./chrome";
 import { ReadingSettings } from "./ReadingSettings";
 import { TabStrip } from "./TabStrip";
+import { WorkspaceBarControls } from "./WorkspaceBarControls";
 import { getTabs, setTabs, useTabs } from "./tabs-store";
 
 /** The session id in the current URL, or null on Home and other pages. */
@@ -40,6 +41,8 @@ export function TopBar() {
   const onHome = pathname === "/";
   // The workspace owns the phone's bottom edge with its tab bar; the reading-tools pill must not sit on it.
   const onWorkspace = pathname.startsWith("/workspace");
+  // The inbox merges its header rows into this bar on desktop: the controls take the strip's slot.
+  const onInbox = pathname === "/workspace";
   const current = tabs.find((t) => t.id === active);
 
   // Phone bottom bar: collapsed (a pill) or expanded (the icon row). The default look is CSS; this is only the tap state.
@@ -71,14 +74,15 @@ export function TopBar() {
   );
 
   return (
-    <header className="bg-background/90 border-border sticky top-0 z-30 flex h-[var(--bar-h)] items-center gap-1.5 border-b px-2 max-md:contents md:px-3 md:backdrop-blur" data-testid="tab-strip">
+    <header className="bg-background/90 border-border sticky top-0 z-30 flex h-[var(--bar-h)] items-center gap-1.5 border-b px-2 max-md:contents md:px-3 md:backdrop-blur" data-testid={onInbox ? "rw-header" : "tab-strip"}>
       <Link href="/" className="hidden items-center gap-2 px-1.5 text-[15px] font-bold md:flex" aria-label="Blackboard home">
         <span className="bg-primary size-2.5 rotate-45 rounded-[2px]" />
         Blackboard
       </Link>
 
-      {/* Desktop tabs: the pinned Home tab is the way back to the list */}
-      <TabStrip tabs={tabs} active={active} onHome={onHome} onClose={close} />
+      {/* Desktop tabs: the pinned Home tab is the way back to the list. On the inbox the merged
+          workspace controls take this slot instead — one 52px row for the whole page. */}
+      {onInbox ? <WorkspaceBarControls /> : <TabStrip tabs={tabs} active={active} onHome={onHome} onClose={close} />}
 
       {/* Phone: the actions leave the top bar for a fixed bottom box. It is a pill while collapsed and a full-width
           row once expanded (the expanded state is user interaction; the collapsed look is CSS keyed on data-expanded).
