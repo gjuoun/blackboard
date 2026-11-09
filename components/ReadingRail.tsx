@@ -11,7 +11,7 @@ export function ReadingRail({ filter, onFilter, counts }: { filter: string; onFi
     { key: "reading" as const, label: "Reading", n: counts.reading, dot: <span aria-hidden className="ring-muted-foreground size-[7px] rounded-full bg-transparent ring-[1.5px] ring-inset" /> },
   ];
   return (
-    <aside data-testid="rw-rail" className="border-border hidden min-h-0 flex-col gap-1.5 overflow-auto border-r px-2.5 py-4 lg:flex">
+    <aside data-testid="rw-rail" className="border-border flex h-full min-h-0 flex-col gap-1.5 overflow-auto border-r px-2.5 py-4">
       <h2 className="text-muted-foreground mx-2.5 mt-1 mb-2 text-xs font-semibold">Reading state</h2>
       {rows.map((row) => (
         <button

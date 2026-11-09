@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Search, Settings } from "lucide-react";
+import { ChevronDown, Search, Settings } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useWorkspaceBar } from "./workspace-bar";
 
@@ -12,7 +12,7 @@ const FILTERS = [
 ] as const;
 
 /**
- * The desktop inbox controls folded into the top bar on `/workspace` — the merged row that
+ * The desktop inbox controls folded into the top bar on `/inbox` — the merged row that
  * replaced ReadingHeader and ReadingToolbar there. Collapses in order as the width tightens:
  * the breadcrumb and the "awaiting replies" label go below xl, the counts and the inline search
  * input go below lg (the input moves into a popover). Renders nothing until the page publishes
@@ -40,7 +40,7 @@ export function WorkspaceBarControls() {
       {/* Breadcrumb: the first element to drop, below xl. */}
       <span className="hidden shrink-0 items-center gap-2 text-[13px] xl:flex">
         <span className="text-muted-foreground">/</span>
-        <span className="font-medium whitespace-nowrap">Reading workspace</span>
+        <span className="font-medium whitespace-nowrap">Inbox</span>
       </span>
 
       {/* Status filters only exist below lg — from lg the left rail carries them. */}
@@ -59,19 +59,24 @@ export function WorkspaceBarControls() {
         ))}
       </div>
 
-      <select
-        value={bar.repo}
-        onChange={(e) => bar.onRepo(e.target.value)}
-        aria-label="Filter by repository"
-        className="border-input bg-card h-[30px] shrink-0 rounded-lg border px-2.5 text-xs"
-      >
-        <option value="">All repos</option>
-        {bar.repos.map((name) => (
-          <option key={name} value={name}>
-            {name}
-          </option>
-        ))}
-      </select>
+      {/* appearance-none kills the UA arrow, which paints outside the border; the chevron is
+          drawn inside the pill instead and ignores pointer events so the select still gets them. */}
+      <label className="relative shrink-0">
+        <select
+          value={bar.repo}
+          onChange={(e) => bar.onRepo(e.target.value)}
+          aria-label="Filter by repository"
+          className="border-input bg-card h-[30px] appearance-none rounded-lg border pr-8 pl-2.5 text-xs"
+        >
+          <option value="">All repos</option>
+          {bar.repos.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+        <ChevronDown aria-hidden className="text-muted-foreground pointer-events-none absolute top-1/2 right-2.5 size-3 -translate-y-1/2" />
+      </label>
 
       {/* Counts drop below lg, after the breadcrumb. */}
       <span data-testid="rw-count-line" className="text-muted-foreground hidden shrink-0 font-mono text-[11.5px] whitespace-nowrap lg:block">
@@ -109,7 +114,7 @@ export function WorkspaceBarControls() {
         Mark all read
       </button>
       <Link
-        href="/workspace/settings"
+        href="/inbox/settings"
         aria-label="Workspace settings"
         title="Settings"
         data-testid="rw-settings-gear"

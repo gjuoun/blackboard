@@ -51,6 +51,9 @@ type Prefs = {
   fontMono: MonoId;
   tocW: number;
   cmW: number;
+  /** The inbox's left rail and preview pane widths. */
+  railW: number;
+  previewW: number;
   docSize: DocSizeId;
   textWidth: TextWidthId;
   /** Reopen a document at the position it was left, from the stored progress. */
@@ -68,6 +71,8 @@ export const DEFAULT_PREFS: Prefs = {
   fontMono: "qublack-mono",
   tocW: 240,
   cmW: 340,
+  railW: 236,
+  previewW: 384,
   docSize: "default",
   textWidth: "fit",
   resumeOnOpen: true,
@@ -84,10 +89,16 @@ export const DEFAULT_CHROME: StoredChrome = { ...DEFAULT_PREFS, tocOpen: true, c
 export const PANEL_LIMITS = {
   toc: { min: 180, max: 420 },
   cm: { min: 280, max: 560 },
+  rail: { min: 180, max: 320 },
+  preview: { min: 300, max: 760 },
 } as const;
 export type PanelKey = keyof typeof PANEL_LIMITS;
+/** Which stored width each panel resizes. */
+export const WIDTH_KEY: Record<PanelKey, "tocW" | "cmW" | "railW" | "previewW"> = { toc: "tocW", cm: "cmW", rail: "railW", preview: "previewW" };
 /** Width the doc column must keep, so a drag can never squeeze the text to nothing. */
 export const DOC_MIN = 480;
+/** The inbox's middle column: the document list keeps 320px under a drag. */
+export const LIST_MIN = 320;
 
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const inList = <T extends readonly string[]>(list: T, v: unknown): v is T[number] => typeof v === "string" && (list as readonly string[]).includes(v);
@@ -97,7 +108,7 @@ const themeOf = (v: unknown): ThemeId => (inList(THEME_IDS, v) ? v : typeof v ==
 
 /** One panel width inside its own range. Garbage in (NaN, a string) gives the default back. */
 export function clampPanel(px: unknown, which: PanelKey): number {
-  if (!isNum(px)) return DEFAULT_PREFS[which === "toc" ? "tocW" : "cmW"];
+  if (!isNum(px)) return DEFAULT_PREFS[WIDTH_KEY[which]];
   const { min, max } = PANEL_LIMITS[which];
   return Math.min(max, Math.max(min, Math.round(px)));
 }
@@ -117,6 +128,21 @@ export function clampPanels(p: { tocW: number; cmW: number }, viewport: number):
   return { tocW, cmW };
 }
 
+/**
+ * The inbox's two side panels against the window, honouring the list floor. Below lg the rail is
+ * not rendered, so it keeps its stored width and only the preview is asked to shrink; above lg
+ * the same rule, and the rail never needs to: its widest stored width plus the preview's room
+ * (rail.max + LIST_MIN + preview.min = 960) already fits inside the lg floor.
+ */
+export function clampInbox(p: { railW: number; previewW: number }, viewport: number): { railW: number; previewW: number } {
+  const railW = clampPanel(p.railW, "rail");
+  let previewW = clampPanel(p.previewW, "preview");
+  if (!isNum(viewport) || viewport <= 0) return { railW, previewW };
+  const over = (viewport >= 1024 ? railW : 0) + previewW + LIST_MIN - viewport;
+  if (over > 0) previewW = Math.max(PANEL_LIMITS.preview.min, previewW - over);
+  return { railW, previewW };
+}
+
 /** The stored record from whatever `localStorage` held. Corrupt JSON, unknown ids and wild widths all fall back. */
 export function parsePrefs(raw: string | null): StoredChrome {
   let data: unknown = null;
@@ -134,6 +160,8 @@ export function parsePrefs(raw: string | null): StoredChrome {
     fontMono: inList(MONO_IDS, o.fontMono) ? o.fontMono : DEFAULT_PREFS.fontMono,
     tocW: clampPanel(o.tocW, "toc"),
     cmW: clampPanel(o.cmW, "cm"),
+    railW: clampPanel(o.railW, "rail"),
+    previewW: clampPanel(o.previewW, "preview"),
     tocOpen: bool("tocOpen"),
     cmOpen: bool("cmOpen"),
     showResolved: bool("showResolved"),
@@ -155,6 +183,8 @@ export function serializePrefs(s: StoredChrome): string {
     fontMono: s.fontMono,
     tocW: s.tocW,
     cmW: s.cmW,
+    railW: s.railW,
+    previewW: s.previewW,
     tocOpen: s.tocOpen,
     cmOpen: s.cmOpen,
     showResolved: s.showResolved,
@@ -177,6 +207,8 @@ export function applyPrefs(el: HTMLElement, p: Prefs): void {
   el.toggleAttribute("data-doc-wide", p.textWidth === "wide");
   el.style.setProperty("--toc-w", clampPanel(p.tocW, "toc") + "px");
   el.style.setProperty("--cm-w", clampPanel(p.cmW, "cm") + "px");
+  el.style.setProperty("--rail-w", clampPanel(p.railW, "rail") + "px");
+  el.style.setProperty("--preview-w", clampPanel(p.previewW, "preview") + "px");
   el.style.setProperty("--doc-size", p.docSize === "default" ? "" : p.docSize + "px");
 }
 
@@ -203,6 +235,9 @@ export function bootScript(): string {
     "var t=[" + PANEL_LIMITS.toc.min + "," + PANEL_LIMITS.toc.max + "," + PANEL_LIMITS.cm.min + "," + PANEL_LIMITS.cm.max + "];" +
     'if(typeof s.tocW==="number"&&isFinite(s.tocW))r.style.setProperty("--toc-w",Math.min(t[1],Math.max(t[0],Math.round(s.tocW)))+"px");' +
     'if(typeof s.cmW==="number"&&isFinite(s.cmW))r.style.setProperty("--cm-w",Math.min(t[3],Math.max(t[2],Math.round(s.cmW)))+"px");' +
+    "var w=[" + PANEL_LIMITS.rail.min + "," + PANEL_LIMITS.rail.max + "," + PANEL_LIMITS.preview.min + "," + PANEL_LIMITS.preview.max + "];" +
+    'if(typeof s.railW==="number"&&isFinite(s.railW))r.style.setProperty("--rail-w",Math.min(w[1],Math.max(w[0],Math.round(s.railW)))+"px");' +
+    'if(typeof s.previewW==="number"&&isFinite(s.previewW))r.style.setProperty("--preview-w",Math.min(w[3],Math.max(w[2],Math.round(s.previewW)))+"px");' +
     "var sizes=" + JSON.stringify(DOC_SIZE_IDS) + ";" +
     'if(sizes.indexOf(s.docSize)>0)r.style.setProperty("--doc-size",s.docSize+"px");' +
     'if(s.textWidth==="wide")r.setAttribute("data-doc-wide","");' +

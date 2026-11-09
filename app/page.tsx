@@ -59,10 +59,10 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           <p className="text-muted-foreground text-sm">Local markdown review</p>
         </div>
         <Link
-          href="/workspace"
+          href="/inbox"
           className="border-border bg-card hover:bg-accent inline-flex h-9 items-center rounded-lg border px-3 text-sm"
         >
-          Reading workspace
+          Inbox
         </Link>
       </header>
       <SessionTable

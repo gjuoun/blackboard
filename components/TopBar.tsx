@@ -39,10 +39,10 @@ export function TopBar() {
   const active = sessionIdOf(pathname);
   const doc = chrome.doc && chrome.doc.id === active ? chrome.doc : null;
   const onHome = pathname === "/";
-  // The workspace owns the phone's bottom edge with its tab bar; the reading-tools pill must not sit on it.
-  const onWorkspace = pathname.startsWith("/workspace");
+  // The inbox owns the phone's bottom edge with its tab bar; the reading-tools pill must not sit on it.
+  const onWorkspace = pathname.startsWith("/inbox") || pathname.startsWith("/workspace");
   // The inbox merges its header rows into this bar on desktop: the controls take the strip's slot.
-  const onInbox = pathname === "/workspace";
+  const onInbox = pathname === "/inbox" || pathname === "/workspace";
   const current = tabs.find((t) => t.id === active);
 
   // Phone bottom bar: collapsed (a pill) or expanded (the icon row). The default look is CSS; this is only the tap state.
