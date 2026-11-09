@@ -28,8 +28,8 @@ describe("WorkspaceSettings", () => {
 
   test("every row shows its current value on the right", () => {
     const html = render();
-    // Appearance defaults: Paper, Qu Black Sans, Default size.
-    expect(html).toContain("Paper");
+    // Appearance defaults: Warm · Light, Qu Black Sans, Default size.
+    expect(html).toContain("Warm · Light");
     expect(html).toContain("Qu Black Sans");
     expect(html).toContain("Default");
     // Reading defaults: resume at last position, mark read on open, auto width.
@@ -49,13 +49,13 @@ describe("WorkspaceSettings", () => {
   });
 
   test("stored values ride the row instead of the defaults", () => {
-    chromeState = { ...chromeState, theme: "night", docSize: "16", resumeOnOpen: false, textWidth: "wide", docRepo: "sites" };
+    chromeState = { ...chromeState, theme: "warm-dark", docSize: "16", resumeOnOpen: false, textWidth: "wide", docRepo: "sites" };
     const html = render();
-    expect(html).toContain("Night");
+    expect(html).toContain("Warm · Dark");
     expect(html).toContain(">16<");
     expect(html).toContain("Top");
     expect(html).toContain("Full width");
     expect(html).toContain("sites");
-    chromeState = { ...chromeState, theme: "paper", docSize: "default", resumeOnOpen: true, textWidth: "fit", docRepo: "" };
+    chromeState = { ...chromeState, theme: "warm-light", docSize: "default", resumeOnOpen: true, textWidth: "fit", docRepo: "" };
   });
 });

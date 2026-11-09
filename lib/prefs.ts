@@ -9,10 +9,23 @@
  */
 export const PREFS_KEY = "bb-chrome";
 
-export const THEME_IDS = ["paper", "plain", "night"] as const;
+export const THEME_IDS = ["warm-light", "warm-dark", "cold-light", "cold-dark"] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
 /** Each theme is one mode; the `.dark` class is derived from it so Tailwind's `dark:` still applies. */
-export const THEME_MODE: Record<ThemeId, "light" | "dark"> = { paper: "light", plain: "light", night: "dark" };
+export const THEME_MODE: Record<ThemeId, "light" | "dark"> = {
+  "warm-light": "light",
+  "warm-dark": "dark",
+  "cold-light": "light",
+  "cold-dark": "dark",
+};
+
+/**
+ * Palettes this version no longer defines, and the one that replaced each. A stored record from
+ * before the warm/cold split is read through this map and written back with the new id, so a
+ * browser that picked paper/plain/night keeps its nearest counterpart instead of snapping to the
+ * default. Only the new ids appear in THEME_IDS.
+ */
+export const LEGACY_THEME: Record<string, ThemeId> = { paper: "warm-light", plain: "cold-light", night: "warm-dark" };
 
 export const LATIN_IDS = ["qublack", "inter", "charter", "georgia", "system"] as const;
 export type LatinId = (typeof LATIN_IDS)[number];
@@ -49,7 +62,7 @@ type Prefs = {
 };
 
 export const DEFAULT_PREFS: Prefs = {
-  theme: "paper",
+  theme: "warm-light",
   fontLatin: "qublack",
   fontCjk: "qublack",
   fontMono: "qublack-mono",
@@ -78,6 +91,9 @@ export const DOC_MIN = 480;
 
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const inList = <T extends readonly string[]>(list: T, v: unknown): v is T[number] => typeof v === "string" && (list as readonly string[]).includes(v);
+
+/** A stored id, migrated if it names a retired palette; anything unrecognised gets the default. */
+const themeOf = (v: unknown): ThemeId => (inList(THEME_IDS, v) ? v : typeof v === "string" && LEGACY_THEME[v] ? LEGACY_THEME[v] : DEFAULT_PREFS.theme);
 
 /** One panel width inside its own range. Garbage in (NaN, a string) gives the default back. */
 export function clampPanel(px: unknown, which: PanelKey): number {
@@ -112,7 +128,7 @@ export function parsePrefs(raw: string | null): StoredChrome {
   const o = (data && typeof data === "object" ? data : {}) as Record<string, unknown>;
   const bool = <K extends keyof StoredChrome>(k: K): StoredChrome[K] => (typeof o[k] === "boolean" ? (o[k] as StoredChrome[K]) : DEFAULT_CHROME[k]);
   return {
-    theme: inList(THEME_IDS, o.theme) ? o.theme : DEFAULT_PREFS.theme,
+    theme: themeOf(o.theme),
     fontLatin: inList(LATIN_IDS, o.fontLatin) ? o.fontLatin : DEFAULT_PREFS.fontLatin,
     fontCjk: inList(CJK_IDS, o.fontCjk) ? o.fontCjk : DEFAULT_PREFS.fontCjk,
     fontMono: inList(MONO_IDS, o.fontMono) ? o.fontMono : DEFAULT_PREFS.fontMono,
@@ -175,10 +191,12 @@ export function bootScript(): string {
     'var s=JSON.parse(localStorage.getItem("' + PREFS_KEY + '")||"{}")||{};' +
     "var r=document.documentElement;" +
     "var modes=" + JSON.stringify(THEME_MODE) + ";" +
+    "var old=" + JSON.stringify(LEGACY_THEME) + ";" +
     "var latin=" + JSON.stringify(LATIN_IDS) + ";" +
     "var cjk=" + JSON.stringify(CJK_IDS) + ";" +
     "var mono=" + JSON.stringify(MONO_IDS) + ";" +
-    'if(typeof s.theme==="string"&&modes[s.theme]){r.setAttribute("data-theme",s.theme);r.classList.toggle("dark",modes[s.theme]==="dark");}' +
+    'var th=typeof s.theme!=="string"?"":modes[s.theme]?s.theme:old[s.theme]||"";' +
+    'if(th){r.setAttribute("data-theme",th);r.classList.toggle("dark",modes[th]==="dark");}' +
     'if(latin.indexOf(s.fontLatin)>=0)r.setAttribute("data-font-latin",s.fontLatin);' +
     'if(cjk.indexOf(s.fontCjk)>=0)r.setAttribute("data-font-cjk",s.fontCjk);' +
     'if(mono.indexOf(s.fontMono)>=0)r.setAttribute("data-font-mono",s.fontMono);' +

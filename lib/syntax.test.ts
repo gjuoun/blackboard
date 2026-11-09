@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderMarkdown, renderPlainText } from "./markdown";
+import { THEME_IDS } from "./prefs";
 
 const FENCE = "```";
 const ROOT = join(import.meta.dir, "..");
@@ -83,12 +84,17 @@ const ratio = (a: string, b: string) => {
 
 const CSS = read("app/syntax.css").replace(/\/\*[\s\S]*?\*\//g, "");
 const THEMES = read("app/themes.css").replace(/\/\*[\s\S]*?\*\//g, "");
+const COMPOSITE = read("app/theme/composite.css").replace(/\/\*[\s\S]*?\*\//g, "");
 
-/** token -> hex for one palette block of themes.css. */
+/** token -> hex for one palette: its themes.css block merged with its composite.css block. */
 function palette(id: string): Map<string, string> {
-  const block = new RegExp(`\\[data-theme="${id}"\\]\\s*\\{([^}]*)\\}`).exec(THEMES);
-  if (!block) throw new Error("no palette " + id);
-  return new Map([...block[1].matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)].map((t) => [t[1], t[2].trim()]));
+  const out = new Map<string, string>();
+  for (const css of [THEMES, COMPOSITE]) {
+    const block = new RegExp(`\\[data-theme="${id}"\\]\\s*\\{([^}]*)\\}`).exec(css);
+    if (!block) throw new Error("no palette " + id);
+    for (const t of block[1].matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)) out.set(t[1], t[2].trim());
+  }
+  return out;
 }
 
 /** Each hljs scope rule: the token it reads from the palette, which must be one of the hue tokens. */
@@ -104,7 +110,7 @@ describe("syntax palette mapping", () => {
   });
 
   test("every palette keeps each mapped syntax colour at AA on the code block card", () => {
-    for (const id of ["paper", "plain", "night"]) {
+    for (const id of THEME_IDS) {
       const p = palette(id);
       const card = p.get("card")!;
       for (const t of HUE_TOKENS) {

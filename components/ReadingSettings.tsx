@@ -87,7 +87,7 @@ export function ReadingSettings() {
       <PopoverContent data-testid="reading-settings">
         <section aria-label="Theme">
           <h3 className="text-muted-foreground mb-1.5 text-xs font-semibold">Theme</h3>
-          <div role="radiogroup" aria-label="Theme" className="grid grid-cols-3 gap-1.5">
+          <div role="radiogroup" aria-label="Theme" className="grid grid-cols-2 gap-1.5">
             {THEMES.map((t) => {
               const on = chrome.theme === t.id;
               return (
