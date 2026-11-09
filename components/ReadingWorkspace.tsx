@@ -9,8 +9,8 @@ import { ReadingHeader } from "./ReadingHeader";
 import { ReadingList } from "./ReadingList";
 import { ReadingPreview } from "./ReadingPreview";
 import { ReadingRail } from "./ReadingRail";
-import { ReadingToolbar } from "./ReadingToolbar";
 import { usePreviewScroll } from "./usePreviewScroll";
+import { setWorkspaceBar } from "./workspace-bar";
 import { WorkspaceNew } from "./WorkspaceNew";
 import { isWorkspaceView, VIEW_FILTERS, WorkspaceTabBar, type WorkspaceView } from "./WorkspaceTabBar";
 
@@ -95,6 +95,11 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
     },
     [patch],
   );
+
+  const onMarkAll = useCallback(() => {
+    setDocs((prev) => prev.map((doc) => (doc.status === "read" ? doc : { ...doc, status: "read" })));
+    void write({ action: "read-all" });
+  }, [write]);
 
   const { docsRef, cancelProgress, holdProgress, onProgress } = usePreviewScroll({ selected, docs, setDocs, write });
 
@@ -210,28 +215,24 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [visible, selected, open, router, close, docsRef]);
 
+  // The desktop top bar folds the inbox controls into itself; publish them while this page is
+  // mounted and clear the slot on the way out so no other page inherits them.
+  useEffect(() => {
+    setWorkspaceBar({ query, onQuery: setQuery, repo, repos: initial.repos, onRepo: setRepo, filter, onFilter: (f) => setView(f), counts, pending, onMarkAll });
+    return () => setWorkspaceBar(null);
+  }, [query, repo, initial.repos, filter, setView, counts, pending, onMarkAll]);
+
   const selectedDoc = docs.find((doc) => doc.id === selected) ?? null;
   const listVisible = view !== "new";
 
   return (
     <div data-testid="rw-shell" className="flex h-[calc(100dvh-var(--bar-h))] flex-col overflow-hidden max-md:h-dvh">
-      <ReadingHeader
-        query={query}
-        onQuery={setQuery}
-        pending={pending}
-        counts={counts}
-        view={view}
-        onMarkAll={() => {
-          setDocs((prev) => prev.map((doc) => (doc.status === "read" ? doc : { ...doc, status: "read" })));
-          void write({ action: "read-all" });
-        }}
-      />
+      <ReadingHeader query={query} onQuery={setQuery} counts={counts} view={view} />
 
       <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[minmax(0,1fr)_384px] lg:grid-cols-[236px_minmax(0,1fr)_384px]">
         <ReadingRail filter={filter} onFilter={(f) => setView(f)} counts={counts} />
 
         <section className={cn("min-h-0 min-w-0 flex-col overflow-hidden", listVisible ? "flex" : "hidden md:flex")}>
-          <ReadingToolbar filter={filter} onFilter={(f) => setView(f)} repos={initial.repos} repo={repo} onRepo={setRepo} counts={counts} />
           <div className="min-h-0 flex-1 overflow-auto">
             <ReadingList docs={visible} selected={selected} onSelect={open} onMark={mark} />
           </div>

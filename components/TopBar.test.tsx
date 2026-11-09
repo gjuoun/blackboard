@@ -62,4 +62,14 @@ describe("TopBar doc toggles", () => {
     expect(html).not.toContain('data-testid="toggle-toc"');
     expect(html).not.toContain("open-timeline");
   });
+
+  test("the inbox merges its controls into the one bar; other pages keep the tab strip", () => {
+    const inbox = render(null, { path: "/workspace" });
+    expect(inbox).toContain('data-testid="rw-header"');
+    expect(inbox).not.toContain('data-testid="tab-strip"');
+    const settings = render(null, { path: "/workspace/settings" });
+    expect(settings).toContain('data-testid="tab-strip"');
+    const home = render(null, { path: "/" });
+    expect(home).toContain('data-testid="tab-strip"');
+  });
 });
