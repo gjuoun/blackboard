@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { Context, Effect, Layer } from "effect";
-import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { errorMessage, DbFailure } from "../effect/errors";
 
 /**
@@ -100,8 +100,12 @@ const open = (home: string): Effect.Effect<Conn, DbFailure> =>
       // Deferred by design: this is the only place `bun:sqlite` is loaded. createRequire keeps it
       // out of every Node import graph — Next.js bundling under Node can trace this module and
       // never resolves the specifier, while the statement itself only runs on first Db use.
-      const { Database } = createRequire(import.meta.url)("bun:sqlite") as unknown as {
-        Database: new (path: string) => RawDb;
+      const req = createRequire(import.meta.url);
+      const { Database } = req("bun:sqlite") as unknown as { Database: new (path: string) => RawDb };
+      // Same deferral for the drizzle adapter: it statically requires bun:sqlite itself, so
+      // pulling it at module eval would still break a Node import graph. Types are import-type only.
+      const { drizzle } = req("drizzle-orm/bun-sqlite") as {
+        drizzle: (raw: RawDb) => BunSQLiteDatabase;
       };
       mkdirSync(home, { recursive: true });
       const raw = new Database(join(home, "blackboard.db"));
@@ -109,7 +113,7 @@ const open = (home: string): Effect.Effect<Conn, DbFailure> =>
       raw.run("PRAGMA foreign_keys=ON");
       raw.run("PRAGMA busy_timeout=5000");
       for (const stmt of DDL) raw.exec(stmt);
-      return { orm: drizzle(raw as never), raw };
+      return { orm: drizzle(raw), raw };
     },
     catch: (error) => new DbFailure({ message: `cannot open blackboard.db: ${errorMessage(error)}`, status: 500 }),
   });

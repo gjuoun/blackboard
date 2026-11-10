@@ -11,6 +11,7 @@ import { CliError, formatComments, formatSessions } from "../lib/cli";
 import { CommentArgs, decodeArgs, MigrateArgs, ReviewArgs } from "../lib/cli/args";
 import * as commentsCli from "../lib/cli/comments";
 import * as dbCli from "../lib/cli/db";
+import { layer as dbLayer } from "../lib/db/client";
 import * as sessionsCli from "../lib/cli/sessions";
 import type { AppServices } from "../lib/effect/layers";
 import { errorMessage } from "../lib/effect/errors";
@@ -191,12 +192,14 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
         const sub = args[0];
         if (sub === "migrate") {
           const opts = yield* decodeArgs(MigrateArgs, { dry: o["dry-run"] });
-          const r = yield* dbCli.migrateCmd(home, opts.dry ?? false);
+          // Db is provided here, not via AppLayer: the data layer is not wired into the server
+          // this round, and carrying it in AppLayer would evaluate bun:sqlite under `next build`.
+          const r = yield* dbCli.migrateCmd(home, opts.dry ?? false).pipe(Effect.provide(dbLayer));
           print(r, dbCli.formatReport(r));
           return 0;
         }
         if (sub === "stats") {
-          const s = yield* dbCli.statsCmd(home);
+          const s = yield* dbCli.statsCmd(home).pipe(Effect.provide(dbLayer));
           print(s, dbCli.formatStats(s));
           return 0;
         }
