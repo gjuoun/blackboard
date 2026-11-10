@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="paper">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>v3 时间线 · 阅读工作区 mock</title>
+<style>
+@font-face { font-family: "QB Sans Latin"; src: local("QuBlackSansVF-Regular"), local("QuBlackSans-Regular"); font-weight: 100 900; unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F; }
+@font-face { font-family: "QB Sans CJK"; src: local("QuBlackSansVF-Regular"), local("QuBlackSans-Regular"); font-weight: 100 900; unicode-range: U+2E80-2EFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF; }
+@font-face { font-family: "QB Mono Latin"; src: local("QuBlackMono-Regular"); unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F; }
+@font-face { font-family: "QB Mono CJK"; src: local("QuBlackMono-Regular"); unicode-range: U+2E80-2EFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF; }
+
+[data-theme="paper"] {
+  color-scheme: light;
+  --background: #faf8f5; --foreground: #2b2622; --card: #ffffff;
+  --primary: #b3532f; --primary-foreground: #ffffff;
+  --secondary: #f1ebe4; --muted: #f1ebe4; --muted-foreground: #6f675e;
+  --accent: #efe9e2; --border: #ebe5de; --input: #ebe5de;
+  --primary-soft: #f8e6df; --success: #2f7d4f;
+}
+[data-theme="plain"] {
+  color-scheme: light;
+  --background: #ffffff; --foreground: #18181b; --card: #ffffff;
+  --primary: #1f6feb; --primary-foreground: #ffffff;
+  --secondary: #f4f4f5; --muted: #f4f4f5; --muted-foreground: #5f6368;
+  --accent: #f4f4f5; --border: #e5e7eb; --input: #e5e7eb;
+  --primary-soft: #e8f0fe; --success: #1a7f37;
+}
+[data-theme="night"] {
+  color-scheme: dark;
+  --background: #0f1115; --foreground: #e6e6e6; --card: #151920;
+  --primary: #7aa2f7; --primary-foreground: #0b0e13;
+  --secondary: #1b2028; --muted: #1b2028; --muted-foreground: #9aa0a6;
+  --accent: #1f2530; --border: #262a31; --input: #262a31;
+  --primary-soft: #16233a; --success: #3fb950;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--background); color: var(--foreground);
+  font-family: "QB Sans Latin", "QB Sans CJK", "PingFang SC", sans-serif;
+  font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+.mono { font-family: "QB Mono Latin", "QB Mono CJK", monospace; }
+
+.band {
+  flex: none; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px;
+  background: var(--secondary); border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--muted-foreground);
+}
+.band b { color: var(--foreground); font-weight: 600; }
+.band .tag { white-space: nowrap; font-family: "QB Mono Latin", monospace; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 1px 7px; color: var(--foreground); }
+.band .note { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.band nav { margin-left: auto; flex: none; display: flex; gap: 2px; align-items: center; white-space: nowrap; }
+.band nav a { padding: 2px 8px; border-radius: 6px; }
+.band nav a:hover { background: var(--card); color: var(--foreground); }
+.band nav a[aria-current="page"] { background: var(--card); border: 1px solid var(--border); color: var(--foreground); font-weight: 600; }
+.theme-picks { display: flex; gap: 3px; padding-left: 8px; border-left: 1px solid var(--border); }
+.theme-picks button { width: 18px; height: 18px; border-radius: 999px; border: 1px solid var(--border); font-size: 9px; line-height: 1; color: var(--muted-foreground); }
+.theme-picks button[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+
+.bar { flex: none; height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; padding: 0 6px; }
+.brand-mark { width: 10px; height: 10px; background: var(--primary); border-radius: 2px; transform: rotate(45deg); }
+.crumb { color: var(--muted-foreground); font-size: 13px; }
+.crumb b { color: var(--foreground); font-weight: 500; }
+.bar-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.btn { height: 30px; padding: 0 11px; border: 1px solid var(--border); background: var(--card); border-radius: 8px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--accent); }
+.icon-btn { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: var(--muted-foreground); }
+.icon-btn:hover { background: var(--accent); color: var(--foreground); }
+
+.scroll { flex: 1; min-height: 0; overflow: auto; }
+.wrap { max-width: 1140px; margin: 0 auto; padding: 24px 32px 48px; }
+
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.head h1 { margin: 0; font-size: 23px; line-height: 1.2; font-weight: 700; letter-spacing: -.01em; }
+.head p { margin: 5px 0 0; font-size: 12.5px; color: var(--muted-foreground); }
+.head p b { color: var(--foreground); font-weight: 600; }
+.head .tools { display: flex; align-items: center; gap: 8px; }
+.search { display: flex; align-items: center; gap: 7px; width: 220px; height: 32px; padding: 0 10px; border: 1px solid var(--input); background: var(--card); border-radius: 8px; color: var(--muted-foreground); }
+.search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; font-size: 12.5px; color: var(--foreground); }
+.search input::placeholder { color: var(--muted-foreground); }
+
+/* ---- timeline: date stamps on the left, cards on a hairline rail ---- */
+.tl { margin-top: 2px; }
+.tgroup { display: grid; grid-template-columns: 106px minmax(0, 1fr); gap: 20px; }
+.stamp { padding-top: 20px; text-align: right; }
+.stamp .d { font-size: 15px; font-weight: 650; letter-spacing: .02em; }
+.stamp .m { display: block; margin-top: 2px; font-family: "QB Mono Latin", monospace; font-size: 10.5px; color: var(--muted-foreground); }
+.stamp .k { display: block; margin-top: 7px; font-size: 10px; color: var(--muted-foreground); white-space: nowrap; }
+.stamp .k::before { content: ""; display: inline-block; width: 5px; height: 5px; margin-right: 4px; border-radius: 999px; background: var(--border); vertical-align: 1px; }
+.stamp.unread .k { color: var(--primary); }
+.stamp.unread .k::before { background: var(--primary); }
+
+.cards { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 14px 0 16px 22px; border-left: 1px solid var(--border); }
+.cards::before { content: ""; position: absolute; left: -4px; top: 22px; width: 7px; height: 7px; border-radius: 999px; background: var(--background); border: 1px solid var(--border); }
+
+.card { position: relative; display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 10px 12px 9px; background: var(--card); border: 1px solid var(--border); border-radius: 11px; box-shadow: 0 1px 2px rgb(0 0 0 / .03); transition: border-color .12s, box-shadow .12s; }
+.card:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--border)); box-shadow: 0 4px 14px rgb(0 0 0 / .07); }
+.card[data-state="unread"] { border-left: 3px solid var(--primary); padding-left: 10px; }
+.card[data-state="read"] { background: color-mix(in srgb, var(--card) 55%, var(--background)); }
+.card[data-state="read"] .title { color: var(--muted-foreground); }
+.card[data-state="read"] .path { opacity: .7; }
+.card-top { display: flex; align-items: center; gap: 7px; }
+.badge { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 8px; border-radius: 999px; font-size: 11px; border: 1px solid var(--border); color: var(--muted-foreground); background: var(--background); white-space: nowrap; }
+.badge .d { width: 5px; height: 5px; border-radius: 999px; background: currentColor; }
+.card[data-state="unread"] .badge { color: var(--primary); background: var(--primary-soft); border-color: color-mix(in srgb, var(--primary) 28%, var(--border)); font-weight: 600; }
+.card[data-state="reading"] .badge { color: var(--foreground); background: var(--secondary); }
+.cmt { flex: none; font-family: "QB Mono Latin", monospace; font-size: 10px; color: var(--primary); background: var(--primary-soft); border-radius: 999px; padding: 0 5px; line-height: 16px; }
+.card-top .when { margin-left: auto; font-size: 10.5px; color: var(--muted-foreground); white-space: nowrap; }
+.title { margin: 0; font-size: 14px; line-height: 1.45; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card[data-state="unread"] .title { font-weight: 650; }
+.foot { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.path { flex: 0 1 auto; min-width: 32px; margin: 0; font-family: "QB Mono Latin", "QB Mono CJK", monospace; font-size: 10.5px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meter { flex: 1; display: flex; align-items: center; gap: 6px; min-width: 40px; max-width: 150px; }
+.track { flex: 1; height: 3px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+.fill { height: 100%; background: var(--primary); border-radius: 999px; }
+.pct { font-family: "QB Mono Latin", monospace; font-size: 10px; color: var(--primary); white-space: nowrap; }
+.act { flex: none; margin-left: auto; height: 22px; padding: 0 6px; border-radius: 6px; border: 1px solid transparent; font-size: 10.5px; color: var(--muted-foreground); white-space: nowrap; }
+.card:hover .act { border-color: var(--border); background: var(--background); }
+.act:hover { border-color: var(--primary); color: var(--primary); }
+.read-mark { font-size: 10.5px; color: var(--muted-foreground); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="band">
+  <span class="tag">v3 · timeline</span>
+  <b>时间线</b>
+  <span class="note">按「今天 / 本周 / 更早」分组；未读左侧主色竖条 + 实心徽标。状态与时间正交，标记后卡片留在原组；点右下「标已读 / 标为未读」切换。</span>
+  <nav>
+    <a href="../v1-inbox/">v1 收件箱</a>
+    <a href="../v2-tabs/">v2 Tab</a>
+    <a href="../v3-timeline/" aria-current="page">v3 时间线</a>
+    <span class="theme-picks" aria-label="配色">
+      <button data-theme-pick="paper" aria-pressed="true" title="Paper (1)">1</button>
+      <button data-theme-pick="plain" aria-pressed="false" title="Plain (2)">2</button>
+      <button data-theme-pick="night" aria-pressed="false" title="Night (3)">3</button>
+    </span>
+  </nav>
+</div>
+
+<header class="bar">
+  <span class="brand"><span class="brand-mark"></span>Blackboard</span>
+  <span class="crumb">/ <b>阅读时间线</b></span>
+  <div class="bar-actions">
+    <button class="btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      5 条待回复
+    </button>
+    <button class="icon-btn" title="视图" aria-label="视图">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="13" width="7" height="7" rx="1.5"/><rect x="14" y="13" width="7" height="7" rx="1.5"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="scroll">
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1>阅读时间线</h1>
+        <p><b>4 篇未读</b> · 3 篇在读 · 3 篇已读 · 共 10 篇</p>
+      </div>
+      <div class="tools">
+        <label class="search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" placeholder="搜索文档" />
+        </label>
+      </div>
+    </div>
+
+    <div class="tl">
+      <section class="tgroup">
+        <div class="stamp unread"><span class="d">今天</span><span class="m">10 月 31 日</span><span class="k">2 未读 · 1 在读</span></div>
+        <div class="cards">
+          <article class="card" data-state="unread">
+            <div class="card-top"><span class="badge"><span class="d"></span>未读</span><span class="cmt">3</span><span class="when">更新 2 小时前</span></div>
+            <h3 class="title">dsh-superagent 研究：subagent 编排的可观测性</h3>
+            <div class="foot"><span class="path">research/dsh-superagent.md</span><button class="act" data-action="read">标已读</button></div>
+          </article>
+
+          <article class="card" data-state="unread">
+            <div class="card-top"><span class="badge"><span class="d"></span>未读</span><span class="when">更新 今天 11:05</span></div>
+            <h3 class="title">agent cloud 架构：会话归属与设备迁移</h3>
+            <div class="foot"><span class="path">docs/agent-cloud.md</span><button class="act" data-action="read">标已读</button></div>
+          </article>
+
+          <article class="card" data-state="reading">
+            <div class="card-top"><span class="badge"><span class="d"></span>在读</span><span class="when">最后读 12 分钟前</span></div>
+            <h3 class="title">lane cards 第 3 轮：卡片信息密度</h3>
+            <div class="foot">
+              <span class="path">plan/lane-cards-3.md</span>
+              <span class="meter"><span class="track"><span class="fill" style="width:42%"></span></span><span class="pct">42%</span></span>
+              <button class="act" data-action="read">标已读</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="tgroup">
+        <div class="stamp"><span class="d">本周</span><span class="m">10 月 25 – 30 日</span><span class="k">2 未读 · 2 在读 · 1 已读</span></div>
+        <div class="cards">
+          <article class="card" data-state="unread">
+            <div class="card-top"><span class="badge"><span class="d"></span>未读</span><span class="cmt">1</span><span class="when">更新 昨天 22:40</span></div>
+            <h3 class="title">pi-harness 体检：系统提示词体积与工具缺口</h3>
+            <div class="foot"><span class="path">research/pi-harness-exam.md</span><button class="act" data-action="read">标已读</button></div>
+          </article>
+
+          <article class="card" data-state="reading">
+            <div class="card-top"><span class="badge"><span class="d"></span>在读</span><span class="when">最后读 昨天 22:14</span></div>
+            <h3 class="title">magpie 网关：路由策略对照表</h3>
+            <div class="foot">
+              <span class="path">research/magpie-routing.md</span>
+              <span class="meter"><span class="track"><span class="fill" style="width:78%"></span></span><span class="pct">78%</span></span>
+              <button class="act" data-action="read">标已读</button>
+            </div>
+          </article>
+
+          <article class="card" data-state="unread">
+            <div class="card-top"><span class="badge"><span class="d"></span>未读</span><span class="when">更新 10 月 28 日</span></div>
+            <h3 class="title">语音转写服务对照：whisper / 小樱桃 两条链路</h3>
+            <div class="foot"><span class="path">research/voice-transcription.md</span><button class="act" data-action="read">标已读</button></div>
+          </article>
+
+          <article class="card" data-state="read">
+            <div class="card-top"><span class="badge"><span class="d"></span>已读</span><span class="when">读完 昨天 18:20</span></div>
+            <h3 class="title">OpenViking 检索质量复盘</h3>
+            <div class="foot"><span class="path">research/openviking-retrieval.md</span><span class="read-mark">已读完</span><button class="act" data-action="unread">标为未读</button></div>
+          </article>
+
+          <article class="card" data-state="reading">
+            <div class="card-top"><span class="badge"><span class="d"></span>在读</span><span class="when">最后读 10 月 26 日</span></div>
+            <h3 class="title">量化栈选型：回测框架与数据落库</h3>
+            <div class="foot">
+              <span class="path">research/quant-stack.md</span>
+              <span class="meter"><span class="track"><span class="fill" style="width:15%"></span></span><span class="pct">15%</span></span>
+              <button class="act" data-action="read">标已读</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="tgroup">
+        <div class="stamp"><span class="d">更早</span><span class="m">10 月 20 日之前</span><span class="k">2 已读</span></div>
+        <div class="cards">
+          <article class="card" data-state="read">
+            <div class="card-top"><span class="badge"><span class="d"></span>已读</span><span class="when">读完 10 月 20 日</span></div>
+            <h3 class="title">Blackboard 阅读配置：配色与字体配对</h3>
+            <div class="foot"><span class="path">plan/reading-config.md</span><span class="read-mark">已读完</span><button class="act" data-action="unread">标为未读</button></div>
+          </article>
+
+          <article class="card" data-state="read">
+            <div class="card-top"><span class="badge"><span class="d"></span>已读</span><span class="when">读完 10 月 18 日</span></div>
+            <h3 class="title">个人知识库目录整理方案</h3>
+            <div class="foot"><span class="path">notes/knowledge-base.md</span><span class="read-mark">已读完</span><button class="act" data-action="unread">标为未读</button></div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const picks = [...document.querySelectorAll("[data-theme-pick]")];
+  const setTheme = (t) => {
+    root.dataset.theme = t;
+    picks.forEach((p) => p.setAttribute("aria-pressed", String(p.dataset.themePick === t)));
+  };
+  picks.forEach((p) => p.addEventListener("click", () => setTheme(p.dataset.themePick)));
+  addEventListener("keydown", (e) => { if (["1","2","3"].includes(e.key)) setTheme(["paper","plain","night"][Number(e.key) - 1]); });
+
+  const cards = [...document.querySelectorAll(".card")];
+  const counts = () => ({
+    unread: cards.filter((c) => c.dataset.state === "unread").length,
+    reading: cards.filter((c) => c.dataset.state === "reading").length,
+    read: cards.filter((c) => c.dataset.state === "read").length,
+  });
+  const paint = () => {
+    const c = counts();
+    document.querySelector(".head p").innerHTML = `<b>${c.unread} 篇未读</b> · ${c.reading} 篇在读 · ${c.read} 篇已读 · 共 ${cards.length} 篇`;
+    for (const group of document.querySelectorAll(".tgroup")) {
+      const list = [...group.querySelectorAll(".card")];
+      const u = list.filter((x) => x.dataset.state === "unread").length;
+      const p = list.filter((x) => x.dataset.state === "reading").length;
+      const r = list.filter((x) => x.dataset.state === "read").length;
+      const stamp = group.querySelector(".stamp");
+      const words = [u ? `${u} 未读` : "", p ? `${p} 在读` : "", r ? `${r} 已读` : ""].filter(Boolean);
+      stamp.querySelector(".k").textContent = words.join(" · ");
+      stamp.classList.toggle("unread", u > 0);
+    }
+  };
+
+  const setState = (card, state) => {
+    card.dataset.state = state;
+    const badge = card.querySelector(".badge");
+    badge.innerHTML = `<span class="d"></span>${state === "unread" ? "未读" : state === "reading" ? "在读" : "已读"}`;
+    const act = card.querySelector(".act");
+    act.textContent = state === "read" ? "标为未读" : "标已读";
+    act.dataset.action = state === "read" ? "unread" : "read";
+    card.querySelector(".meter")?.remove();
+    const readMark = card.querySelector(".read-mark");
+    if (state === "read" && !readMark) {
+      const mark = document.createElement("span");
+      mark.className = "read-mark";
+      mark.textContent = "已读完";
+      card.querySelector(".foot").insertBefore(mark, act);
+    }
+    if (state !== "read") readMark?.remove();
+    paint();
+  };
+
+  document.querySelector(".tl").addEventListener("click", (e) => {
+    const act = e.target.closest("[data-action]");
+    if (!act) return;
+    setState(act.closest(".card"), act.dataset.action === "read" ? "read" : "unread");
+  });
+
+  paint();
+})();
+</script>
+</body>
+</html>

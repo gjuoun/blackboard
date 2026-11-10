@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="paper">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>v2 Tab · 阅读工作区 mock</title>
+<style>
+@font-face { font-family: "QB Sans Latin"; src: local("QuBlackSansVF-Regular"), local("QuBlackSans-Regular"); font-weight: 100 900; unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F; }
+@font-face { font-family: "QB Sans CJK"; src: local("QuBlackSansVF-Regular"), local("QuBlackSans-Regular"); font-weight: 100 900; unicode-range: U+2E80-2EFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF; }
+@font-face { font-family: "QB Mono Latin"; src: local("QuBlackMono-Regular"); unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F; }
+@font-face { font-family: "QB Mono CJK"; src: local("QuBlackMono-Regular"); unicode-range: U+2E80-2EFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF; }
+
+[data-theme="paper"] {
+  color-scheme: light;
+  --background: #faf8f5; --foreground: #2b2622; --card: #ffffff;
+  --primary: #b3532f; --primary-foreground: #ffffff;
+  --secondary: #f1ebe4; --muted: #f1ebe4; --muted-foreground: #6f675e;
+  --accent: #efe9e2; --border: #ebe5de; --input: #ebe5de;
+  --primary-soft: #f8e6df; --success: #2f7d4f;
+}
+[data-theme="plain"] {
+  color-scheme: light;
+  --background: #ffffff; --foreground: #18181b; --card: #ffffff;
+  --primary: #1f6feb; --primary-foreground: #ffffff;
+  --secondary: #f4f4f5; --muted: #f4f4f5; --muted-foreground: #5f6368;
+  --accent: #f4f4f5; --border: #e5e7eb; --input: #e5e7eb;
+  --primary-soft: #e8f0fe; --success: #1a7f37;
+}
+[data-theme="night"] {
+  color-scheme: dark;
+  --background: #0f1115; --foreground: #e6e6e6; --card: #151920;
+  --primary: #7aa2f7; --primary-foreground: #0b0e13;
+  --secondary: #1b2028; --muted: #1b2028; --muted-foreground: #9aa0a6;
+  --accent: #1f2530; --border: #262a31; --input: #262a31;
+  --primary-soft: #16233a; --success: #3fb950;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--background); color: var(--foreground);
+  font-family: "QB Sans Latin", "QB Sans CJK", "PingFang SC", sans-serif;
+  font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+.mono { font-family: "QB Mono Latin", "QB Mono CJK", monospace; }
+
+.band {
+  flex: none; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px;
+  background: var(--secondary); border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--muted-foreground);
+}
+.band b { color: var(--foreground); font-weight: 600; }
+.band .tag { white-space: nowrap; font-family: "QB Mono Latin", monospace; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 1px 7px; color: var(--foreground); }
+.band .note { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.band nav { margin-left: auto; flex: none; display: flex; gap: 2px; align-items: center; white-space: nowrap; }
+.band nav a { padding: 2px 8px; border-radius: 6px; }
+.band nav a:hover { background: var(--card); color: var(--foreground); }
+.band nav a[aria-current="page"] { background: var(--card); border: 1px solid var(--border); color: var(--foreground); font-weight: 600; }
+.theme-picks { display: flex; gap: 3px; padding-left: 8px; border-left: 1px solid var(--border); }
+.theme-picks button { width: 18px; height: 18px; border-radius: 999px; border: 1px solid var(--border); font-size: 9px; line-height: 1; color: var(--muted-foreground); }
+.theme-picks button[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+
+.bar { flex: none; height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; padding: 0 6px; }
+.brand-mark { width: 10px; height: 10px; background: var(--primary); border-radius: 2px; transform: rotate(45deg); }
+.crumb { color: var(--muted-foreground); font-size: 13px; }
+.crumb b { color: var(--foreground); font-weight: 500; }
+.bar-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.btn { height: 30px; padding: 0 11px; border: 1px solid var(--border); background: var(--card); border-radius: 8px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--accent); }
+.icon-btn { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: var(--muted-foreground); }
+.icon-btn:hover { background: var(--accent); color: var(--foreground); }
+
+/* ---- one centred column, tabs carry the whole state distinction ---- */
+.scroll { flex: 1; min-height: 0; overflow: auto; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 26px 28px 40px; }
+.head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.head h1 { margin: 0; font-size: 24px; line-height: 1.2; letter-spacing: -.01em; font-weight: 700; }
+.head p { margin: 5px 0 0; font-size: 12.5px; color: var(--muted-foreground); }
+.head .tools { display: flex; align-items: center; gap: 6px; }
+.search { display: flex; align-items: center; gap: 7px; width: 210px; height: 32px; padding: 0 10px; border: 1px solid var(--input); background: var(--card); border-radius: 999px; color: var(--muted-foreground); }
+.search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; font-size: 12.5px; color: var(--foreground); }
+.search input::placeholder { color: var(--muted-foreground); }
+
+.tabs { display: flex; align-items: stretch; gap: 26px; margin: 16px 0 0; border-bottom: 1px solid var(--border); }
+.tab { position: relative; display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 1px; font-size: 14px; color: var(--muted-foreground); }
+.tab:hover { color: var(--foreground); }
+.tab[aria-selected="true"] { color: var(--foreground); font-weight: 600; }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--primary); border-radius: 2px 2px 0 0; }
+.tab .n { font-family: "QB Mono Latin", monospace; font-size: 11px; line-height: 18px; padding: 0 6px; border-radius: 999px; background: var(--muted); color: var(--muted-foreground); }
+.tab[aria-selected="true"] .n { background: var(--primary-soft); color: var(--primary); }
+.tabs .sort { margin-left: auto; align-self: center; font-size: 12px; color: var(--muted-foreground); }
+
+.list { margin-top: 4px; }
+.row[hidden] { display: none; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 20px; padding: 8px 2px; border-bottom: 1px solid var(--border); }
+.row:hover { background: color-mix(in srgb, var(--card) 60%, transparent); }
+.row .body { min-width: 0; }
+.row .top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.row .title { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row[data-state="unread"] .title { font-weight: 650; }
+.row[data-state="read"] .title { color: var(--muted-foreground); }
+.row .cmt { flex: none; font-family: "QB Mono Latin", monospace; font-size: 10.5px; color: var(--primary); background: var(--primary-soft); border-radius: 999px; padding: 0 6px; line-height: 17px; }
+.row .sub { display: flex; align-items: center; gap: 10px; margin-top: 4px; font-family: "QB Mono Latin", "QB Mono CJK", monospace; font-size: 11.5px; color: var(--muted-foreground); min-width: 0; }
+.row .path { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row[data-state="reading"] .path { flex: 0 0 220px; }
+.row .sub .sep { opacity: .45; }
+.progress { display: flex; align-items: center; gap: 7px; }
+.track { width: 90px; height: 3px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+.fill { height: 100%; background: var(--primary); border-radius: 999px; }
+.pct { font-family: "QB Mono Latin", monospace; font-size: 10.5px; color: var(--primary); }
+.right { display: flex; align-items: center; gap: 12px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; border: 1px solid var(--border); color: var(--muted-foreground); background: var(--card); white-space: nowrap; }
+.pill .d { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+.pill.unread { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 30%, var(--border)); background: var(--primary-soft); }
+.pill.reading { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 26%, var(--border)); background: transparent; }
+.pill.read { color: var(--muted-foreground); background: transparent; }
+.act { height: 26px; padding: 0 9px; border-radius: 7px; border: 1px solid transparent; font-size: 11.5px; color: var(--muted-foreground); white-space: nowrap; }
+.row:hover .act { border-color: var(--border); background: var(--card); }
+.act:hover { border-color: var(--primary); color: var(--primary); }
+.empty { padding: 56px 0; text-align: center; color: var(--muted-foreground); font-size: 13px; }
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; font-size: 11.5px; color: var(--muted-foreground); }
+.foot .mark { color: var(--primary); }
+</style>
+</head>
+<body>
+
+<div class="band">
+  <span class="tag">v2 · tabs</span>
+  <b>Tab 切换</b>
+  <span class="note">未读 / 在读 / 全部 三个视图，每个 tab 自带排序；当前停在「全部」以便同屏看三态。点右侧「标已读 / 标为未读」即时改状态并更新计数。</span>
+  <nav>
+    <a href="../v1-inbox/">v1 收件箱</a>
+    <a href="../v2-tabs/" aria-current="page">v2 Tab</a>
+    <a href="../v3-timeline/">v3 时间线</a>
+    <span class="theme-picks" aria-label="配色">
+      <button data-theme-pick="paper" aria-pressed="true" title="Paper (1)">1</button>
+      <button data-theme-pick="plain" aria-pressed="false" title="Plain (2)">2</button>
+      <button data-theme-pick="night" aria-pressed="false" title="Night (3)">3</button>
+    </span>
+  </nav>
+</div>
+
+<header class="bar">
+  <span class="brand"><span class="brand-mark"></span>Blackboard</span>
+  <span class="crumb">/ <b>阅读</b></span>
+  <div class="bar-actions">
+    <button class="btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      5 条待回复
+    </button>
+    <button class="icon-btn" title="更多" aria-label="更多">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="scroll">
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1>阅读</h1>
+        <p>10 篇文档 · 4 篇没打开过 · 上次阅读 12 分钟前</p>
+      </div>
+      <div class="tools">
+        <label class="search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input type="search" placeholder="搜索" />
+        </label>
+        <button class="icon-btn" title="排序" aria-label="排序">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5h9"/><path d="M11 12h6"/><path d="M11 19h3"/><path d="M5 7v12"/><path d="m2 16 3 3 3-3"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="unread" aria-selected="false">未读 <span class="n" data-count="unread">4</span></button>
+      <button class="tab" role="tab" data-tab="reading" aria-selected="false">在读 <span class="n" data-count="reading">3</span></button>
+      <button class="tab" role="tab" data-tab="all" aria-selected="true">全部 <span class="n" data-count="all">10</span></button>
+      <span class="sort" id="sort-label">按更新时间</span>
+    </div>
+
+    <div class="list" id="list">
+      <article class="row" data-state="unread">
+        <div class="body">
+          <div class="top"><span class="title">dsh-superagent 研究：subagent 编排的可观测性</span><span class="cmt">3</span></div>
+          <div class="sub"><span class="path">research/dsh-superagent.md</span><span class="sep">·</span><span>⎇ research/dsh</span><span class="sep">·</span><span data-updated>2 小时前更新</span></div>
+        </div>
+        <div class="right"><span class="pill unread"><span class="d"></span>未读</span><button class="act" data-action="read">标已读</button></div>
+      </article>
+
+      <article class="row" data-state="unread">
+        <div class="body">
+          <div class="top"><span class="title">agent cloud 架构：会话归属与设备迁移</span></div>
+          <div class="sub"><span class="path">docs/agent-cloud.md</span><span class="sep">·</span><span>⎇ docs/agent-cloud</span><span class="sep">·</span><span data-updated>今天 11:05 更新</span></div>
+        </div>
+        <div class="right"><span class="pill unread"><span class="d"></span>未读</span><button class="act" data-action="read">标已读</button></div>
+      </article>
+
+      <article class="row" data-state="unread">
+        <div class="body">
+          <div class="top"><span class="title">pi-harness 体检：系统提示词体积与工具缺口</span><span class="cmt">1</span></div>
+          <div class="sub"><span class="path">research/pi-harness-exam.md</span><span class="sep">·</span><span>⎇ main</span><span class="sep">·</span><span data-updated>昨天 22:40 更新</span></div>
+        </div>
+        <div class="right"><span class="pill unread"><span class="d"></span>未读</span><button class="act" data-action="read">标已读</button></div>
+      </article>
+
+      <article class="row" data-state="unread">
+        <div class="body">
+          <div class="top"><span class="title">语音转写服务对照：whisper / 小樱桃 两条链路</span></div>
+          <div class="sub"><span class="path">research/voice-transcription.md</span><span class="sep">·</span><span data-updated>10 月 28 日更新</span></div>
+        </div>
+        <div class="right"><span class="pill unread"><span class="d"></span>未读</span><button class="act" data-action="read">标已读</button></div>
+      </article>
+
+      <article class="row" data-state="reading">
+        <div class="body">
+          <div class="top"><span class="title">lane cards 第 3 轮：卡片信息密度</span><span class="cmt">2</span></div>
+          <div class="sub"><span class="path">plan/lane-cards-3.md</span>
+            <span class="progress"><span class="track"><span class="fill" style="width:42%"></span></span><span class="pct">42%</span></span>
+            <span class="sep">·</span><span data-lastread>最后读 12 分钟前</span>
+          </div>
+        </div>
+        <div class="right"><span class="pill reading"><span class="d"></span>在读</span><button class="act" data-action="read">标已读</button></div>
+      </article>
+
+      <article class="row" data-state="reading">
+        <div class="body">
+          <div class="top"><span class="title">magpie 网关：路由策略对照表</span></div>
+          <div class="sub"><span class="path">research/magpie-routing.md</span>
+            <span class="progress"><span class="track"><span class="fill" style="width:78%"></span></span><span class="pct">78%</span></span>
+            <span class="sep">·</span><span data-lastread>最后读 昨天 22:14</span>
+          </div>
+        </div>
+        <div class="right"><span class="pill reading"><span class="d"></span>在读</span><button class="act" data-action="read">标已读</button></div>
+      </article>
+
+      <article class="row" data-state="reading">
+        <div class="body">
+          <div class="top"><span class="title">量化栈选型：回测框架与数据落库</span></div>
+          <div class="sub"><span class="path">research/quant-stack.md</span>
+            <span class="progress"><span class="track"><span class="fill" style="width:15%"></span></span><span class="pct">15%</span></span>
+            <span class="sep">·</span><span data-lastread>最后读 10 月 26 日</span>
+          </div>
+        </div>
+        <div class="right"><span class="pill reading"><span class="d"></span>在读</span><button class="act" data-action="read">标已读</button></div>
+      </article>
+
+      <article class="row" data-state="read">
+        <div class="body">
+          <div class="top"><span class="title">OpenViking 检索质量复盘</span></div>
+          <div class="sub"><span class="path">research/openviking-retrieval.md</span><span class="sep">·</span><span>⎇ research/ov</span><span class="sep">·</span><span data-updated>昨天 18:20 读完</span></div>
+        </div>
+        <div class="right"><span class="pill read"><span class="d"></span>已读</span><button class="act" data-action="unread">标为未读</button></div>
+      </article>
+
+      <article class="row" data-state="read">
+        <div class="body">
+          <div class="top"><span class="title">Blackboard 阅读配置：配色与字体配对</span></div>
+          <div class="sub"><span class="path">plan/reading-config.md</span><span class="sep">·</span><span>⎇ feat/reading</span><span class="sep">·</span><span data-updated>10 月 29 日读完</span></div>
+        </div>
+        <div class="right"><span class="pill read"><span class="d"></span>已读</span><button class="act" data-action="unread">标为未读</button></div>
+      </article>
+
+      <article class="row" data-state="read">
+        <div class="body">
+          <div class="top"><span class="title">个人知识库目录整理方案</span></div>
+          <div class="sub"><span class="path">notes/knowledge-base.md</span><span class="sep">·</span><span data-updated>10 月 27 日读完</span></div>
+        </div>
+        <div class="right"><span class="pill read"><span class="d"></span>已读</span><button class="act" data-action="unread">标为未读</button></div>
+      </article>
+    </div>
+
+    <p class="empty" id="empty" hidden>这个视图里没有文档。</p>
+
+    <div class="foot">
+      <span>进度 = 文档滚动位置；<span class="mark">文档改动后进度清零</span>，回到未读。</span>
+      <span class="mono" id="visible-count">10 篇</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const picks = [...document.querySelectorAll("[data-theme-pick]")];
+  const setTheme = (t) => {
+    root.dataset.theme = t;
+    picks.forEach((p) => p.setAttribute("aria-pressed", String(p.dataset.themePick === t)));
+  };
+  picks.forEach((p) => p.addEventListener("click", () => setTheme(p.dataset.themePick)));
+  addEventListener("keydown", (e) => { if (["1","2","3"].includes(e.key)) setTheme(["paper","plain","night"][Number(e.key) - 1]); });
+
+  const tabs = [...document.querySelectorAll("[data-tab]")];
+  const rows = () => [...document.querySelectorAll(".row")];
+  const sortLabels = { unread: "按更新时间", reading: "按进度", all: "按更新时间" };
+  let active = "all";
+
+  const count = () => ({
+    unread: rows().filter((r) => r.dataset.state === "unread").length,
+    reading: rows().filter((r) => r.dataset.state === "reading").length,
+    all: rows().length,
+  });
+
+  const apply = () => {
+    const c = count();
+    document.querySelectorAll("[data-count]").forEach((n) => { n.textContent = c[n.dataset.count]; });
+    tabs.forEach((t) => t.setAttribute("aria-selected", String(t.dataset.tab === active)));
+    document.getElementById("sort-label").textContent = sortLabels[active];
+    let shown = 0;
+    for (const row of rows()) {
+      const on = active === "all" || row.dataset.state === active;
+      row.hidden = !on;
+      if (on) shown++;
+    }
+    document.getElementById("visible-count").textContent = `${shown} 篇`;
+    document.getElementById("empty").hidden = shown > 0;
+  };
+
+  const setState = (row, state) => {
+    row.dataset.state = state;
+    const pill = row.querySelector(".pill");
+    pill.className = "pill " + (state === "reading" ? "reading" : state);
+    pill.innerHTML = `<span class="d"></span>${state === "unread" ? "未读" : state === "reading" ? "在读" : "已读"}`;
+    const act = row.querySelector(".act");
+    if (state === "read") {
+      act.textContent = "标为未读";
+      act.dataset.action = "unread";
+      row.querySelector(".progress")?.remove();
+      const last = row.querySelector("[data-lastread]");
+      if (last) last.textContent = "刚刚读完";
+      const upd = row.querySelector("[data-updated]");
+      if (upd) upd.textContent = "刚刚读完";
+    } else {
+      act.textContent = "标已读";
+      act.dataset.action = "read";
+    }
+    apply();
+  };
+
+  tabs.forEach((t) => t.addEventListener("click", () => { active = t.dataset.tab; apply(); }));
+
+  document.getElementById("list").addEventListener("click", (e) => {
+    const act = e.target.closest("[data-action]");
+    if (!act) return;
+    const row = act.closest(".row");
+    setState(row, act.dataset.action === "read" ? "read" : "unread");
+  });
+
+  apply();
+})();
+</script>
+</body>
+</html>

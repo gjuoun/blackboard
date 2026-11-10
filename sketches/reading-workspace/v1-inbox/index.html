@@ -1,0 +1,974 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="paper">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>v1.5 收件箱 · 阅读工作区 mock</title>
+<style>
+@font-face { font-family: "QB Sans Latin"; src: local("QuBlackSansVF-Regular"), local("QuBlackSans-Regular"); font-weight: 100 900; unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F; }
+@font-face { font-family: "QB Sans CJK"; src: local("QuBlackSansVF-Regular"), local("QuBlackSans-Regular"); font-weight: 100 900; unicode-range: U+2E80-2EFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF; }
+@font-face { font-family: "QB Mono Latin"; src: local("QuBlackMono-Regular"); unicode-range: U+0000-024F, U+2000-206F, U+20A0-20BF, U+2190-21FF, U+2500-257F; }
+@font-face { font-family: "QB Mono CJK"; src: local("QuBlackMono-Regular"); unicode-range: U+2E80-2EFF, U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF; }
+
+/* Tokens mirror app/themes.css (paper is the default); 1/2/3 in the band swap palettes. */
+[data-theme="paper"] {
+  color-scheme: light;
+  --background: #faf8f5; --foreground: #2b2622; --card: #ffffff;
+  --primary: #b3532f; --primary-foreground: #ffffff;
+  --secondary: #f1ebe4; --muted: #f1ebe4; --muted-foreground: #6f675e;
+  --accent: #efe9e2; --border: #ebe5de; --input: #ebe5de;
+  --primary-soft: #f8e6df; --success: #2f7d4f; --warn: #9a6700;
+}
+[data-theme="plain"] {
+  color-scheme: light;
+  --background: #ffffff; --foreground: #18181b; --card: #ffffff;
+  --primary: #1f6feb; --primary-foreground: #ffffff;
+  --secondary: #f4f4f5; --muted: #f4f4f5; --muted-foreground: #5f6368;
+  --accent: #f4f4f5; --border: #e5e7eb; --input: #e5e7eb;
+  --primary-soft: #e8f0fe; --success: #1a7f37; --warn: #8a5a00;
+}
+[data-theme="night"] {
+  color-scheme: dark;
+  --background: #0f1115; --foreground: #e6e6e6; --card: #151920;
+  --primary: #7aa2f7; --primary-foreground: #0b0e13;
+  --secondary: #1b2028; --muted: #1b2028; --muted-foreground: #9aa0a6;
+  --accent: #1f2530; --border: #262a31; --input: #262a31;
+  --primary-soft: #16233a; --success: #3fb950; --warn: #d29922;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--background); color: var(--foreground);
+  font-family: "QB Sans Latin", "QB Sans CJK", "PingFang SC", sans-serif;
+  font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+.mono { font-family: "QB Mono Latin", "QB Mono CJK", monospace; font-variant-ligatures: none; }
+
+/* ---- annotation band ---- */
+.band {
+  flex: none; display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px;
+  background: var(--secondary); border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--muted-foreground);
+}
+.band b { color: var(--foreground); font-weight: 600; }
+.band .tag { white-space: nowrap; font-family: "QB Mono Latin", monospace; font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; border: 1px solid var(--border); background: var(--card); border-radius: 999px; padding: 1px 7px; color: var(--foreground); }
+.band .note { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.band nav { margin-left: auto; flex: none; display: flex; gap: 2px; align-items: center; white-space: nowrap; }
+.band nav a { padding: 2px 8px; border-radius: 6px; }
+.band nav a:hover { background: var(--card); color: var(--foreground); }
+.band nav a[aria-current="page"] { background: var(--card); border: 1px solid var(--border); color: var(--foreground); font-weight: 600; }
+.theme-picks { display: flex; gap: 3px; padding-left: 8px; border-left: 1px solid var(--border); }
+.theme-picks button { width: 18px; height: 18px; border-radius: 999px; border: 1px solid var(--border); font-size: 9px; line-height: 1; color: var(--muted-foreground); }
+.theme-picks button[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+
+/* ---- app bar ---- */
+.bar { flex: none; height: 52px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--border); background: var(--background); }
+.brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; padding: 0 6px; }
+.brand-mark { width: 10px; height: 10px; background: var(--primary); border-radius: 2px; transform: rotate(45deg); }
+.crumb { color: var(--muted-foreground); font-size: 13px; }
+.crumb b { color: var(--foreground); font-weight: 500; }
+.bar-actions { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.btn { height: 30px; padding: 0 11px; border: 1px solid var(--border); background: var(--card); border-radius: 8px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 6px; }
+.btn:hover { background: var(--accent); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
+.btn.ghost { border-color: transparent; color: var(--muted-foreground); }
+.icon-btn { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; color: var(--muted-foreground); }
+.icon-btn:hover { background: var(--accent); color: var(--foreground); }
+
+/* ---- workspace shell: rail + list + preview ---- */
+.shell { flex: 1; min-height: 0; display: grid; grid-template-columns: 236px minmax(0, 1fr) 384px; }
+.rail { border-right: 1px solid var(--border); padding: 16px 10px; display: flex; flex-direction: column; gap: 6px; overflow: auto; }
+.rail h2 { margin: 4px 10px 8px; font-size: 12px; font-weight: 600; color: var(--muted-foreground); letter-spacing: .02em; }
+.folder { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 10px; border-radius: 8px; color: var(--muted-foreground); font-size: 13.5px; }
+.folder:hover { background: var(--accent); color: var(--foreground); }
+.folder[aria-current="true"] { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.folder .n { margin-left: auto; font-family: "QB Mono Latin", monospace; font-size: 11.5px; opacity: .8; }
+.folder .dot { width: 7px; height: 7px; border-radius: 999px; background: currentColor; }
+.folder .dot.half { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
+.rail-sep { height: 1px; background: var(--border); margin: 10px 8px; }
+.rail-note { margin: 2px 10px; font-size: 11.5px; line-height: 1.55; color: var(--muted-foreground); }
+.rail-note b { color: var(--foreground); font-weight: 500; }
+.new-ws {
+  margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 7px;
+  height: 38px; border-radius: 999px; background: var(--primary); color: var(--primary-foreground);
+  font-size: 13.5px; font-weight: 600; box-shadow: 0 8px 18px -14px rgba(0,0,0,.75);
+}
+.new-ws:hover { filter: brightness(1.06); }
+.new-ws .plus { font-size: 17px; line-height: 1; font-weight: 400; }
+
+.main { min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.toolbar { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 18px; background: color-mix(in srgb, var(--background) 94%, transparent); border-bottom: 1px solid var(--border); }
+.toolbar .spacer { flex: 1; }
+.count-line { font-family: "QB Mono Latin", monospace; font-size: 11.5px; color: var(--muted-foreground); white-space: nowrap; }
+.scroll { flex: 1; min-height: 0; overflow: auto; }
+.list { padding: 6px 18px 60px; }
+
+/* ---- batch bar (appears at ≥2 checked rows) ---- */
+.batchbar {
+  position: sticky; top: 8px; z-index: 6; margin: 8px 18px 0;
+  display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 10px 0 13px;
+  border: 1px solid var(--primary); border-radius: 10px; background: var(--card);
+  box-shadow: 0 10px 24px -18px rgba(0,0,0,.65); font-size: 12.5px;
+}
+.batchbar .sel-count b { font-family: "QB Mono Latin", monospace; color: var(--primary); }
+.batchbar .dotsep { color: var(--muted-foreground); }
+.batchbar .btn { height: 26px; font-size: 12px; }
+.batchbar .spacer { flex: 1; }
+
+/* ---- rows: one flat email-style stream, no groups ---- */
+.row {
+  position: relative; display: grid; grid-template-columns: 16px 10px minmax(0, 1fr) auto;
+  align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px;
+}
+.row + .row { box-shadow: inset 0 1px 0 var(--border); }
+/* selection is tinted background only — no accent border, no left bar */
+.row:hover { background: var(--card); box-shadow: none; }
+.row[data-selected="true"] { background: var(--primary-soft); box-shadow: none; }
+
+.pick { display: grid; place-items: center; width: 16px; height: 16px; }
+.pick input {
+  appearance: none; -webkit-appearance: none; margin: 0; width: 14px; height: 14px;
+  border: 1px solid var(--input); border-radius: 4px; background: var(--card);
+  cursor: pointer; position: relative; opacity: .55; transition: opacity .12s, background .12s;
+}
+.row:hover .pick input, .row[data-selected="true"] .pick input { opacity: 1; }
+.pick input:hover { border-color: var(--primary); }
+.pick input:checked { background: var(--primary); border-color: var(--primary); opacity: 1; }
+.pick input:checked::after { content: "✓"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--primary-foreground); font-size: 10px; font-weight: 700; }
+
+.row .state { width: 9px; height: 9px; border-radius: 999px; }
+.row[data-state="unread"] .state { background: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.row[data-state="reading"] .state { background: transparent; box-shadow: inset 0 0 0 1.5px var(--primary); }
+.row[data-state="unread"] .title { font-weight: 700; }
+.title-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.title { font-size: 14.5px; font-weight: 500; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmt { flex: none; font-family: "QB Mono Latin", monospace; font-size: 10.5px; color: var(--primary); background: var(--primary-soft); border-radius: 999px; padding: 0 6px; line-height: 17px; }
+.sub { display: flex; align-items: center; gap: 8px; margin-top: 2px; font-family: "QB Mono Latin", "QB Mono CJK", monospace; font-size: 11px; color: var(--muted-foreground); min-width: 0; }
+.sub .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 52%; }
+.row[data-state="reading"] .sub .path { flex: 0 1 220px; max-width: 220px; }
+.sub > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub .branch { opacity: .75; white-space: nowrap; }
+.progress { flex: none; display: flex; align-items: center; gap: 6px; }
+.bar-track { width: 54px; height: 3px; border-radius: 999px; background: var(--muted); overflow: hidden; }
+.bar-fill { height: 100%; background: var(--primary); border-radius: 999px; }
+.pct { font-size: 10.5px; color: var(--primary); }
+.meta { font-size: 11.5px; color: var(--muted-foreground); text-align: right; line-height: 1.4; min-width: 84px; transition: opacity .12s; }
+.meta b { display: block; font-weight: 500; color: var(--foreground); font-size: 11.5px; }
+.row:hover .meta, .row[data-selected="true"] .meta, .row.is-checked .meta { opacity: 0; }
+
+/* hover actions overlay the meta column instead of reflowing the row */
+.acts {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  display: flex; gap: 4px; opacity: 0; pointer-events: none; transition: opacity .12s;
+}
+.row:hover .acts, .row[data-selected="true"] .acts { opacity: 1; pointer-events: auto; }
+.row.is-checked .acts { opacity: 0; pointer-events: none; }
+.act { height: 24px; padding: 0 8px; border: 1px solid var(--border); border-radius: 7px; font-size: 11.5px; color: var(--muted-foreground); background: var(--card); white-space: nowrap; }
+.act:hover { border-color: var(--primary); color: var(--primary); }
+.act.icon { width: 24px; padding: 0; display: grid; place-items: center; font-size: 12px; }
+.hint { margin: 22px 10px 0; font-size: 11.5px; line-height: 1.7; color: var(--muted-foreground); }
+.hint code { font-family: "QB Mono Latin", monospace; background: var(--muted); border-radius: 4px; padding: 0 4px; }
+
+/* ---- compose: an email-style new-workspace card ---- */
+.compose {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 14px;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--background);
+  box-shadow: 0 18px 40px -34px rgba(0,0,0,.6); overflow: hidden;
+}
+.cf-head { flex: none; display: flex; align-items: center; gap: 7px; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; }
+.cf-head .cf-sub { font-weight: 400; font-size: 11px; color: var(--muted-foreground); }
+.cf-head .spacer { flex: 1; }
+.cf-body { flex: 1; min-height: 0; overflow: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.cf-field { display: flex; flex-direction: column; gap: 5px; }
+.cf-field > span { font-size: 11px; color: var(--muted-foreground); }
+.cf-field input, .cf-field textarea { width: 100%; border: 1px solid var(--input); border-radius: 8px; background: var(--card); color: var(--foreground); font: inherit; font-size: 12.5px; padding: 8px 10px; outline: 0; }
+.cf-field input { height: 34px; }
+.cf-field textarea { min-height: 132px; resize: none; line-height: 1.6; }
+.cf-field input:focus, .cf-field textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.cf-field input::placeholder, .cf-field textarea::placeholder { color: var(--muted-foreground); }
+.cf-err { font-size: 11px; color: var(--primary); }
+.cf-foot { flex: none; display: flex; justify-content: flex-end; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--border); background: var(--card); }
+.cf-foot .btn { height: 32px; }
+
+/* ---- preview pane: an opened email thread ---- */
+.preview { border-left: 1px solid var(--border); background: var(--card); display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.preview-empty { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 7px; padding: 28px 26px; color: var(--muted-foreground); }
+.pe-mark { width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 9px; display: grid; place-items: center; font-size: 15px; background: var(--background); color: var(--muted-foreground); margin-bottom: 4px; }
+.preview-empty p { margin: 0; font-size: 14px; font-weight: 600; color: var(--foreground); }
+.preview-empty .pe-sub { font-size: 12.5px; line-height: 1.65; max-width: 240px; }
+.pe-keys { margin-top: 14px; }
+
+.preview-doc { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pv-head { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 16px 0; }
+.badge { font-family: "QB Mono Latin", "QB Mono CJK", monospace; font-size: 10.5px; letter-spacing: .03em; border-radius: 999px; padding: 1px 8px; background: var(--muted); color: var(--muted-foreground); }
+.badge[data-s="unread"] { background: var(--primary-soft); color: var(--primary); }
+.badge[data-s="reading"] { background: transparent; box-shadow: inset 0 0 0 1px var(--primary); color: var(--primary); }
+.pv-head .spacer { flex: 1; }
+.pv-head .icon-btn { width: 24px; height: 24px; border-radius: 6px; font-size: 12px; }
+
+/* the thread scrolls; the composer stays pinned at the panel bottom */
+.pv-scroll { flex: 1; min-height: 0; overflow: auto; padding: 0 18px 18px; }
+.pv-title { margin: 12px 0 0; font-size: 18px; line-height: 1.42; font-weight: 700; letter-spacing: -0.01em; }
+.pv-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 9px 0 0; padding-bottom: 12px; border-bottom: 1px solid var(--border); font-family: "QB Mono Latin", "QB Mono CJK", monospace; font-size: 10.5px; color: var(--muted-foreground); }
+.pv-meta .sep { opacity: .45; }
+.pv-meta .path { overflow-wrap: anywhere; }
+.pv-thread { padding-top: 14px; font-size: 13px; line-height: 1.8; color: color-mix(in srgb, var(--foreground) 88%, var(--muted-foreground)); }
+.pv-thread p { margin: 0 0 11px; }
+.thread-sep { display: flex; align-items: center; gap: 8px; margin: 18px 0 10px; font-family: "QB Mono Latin", "QB Mono CJK", monospace; font-size: 10.5px; color: var(--muted-foreground); }
+.thread-sep::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.reply-list { display: flex; flex-direction: column; gap: 8px; }
+.reply-item { border: 1px solid var(--border); background: var(--background); border-radius: 8px; padding: 8px 10px; }
+.reply-head { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--muted-foreground); }
+.reply-head b { font-size: 11.5px; font-weight: 600; color: var(--foreground); }
+.reply-item p { margin: 2px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--foreground); white-space: pre-wrap; word-break: break-word; }
+.pv-actions { display: flex; gap: 8px; margin-top: 16px; }
+.pv-actions .btn { height: 32px; }
+.pv-actions .btn.primary { flex: 1; justify-content: center; }
+.pv-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 14px; font-size: 11px; color: var(--muted-foreground); }
+kbd { font-family: "QB Mono Latin", monospace; font-size: 10.5px; line-height: 16px; padding: 0 5px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; background: var(--background); color: var(--foreground); }
+
+.pv-reply { position: sticky; bottom: 0; flex: none; padding: 10px 16px 14px; border-top: 1px solid var(--border); background: var(--card); }
+.pv-reply-note { margin-bottom: 6px; font-size: 10.5px; color: var(--muted-foreground); }
+.pv-reply-row { display: flex; align-items: center; gap: 8px; }
+.pv-reply-row input { flex: 1; min-width: 0; height: 34px; padding: 0 12px; border: 1px solid var(--input); border-radius: 8px; background: var(--background); font: inherit; font-size: 12.5px; color: var(--foreground); outline: 0; }
+.pv-reply-row input::placeholder { color: var(--muted-foreground); }
+.pv-reply-row input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.pv-send { flex: none; width: 32px; height: 32px; border-radius: 999px; background: var(--primary); color: var(--primary-foreground); display: grid; place-items: center; font-size: 15px; line-height: 1; }
+.pv-send:hover { filter: brightness(1.06); }
+.pv-send:active { transform: scale(.94); }
+</style>
+</head>
+<body>
+
+<div class="band">
+  <span class="tag">v1.5 · inbox</span>
+  <b>收件箱</b>
+  <span class="note">单列邮件式：未读加粗带点，读过不置灰、无标签；左栏底部 ＋新建 像写信一样发起一个工作区，预览底部直接回复。</span>
+  <nav>
+    <a href="../v1-inbox/" aria-current="page">v1 收件箱</a>
+    <a href="../v2-tabs/">v2 Tab</a>
+    <a href="../v3-timeline/">v3 时间线</a>
+    <span class="theme-picks" aria-label="配色">
+      <button data-theme-pick="paper" aria-pressed="true" title="Paper (1)">1</button>
+      <button data-theme-pick="plain" aria-pressed="false" title="Plain (2)">2</button>
+      <button data-theme-pick="night" aria-pressed="false" title="Night (3)">3</button>
+    </span>
+  </nav>
+</div>
+
+<header class="bar">
+  <span class="brand"><span class="brand-mark"></span>Blackboard</span>
+  <span class="crumb">/ <b>阅读工作区</b></span>
+  <div class="bar-actions">
+    <button class="icon-btn" title="搜索" aria-label="搜索">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    </button>
+    <button class="btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      5 条待回复
+    </button>
+    <button class="btn primary" id="mark-all">全部标为已读</button>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="rail">
+    <h2>阅读状态</h2>
+    <a class="folder" href="#" aria-current="true"><span class="dot"></span>全部文档<span class="n" data-total>10</span></a>
+    <a class="folder" href="#"><span class="dot" style="background:var(--primary)"></span>未读<span class="n" data-count="unread">4</span></a>
+    <a class="folder" href="#"><span class="dot half" style="color:var(--muted-foreground)"></span>在读<span class="n" data-count="reading">3</span></a>
+
+    <div class="rail-sep"></div>
+    <h2>排序</h2>
+    <p class="rail-note">一条平铺列表，按最后更新时间倒序，不分组。<b>未读加粗带实心点</b>；点开即读，读过与普通条目完全一样，不再置灰、不再带标；文档被改动会回到未读。在读带行内进度。</p>
+
+    <div class="rail-sep"></div>
+    <h2>来源</h2>
+    <p class="rail-note">进度来自文档滚动位置，保存在 <code class="mono">~/.blackboard</code>；点开即算读过，改写则重新标为未读。</p>
+
+    <button class="new-ws" id="new-ws"><span class="plus" aria-hidden="true">＋</span>新建</button>
+  </aside>
+
+  <main class="main">
+    <div class="toolbar">
+      <button class="btn" style="height:32px">全部仓库 <span aria-hidden="true" style="font-size:9px;opacity:.7">▾</span></button>
+      <span class="spacer"></span>
+      <span class="count-line">4 未读 · 3 在读</span>
+    </div>
+
+    <div class="scroll">
+      <div class="batchbar" id="batchbar" hidden>
+        <span class="sel-count">已选 <b id="sel-n">0</b> 篇</span>
+        <span class="dotsep">·</span>
+        <button class="btn" data-batch="read">标已读</button>
+        <button class="btn" data-batch="unread">标为未读</button>
+        <span class="spacer"></span>
+        <button class="btn ghost" data-batch="cancel">取消</button>
+      </div>
+
+      <div class="list" id="list">
+        <article class="row" data-id="dsh" data-state="unread" data-title="dsh-superagent 研究：subagent 编排的可观测性">
+          <label class="pick"><input type="checkbox" aria-label="选择 dsh-superagent 研究" /></label>
+          <span class="state"></span>
+          <div>
+            <div class="title-line"><span class="title">dsh-superagent 研究：subagent 编排的可观测性</span><span class="cmt">3</span></div>
+            <div class="sub"><span class="path">research/dsh-superagent.md</span><span class="branch">⎇ research/dsh</span></div>
+          </div>
+          <div class="meta"><b>2 小时前</b>未打开</div>
+          <div class="acts">
+            <button class="act" data-action="read">标已读</button>
+            <button class="act icon" data-action="open" title="打开">↗</button>
+            <button class="act icon" data-action="more" title="更多">⋯</button>
+          </div>
+        </article>
+
+        <article class="row" data-id="agent-cloud" data-state="unread" data-title="agent cloud 架构：会话归属与设备迁移">
+          <label class="pick"><input type="checkbox" aria-label="选择 agent cloud 架构" /></label>
+          <span class="state"></span>
+          <div>
+            <div class="title-line"><span class="title">agent cloud 架构：会话归属与设备迁移</span></div>
+            <div class="sub"><span class="path">docs/agent-cloud.md</span><span class="branch">⎇ docs/agent-cloud</span></div>
+          </div>
+          <div class="meta"><b>今天 11:05</b>未打开</div>
+          <div class="acts">
+            <button class="act" data-action="read">标已读</button>
+            <button class="act icon" data-action="open" title="打开">↗</button>
+            <button class="act icon" data-action="more" title="更多">⋯</button>
+          </div>
+        </article>
+
+        <article class="row" data-id="pi-harness" data-state="unread" data-title="pi-harness 体检：系统提示词体积与工具缺口">
+          <label class="pick"><input type="checkbox" aria-label="选择 pi-harness 体检" /></label>
+          <span class="state"></span>
+          <div>
+            <div class="title-line"><span class="title">pi-harness 体检：系统提示词体积与工具缺口</span><span class="cmt">1</span></div>
+            <div class="sub"><span class="path">research/pi-harness-exam.md</span><span class="branch">⎇ main</span></div>
+          </div>
+          <div class="meta"><b>昨天 22:40</b>未打开</div>
+          <div class="acts">
+            <button class="act" data-action="read">标已读</button>
+            <button class="act icon" data-action="open" title="打开">↗</button>
+            <button class="act icon" data-action="more" title="更多">⋯</button>
+          </div>
+        </article>
+
+        <article class="row" data-id="magpie" data-state="reading" data-title="magpie 网关：路由策略对照表">
+          <label class="pick"><input type="checkbox" aria-label="选择 magpie 网关" /></label>
+          <span class="state"></span>
+          <div>
+            <div class="title-line"><span class="title">magpie 网关：路由策略对照表</span></div>
+            <div class="sub"><span class="path">research/magpie-routing.md</span>
+              <span class="progress"><span class="bar-track"><span class="bar-fill" style="width:78%"></span></span><span class="pct">78%</span></span>
+              <span>最后读 昨天 22:14</span>
+            </div>
+          </div>
+          <div class="meta"><b>读到 78%</b>昨天更新</div>
+          <div class="acts">
+            <button class="act" data-action="read">标已读</button>
+            <button class="act icon" data-action="open" title="打开">↗</button>
+            <button class="act icon" data-action="more" title="更多">⋯</button>
+          </div>
+        </article>
+
+        <article class="row" data-id="openviking" data-state="read" data-title="OpenViking 检索质量复盘">
+          <label class="pick"><input type="checkbox" aria-label="选择 OpenViking 检索质量复盘" /></label>
+          <span class="state"></span>
+          <div>
+            <div class="title-line"><span class="title">OpenViking 检索质量复盘</span></div>
+            <div class="sub"><span class="path">research/openviking-retrieval.md</span><span class="branch">⎇ research/ov</span></div>
+          </div>
+          <div class="meta"><b>昨天 18:20</b></div>
+          <div class="acts">
+            <button class="act" data-action="unread">标为未读</button>
+            <button class="act icon" data-action="open" title="打开">↗</button>
+            <button class="act icon" data-action="more" title="更多">⋯</button>
+          </div>
+        </article>
+
+        <article class="row" data-id="reading-config" data-state="read" data-title="Blackboard 阅读配置：配色与字体配对">
+          <label class="pick"><input type="checkbox" aria-label="选择 Blackboard 阅读配置" /></label>
+          <span class="state"></span>
+          <div>
+            <div class="title-line"><span class="title">Blackboard 阅读配置：配色与字体配对</span></div>
+            <div class="sub"><span class="path">plan/reading-config.md</span><span class="branch">⎇ feat/reading</span></div>
+          </div>
+          <div class="meta"><b>10 月 29 日</b></div>
+          <div class="acts">
+            <button class="act" data-action="unread">标为未读</button>
+            <button class="act icon" data-action="open" title="打开">↗</button>
+            <button class="act icon" data-action="more" title="更多">⋯</button>
+          </div>
+        </article>
+
+        <article class="row" data-id="lane-cards" data-state="reading" data-title="lane cards 第 3 轮：卡片信息密度">
+          <label class="pick"><input type="checkbox" aria-label="选择 lane cards 第 3 轮" /></label>
+          <span class="state"></span>
+          <div>
+            <div class="title-line"><span class="title">lane cards 第 3 轮：卡片信息密度</span><span class="cmt">2</span></div>
+            <div class="sub"><span class="path">plan/lane-cards-3.md</span>
+              <span class="progress"><span class="bar-track"><span class="bar-fill" style="width:42%"></span></span><span class="pct">42%</span></span>
+              <span>最后读 12 分钟前</span>
+            </div>
+          </div>
+          <div class="meta"><b>读到 42%</b>3 天前更新</div>
+          <div class="acts">
+            <button class="act" data-action="read">标已读</button>
+            <button class="act icon" data-action="open" title="打开">↗</button>
+            <button class="act icon" data-action="more" title="更多">⋯</button>
+          </div>
+        </article>
+
+        <article class="row" data-id="voice" data-state="unread" data-title="语音转写服务对照：whisper / 小樱桃 两条链路">
+          <label class="pick"><input type="checkbox" aria-label="选择语音转写服务对照" /></label>
+          <span class="state"></span>
+          <div>
+            <div class="title-line"><span class="title">语音转写服务对照：whisper / 小樱桃 两条链路</span></div>
+            <div class="sub"><span class="path">research/voice-transcription.md</span><span class="branch">⎇ main</span></div>
+          </div>
+          <div class="meta"><b>10 月 28 日</b>未打开</div>
+          <div class="acts">
+            <button class="act" data-action="read">标已读</button>
+            <button class="act icon" data-action="open" title="打开">↗</button>
+            <button class="act icon" data-action="more" title="更多">⋯</button>
+          </div>
+        </article>
+
+        <article class="row" data-id="knowledge-base" data-state="read" data-title="个人知识库目录整理方案">
+          <label class="pick"><input type="checkbox" aria-label="选择个人知识库目录整理方案" /></label>
+          <span class="state"></span>
+          <div>
+            <div class="title-line"><span class="title">个人知识库目录整理方案</span></div>
+            <div class="sub"><span class="path">notes/knowledge-base.md</span><span class="branch">⎇ main</span></div>
+          </div>
+          <div class="meta"><b>10 月 27 日</b></div>
+          <div class="acts">
+            <button class="act" data-action="unread">标为未读</button>
+            <button class="act icon" data-action="open" title="打开">↗</button>
+            <button class="act icon" data-action="more" title="更多">⋯</button>
+          </div>
+        </article>
+
+        <article class="row" data-id="quant" data-state="reading" data-title="量化栈选型：回测框架与数据落库">
+          <label class="pick"><input type="checkbox" aria-label="选择量化栈选型" /></label>
+          <span class="state"></span>
+          <div>
+            <div class="title-line"><span class="title">量化栈选型：回测框架与数据落库</span></div>
+            <div class="sub"><span class="path">research/quant-stack.md</span>
+              <span class="progress"><span class="bar-track"><span class="bar-fill" style="width:15%"></span></span><span class="pct">15%</span></span>
+              <span>最后读 10 月 26 日</span>
+            </div>
+          </div>
+          <div class="meta"><b>读到 15%</b>5 天前更新</div>
+          <div class="acts">
+            <button class="act" data-action="read">标已读</button>
+            <button class="act icon" data-action="open" title="打开">↗</button>
+            <button class="act icon" data-action="more" title="更多">⋯</button>
+          </div>
+        </article>
+
+        <p class="hint">一条列表，按最后更新时间倒序：未读加粗带实心点，点开即读；读过与普通条目完全一样，不置灰、无标签；文档被改动会回到未读。在读带行内进度。<code>blackboard comment</code> 留的评论不计入进度。</p>
+      </div>
+    </div>
+  </main>
+
+  <aside class="preview" id="preview" aria-label="预览">
+    <div class="compose" id="compose" hidden aria-label="新建工作区">
+      <div class="cf-head">
+        <span>＋ 新工作区</span>
+        <span class="cf-sub">让 agent 在一个目录里干活</span>
+        <span class="spacer"></span>
+        <button class="icon-btn" id="cf-close" title="收起" aria-label="收起新建">✕</button>
+      </div>
+      <div class="cf-body">
+        <label class="cf-field"><span>工作区路径</span>
+          <input id="cf-path" type="text" placeholder="research/new-topic/" autocomplete="off" spellcheck="false" />
+        </label>
+        <label class="cf-field"><span>标题</span>
+          <input id="cf-title" type="text" placeholder="这次要读 / 写什么…" autocomplete="off" />
+        </label>
+        <label class="cf-field"><span>任务说明</span>
+          <textarea id="cf-desc" placeholder="让 agent 在这个目录里做什么…"></textarea>
+        </label>
+        <p class="cf-err" id="cf-err" hidden></p>
+        <p class="cf-hint">创建后会作为一条未读条目出现在列表顶部，meta 显示工作区路径。</p>
+      </div>
+      <div class="cf-foot">
+        <button class="btn ghost" id="cf-cancel">取消</button>
+        <button class="btn primary" id="cf-create">创建</button>
+      </div>
+    </div>
+
+    <div class="preview-empty" id="preview-empty">
+      <div class="pe-mark">◫</div>
+      <p>选中一篇预览</p>
+      <span class="pe-sub">点左侧任意一行，这里像打开一封邮件：正文、已有回复，底部直接回。</span>
+      <div class="pv-keys pe-keys">
+        <kbd>↑</kbd><kbd>↓</kbd> 切换 · <kbd>Enter</kbd> 打开 · <kbd>m</kbd> 标已读
+      </div>
+    </div>
+
+    <div class="preview-doc" id="preview-doc" hidden>
+      <div class="pv-head">
+        <span class="badge" id="pv-badge" data-s="unread">未读</span>
+        <span class="spacer"></span>
+        <button class="icon-btn" id="pv-close" title="收起预览" aria-label="收起预览">✕</button>
+      </div>
+
+      <div class="pv-scroll" id="pv-body">
+        <h2 class="pv-title" id="pv-title"></h2>
+        <div class="pv-meta">
+          <span class="path" id="pv-path"></span>
+          <span class="sep">·</span>
+          <span id="pv-branch"></span>
+          <span class="sep">·</span>
+          <span id="pv-words"></span>
+          <span class="sep">·</span>
+          <span id="pv-updated"></span>
+        </div>
+        <div class="pv-thread" id="pv-thread"></div>
+        <div class="pv-actions">
+          <button class="btn primary" id="pv-toggle">标已读</button>
+          <button class="btn" id="pv-open">打开 ↗</button>
+        </div>
+        <div class="pv-keys">
+          <kbd>↑</kbd><kbd>↓</kbd> 切换 · <kbd>Enter</kbd> 打开 · <kbd>m</kbd> 标已读 · <kbd>Esc</kbd> 收起
+        </div>
+      </div>
+
+      <div class="pv-reply">
+        <div class="pv-reply-note">回复会作为评论追加到该文档</div>
+        <div class="pv-reply-row">
+          <input id="pv-reply-input" type="text" placeholder="回复…" aria-label="回复该文档" autocomplete="off" />
+          <button class="pv-send" id="pv-send" aria-label="发送回复" title="发送（Enter）">↑</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const list = document.getElementById("list");
+  const batchbar = document.getElementById("batchbar");
+  const selN = document.getElementById("sel-n");
+  const previewEmpty = document.getElementById("preview-empty");
+  const previewDoc = document.getElementById("preview-doc");
+  const pvBadge = document.getElementById("pv-badge");
+  const pvTitle = document.getElementById("pv-title");
+  const pvPath = document.getElementById("pv-path");
+  const pvBranch = document.getElementById("pv-branch");
+  const pvWords = document.getElementById("pv-words");
+  const pvUpdated = document.getElementById("pv-updated");
+  const pvBody = document.getElementById("pv-body");
+  const pvThread = document.getElementById("pv-thread");
+  const pvToggle = document.getElementById("pv-toggle");
+  const pvReplyInput = document.getElementById("pv-reply-input");
+  const pvSend = document.getElementById("pv-send");
+  const compose = document.getElementById("compose");
+  const cfPath = document.getElementById("cf-path");
+  const cfTitle = document.getElementById("cf-title");
+  const cfDesc = document.getElementById("cf-desc");
+  const cfErr = document.getElementById("cf-err");
+
+  /* ---- mock replies: appended locally, keyed by doc id ---- */
+  const REPLIES = {};
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  /* ---- mock documents (preview copy only; state always read from the row) ---- */
+  const DOCS = {
+    dsh: {
+      path: "research/dsh-superagent.md", branch: "research/dsh", words: "2,480 字", updated: "2 小时前",
+      paras: [
+        "dsh 的编排层把「谁在什么时候被唤起」写成了一个显式的计划对象：主 agent 先产出 subagent 队列，再按依赖逐条派工。可观测性的缺口不在日志，而在计划本身不可回放。",
+        "第一轮实验把每个 subagent 的输入提示词、工具调用序列与退出原因落到同一条 trace 上。结果发现 60% 的等待时间发生在两个串行任务之间，而不是模型推理。",
+        "结论：先做计划视图，再做指标面板。指标只能回答「慢不慢」，计划才能回答「为什么是这一步」。",
+      ],
+      more: [
+        "补充实验把计划对象序列化后交给回放器，两次运行的工具调用序列逐条 diff：只有 3% 的步骤出现非确定性，全部来自搜索类工具。",
+        "下一步是把 trace 采样开关接进工作区配置，默认关闭，做研究会话时再打开。",
+      ],
+    },
+    "agent-cloud": {
+      path: "docs/agent-cloud.md", branch: "docs/agent-cloud", words: "3,120 字", updated: "今天 11:05",
+      paras: [
+        "会话归属需要回答两个问题：会话属于哪个项目目录，以及它现在跑在哪台设备上。前者决定上下文，后者决定状态同步的粒度。",
+        "当前方案把会话状态拆成「可迁移的快照」与「不可迁移的运行时」：快照包含历史与工作区路径，运行时只保留进程与锁。迁移即重放快照。",
+        "风险在锁：同一会话在两台设备上并行打开时，第二台必须降级为只读客户端。",
+      ],
+      more: [
+        "迁移的验收标准只有一条：新设备能接着跑上一次未完成的工具调用，且不重复执行已完成的副作用。",
+        "快照上限暂定 12MB，超限策略是丢弃最早的附件引用，正文历史永不截断。",
+      ],
+    },
+    "pi-harness": {
+      path: "research/pi-harness-exam.md", branch: "main", words: "1,960 字", updated: "昨天 22:40",
+      paras: [
+        "体检把系统提示词按来源切成五块：身份、规则、技能索引、工具契约、用户上下文。逐块量体积之后才看清谁在膨胀。",
+        "技能索引占了 38%，其中过半是重复描述；工具契约占 27%，有 6 个工具无人调用。",
+        "建议先删未调用工具，再把技能索引改成按需加载——两项合起来能砍掉近一半的固定前缀。",
+      ],
+      more: [
+        "缺口里最意外的是文件读取：六个无人调用的工具里有三个是它的变体，说明契约描述没让模型分清差异。",
+        "删减后的回归方式是拿十个历史会话重放，比对首条工具调用是否改变。",
+      ],
+    },
+    voice: {
+      path: "research/voice-transcription.md", branch: "main", words: "1,420 字", updated: "10 月 28 日",
+      paras: [
+        "两条链路的差别不在识别质量，而在中间产物。whisper 给出带时间戳的段落，小樱桃给出的是已经整理过的会话稿。",
+        "对研究笔记来说，时间戳比顺滑的句子更有用：它允许回听原音频的某十秒来确认一个词。",
+        "成本上小樱桃按分钟计费更贵，但省掉了人工分段的时间。",
+      ],
+      more: [
+        "两份稿都留：顺滑稿进归档，时间戳稿进核对目录，原始音频按日期桶存对象存储。",
+        "下一步给小樱桃的输出做时间戳重建：按停顿时长切分，两秒以内的误差可接受。",
+      ],
+    },
+    "lane-cards": {
+      path: "plan/lane-cards-3.md", branch: "feat/lane-cards", words: "2,240 字", updated: "3 天前", progress: 42,
+      paras: [
+        "第三轮的目标只有一个：在不增加卡片高度的前提下，把「现在该做什么」和「为什么」同时塞进卡片。",
+        "对照了三种密度：标题加一行摘要、标题加三行摘要、标题加进度加下一步。评审一致选了第二种。",
+        "剩下的争议在颜色：状态用色块还是用左侧竖条。竖条赢了，因为它不抢标题。",
+      ],
+      more: [
+        "落地时发现竖条与选中态高亮撞位，最终竖条只在状态变化当天显示，次日并回标题字重。",
+        "评审还要求标题不再截断第二行，宁可把组内间距收紧两像素。",
+      ],
+    },
+    magpie: {
+      path: "research/magpie-routing.md", branch: "research/magpie", words: "2,760 字", updated: "昨天", progress: 78,
+      paras: [
+        "路由策略的对照表按「成本 / 延迟 / 拒答率」三列展开，每行是一个可切换的车道。",
+        "结论是两级路由：先按请求类型分流，再按当前时段的价格在等价车道之间挑选。",
+        "需要留一条逃生通道：当所有车道都失败时，回落到最贵的直连，并把这次回落记进指标。",
+      ],
+      more: [
+        "对照表里最容易被忽略的一列是冷启动惩罚：新车道上线首小时的延迟普遍高四成，权重里要补偿。",
+        "回落通道本月触发过两次，都在同一时段的供应商限流；考虑把该时段整体权重下调。",
+      ],
+    },
+    quant: {
+      path: "research/quant-stack.md", branch: "research/quant", words: "3,480 字", updated: "5 天前", progress: 15,
+      paras: [
+        "选型分成三块看：回测引擎、数据落库，以及两者之间的对齐层。",
+        "回测引擎的差异主要在事件驱动与向量化；数据落库的差异主要在复权与增量更新。",
+        "对齐层最容易被低估：交易日历、停牌、汇率三件事，会在每个跨市场策略里各咬一次。",
+      ],
+      more: [
+        "交易日历建议自建：第三方源在港美同时开市的日期出现过两次错位。",
+        "回测先用向量化版本粗筛，事件驱动只做最终复核，单轮时间能压到原来的四分之一。",
+      ],
+    },
+    openviking: {
+      path: "research/openviking-retrieval.md", branch: "research/ov", words: "1,880 字", updated: "昨天 18:20",
+      paras: [
+        "复盘的样本是 40 条检索请求，按「命中是否可用」二分类标注。",
+        "发现两类失败：召回不足（同义词没进索引）与排序失真（长文档压过精确段落）。",
+        "修复优先级：先做段落级切分，再做同义词扩展。",
+      ],
+      more: [
+        "段落级切分上线后，长文档的命中可用率从 55% 提到 71%，代价是索引体积翻倍。",
+        "同义词扩展先只做术语表，不做自动挖掘——错误扩展比漏召回更伤排序。",
+      ],
+    },
+    "reading-config": {
+      path: "plan/reading-config.md", branch: "feat/reading", words: "2,060 字", updated: "10 月 29 日",
+      paras: [
+        "配置的目标是让同一篇文档在三种场景下都可读：白天纸感、屏幕纯净、夜间低亮度。",
+        "配色只动背景、正文、强调三个变量，字体只动拉丁与中日韩两条栈。",
+        "评审结论：纸感用暖白，纯净用冷白，夜间不用纯黑。",
+      ],
+      more: [
+        "三套配色共用同一组语义变量，差异只出现在取值上，组件层零改动。",
+        "字体栈顺序经过实测：本地字体缺失时，拉丁回退到系统无衬线，中日韩回退到苹方。",
+      ],
+    },
+    "knowledge-base": {
+      path: "notes/knowledge-base.md", branch: "main", words: "1,540 字", updated: "10 月 27 日",
+      paras: [
+        "整理方案的核心是一条规则：目录只按「会被检索的维度」切分，不按时间切分。",
+        "因此 research/ 下按主题平铺，归档靠 frontmatter 的日期与状态，而不是年份目录。",
+        "代价是单目录会变长；用索引页解决，而不是用更深的层级。",
+      ],
+      more: [
+        "索引页由脚本生成；任何目录超过四十个条目就提示拆主题，而不是自动拆。",
+        "迁移一次完成：旧年份目录保留一个季度作只读镜像，之后删除。",
+      ],
+    },
+  };
+
+  /* ---- palette ---- */
+  const picks = [...document.querySelectorAll("[data-theme-pick]")];
+  const setTheme = (t) => {
+    root.dataset.theme = t;
+    picks.forEach((p) => p.setAttribute("aria-pressed", String(p.dataset.themePick === t)));
+  };
+  picks.forEach((p) => p.addEventListener("click", () => setTheme(p.dataset.themePick)));
+
+  /* ---- counts ---- */
+  const counts = () => {
+    const rows = [...document.querySelectorAll(".row[data-state]")];
+    return {
+      total: rows.length,
+      unread: rows.filter((r) => r.dataset.state === "unread").length,
+      reading: rows.filter((r) => r.dataset.state === "reading").length,
+    };
+  };
+  const paint = () => {
+    const c = counts();
+    document.querySelectorAll("[data-count]").forEach((n) => (n.textContent = c[n.dataset.count]));
+    document.querySelector("[data-total]").textContent = c.total;
+    document.querySelector(".count-line").textContent = `${c.unread} 未读 · ${c.reading} 在读`;
+  };
+
+  /* ---- row state: the row stays where time ordering put it ---- */
+  const actsHtml = (s) => `
+    <button class="act" data-action="${s === "read" ? "unread" : "read"}">${s === "read" ? "标为未读" : "标已读"}</button>
+    <button class="act icon" data-action="open" title="打开">↗</button>
+    <button class="act icon" data-action="more" title="更多">⋯</button>`;
+
+  const setState = (row, s) => {
+    row.dataset.state = s;
+    const meta = row.querySelector(".meta");
+    if (s === "unread") meta.innerHTML = "<b>刚刚</b>未打开";
+    else if (s === "read") meta.innerHTML = "<b>刚刚</b>";
+    else meta.innerHTML = "<b>在读</b>刚刚打开";
+    row.querySelector(".acts").innerHTML = actsHtml(s);
+    if (s !== "reading") row.querySelector(".sub .progress")?.remove();
+    if (selected === row) refreshPreview();
+  };
+
+  /* ---- selection + preview ---- */
+  let selected = null;
+
+  const renderPreview = (row) => {
+    if (!row) { previewEmpty.hidden = false; previewDoc.hidden = true; return; }
+    previewEmpty.hidden = true;
+    previewDoc.hidden = false;
+    const d = DOCS[row.dataset.id] ?? { path: "—", branch: "—", words: "—", updated: "—", paras: [] };
+    const s = row.dataset.state;
+    pvBadge.hidden = s === "read";
+    if (s !== "read") {
+      pvBadge.dataset.s = s;
+      pvBadge.textContent = s === "reading" ? `在读 ${d.progress ?? 0}%` : "未读";
+    }
+    pvTitle.textContent = row.dataset.title;
+    pvPath.textContent = d.path;
+    pvBranch.textContent = d.branch ? "⎇ " + d.branch : d.workspace ? "工作区" : "—";
+    pvWords.textContent = d.words;
+    pvUpdated.textContent = d.updated;
+    const paras = d.paras.concat(d.more ?? []);
+    const replies = REPLIES[row.dataset.id] ?? [];
+    pvThread.innerHTML = paras.map((p) => `<p>${esc(p)}</p>`).join("") +
+      (replies.length
+        ? `<div class="thread-sep">回复 · ${replies.length}</div>
+           <div class="reply-list">${replies
+            .map((t) => `<div class="reply-item"><div class="reply-head"><b>你</b><span>刚刚</span></div><p>${esc(t)}</p></div>`)
+            .join("")}</div>`
+        : "");
+    pvToggle.textContent = s === "read" ? "标为未读" : "标已读";
+  };
+  const refreshPreview = () => renderPreview(selected);
+
+  const selectRow = (row, toggle = true) => {
+    if (selected === row) { if (toggle) deselect(); return; }
+    if (selected) selected.removeAttribute("data-selected");
+    selected = row;
+    compose.hidden = true;
+    if (row) {
+      row.setAttribute("data-selected", "true");
+      row.scrollIntoView({ block: "nearest" });
+      pvReplyInput.value = "";
+      pvBody.scrollTop = 0;
+      if (row.dataset.state === "unread") { setState(row, "read"); paint(); }
+    }
+    renderPreview(row);
+  };
+  const deselect = () => {
+    if (selected) selected.removeAttribute("data-selected");
+    selected = null;
+    renderPreview(null);
+  };
+
+  /* ---- new workspace composer: email-style card in the right pane ---- */
+  let wsSeq = 0;
+  const openCompose = () => {
+    compose.hidden = false;
+    previewEmpty.hidden = true;
+    previewDoc.hidden = true;
+    cfErr.hidden = true;
+    cfPath.focus();
+  };
+  const closeCompose = () => {
+    compose.hidden = true;
+    renderPreview(selected);
+  };
+  const createWorkspace = () => {
+    const path = cfPath.value.trim();
+    const title = cfTitle.value.trim();
+    const desc = cfDesc.value.trim();
+    if (!path || !title) {
+      cfErr.hidden = false;
+      cfErr.textContent = !path ? "工作区路径必填" : "标题必填";
+      (!path ? cfPath : cfTitle).focus();
+      return;
+    }
+    const id = `ws-${++wsSeq}`;
+    DOCS[id] = { path, branch: "", workspace: true, words: "—", updated: "刚刚", paras: [desc || "还没有任务说明。"] };
+    const row = document.createElement("article");
+    row.className = "row";
+    row.dataset.id = id;
+    row.dataset.state = "unread";
+    row.dataset.title = title;
+    row.innerHTML = `
+      <label class="pick"><input type="checkbox" aria-label="选择 ${esc(title)}" /></label>
+      <span class="state"></span>
+      <div>
+        <div class="title-line"><span class="title">${esc(title)}</span></div>
+        <div class="sub"><span class="path">${esc(path)}</span><span class="branch">工作区</span></div>
+      </div>
+      <div class="meta"><b>刚刚</b>新建</div>
+      <div class="acts">${actsHtml("unread")}</div>`;
+    list.insertBefore(row, list.firstElementChild);
+    row.animate([{ opacity: 0, transform: "translateY(-4px)" }, { opacity: 1, transform: "none" }], { duration: 220 });
+    cfPath.value = "";
+    cfTitle.value = "";
+    cfDesc.value = "";
+    closeCompose();
+    document.querySelector(".scroll").scrollTop = 0;
+    paint();
+  };
+  document.getElementById("new-ws").addEventListener("click", openCompose);
+  document.getElementById("cf-close").addEventListener("click", closeCompose);
+  document.getElementById("cf-cancel").addEventListener("click", closeCompose);
+  document.getElementById("cf-create").addEventListener("click", createWorkspace);
+
+  /* ---- batch bar ---- */
+  const checkedRows = () => [...list.querySelectorAll(".row")].filter((r) => r.querySelector(".pick input")?.checked);
+  const paintBatch = () => {
+    const n = checkedRows().length;
+    selN.textContent = n;
+    batchbar.hidden = n < 2;
+  };
+
+  /* ---- row interactions ---- */
+  list.addEventListener("click", (e) => {
+    if (e.target.closest(".pick")) return;          // checkbox is its own gesture
+    const btn = e.target.closest("[data-action]");
+    const row = e.target.closest(".row");
+    if (!row) return;
+    if (!btn) { selectRow(row); return; }
+    e.preventDefault();
+    const a = btn.dataset.action;
+    if (a === "read" || a === "unread") {
+      setState(row, a);
+      paint();
+    } else if (a === "open") {
+      row.animate([{ opacity: .55 }, { opacity: 1 }], { duration: 240 });
+    }
+  });
+
+  list.addEventListener("change", (e) => {
+    if (!e.target.closest(".pick input")) return;
+    const row = e.target.closest(".row");
+    if (row) row.classList.toggle("is-checked", e.target.checked);
+    paintBatch();
+  });
+
+  batchbar.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-batch]");
+    if (!btn) return;
+    const rows = checkedRows();
+    if (btn.dataset.batch === "cancel") {
+      rows.forEach((r) => (r.querySelector(".pick input").checked = false));
+      paintBatch();
+      return;
+    }
+    const target = btn.dataset.batch;
+    rows.forEach((row) => {
+      setState(row, target);
+      row.querySelector(".pick input").checked = false;
+    });
+    paint();
+    if (selected) refreshPreview();
+    paintBatch();
+  });
+
+  pvToggle.addEventListener("click", () => {
+    if (!selected) return;
+    const next = selected.dataset.state === "read" ? "unread" : "read";
+    setState(selected, next);
+    paint();
+  });
+  document.getElementById("pv-open").addEventListener("click", () => {
+    if (selected) selected.animate([{ opacity: .55 }, { opacity: 1 }], { duration: 240 });
+  });
+  document.getElementById("pv-close").addEventListener("click", deselect);
+
+  /* ---- reply composer: local append, mock only ---- */
+  const sendReply = () => {
+    if (!selected) return;
+    const text = pvReplyInput.value.trim();
+    if (!text) { pvReplyInput.focus(); return; }
+    (REPLIES[selected.dataset.id] ??= []).push(text);
+    pvReplyInput.value = "";
+    refreshPreview();
+    pvBody.scrollTop = pvBody.scrollHeight;
+    pvSend.animate([{ transform: "scale(.9)" }, { transform: "scale(1)" }], { duration: 160 });
+    pvReplyInput.focus();
+  };
+  pvSend.addEventListener("click", sendReply);
+  pvReplyInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); sendReply(); }
+  });
+
+  document.getElementById("mark-all").addEventListener("click", () => {
+    document.querySelectorAll('.row[data-state="unread"], .row[data-state="reading"]').forEach((row) => setState(row, "read"));
+    paint();
+    refreshPreview();
+  });
+
+  /* ---- keyboard: ↑↓ 切换 · Enter 打开 · m 标已读 · x 勾选 · Esc 收起 ---- */
+  const visibleRows = () => [...list.querySelectorAll(".row")].filter((r) => r.offsetParent !== null);
+  addEventListener("keydown", (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "Escape") {
+      e.target.blur?.();
+      if (!compose.hidden) { closeCompose(); return; }
+      deselect();
+      return;
+    }
+    if (e.target.matches("input, textarea")) return;
+    if (["1", "2", "3"].includes(e.key)) { setTheme(["paper", "plain", "night"][Number(e.key) - 1]); return; }
+    const rows = visibleRows();
+    if (!rows.length) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const i = selected ? rows.indexOf(selected) : -1;
+      const next = e.key === "ArrowDown" ? rows[Math.min(i + 1, rows.length - 1)] : rows[Math.max(i - 1, 0)];
+      selectRow(next, false);
+    } else if (e.key === "Enter" && selected) {
+      selected.animate([{ opacity: .55 }, { opacity: 1 }], { duration: 240 });
+    } else if (e.key === "m" && selected) {
+      const next = selected.dataset.state === "read" ? "unread" : "read";
+      setState(selected, next);
+      paint();
+    } else if (e.key === "x" && selected) {
+      const cb = selected.querySelector(".pick input");
+      cb.checked = !cb.checked;
+      paintBatch();
+    }
+  });
+
+  paint();
+})();
+</script>
+</body>
+</html>

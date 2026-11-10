@@ -353,6 +353,11 @@ The idea of reviewing planning docs side-by-side with a coding agent was learned
 [Whiteboard](https://github.com/devdotfast/whiteboard) — an open-source canvas where humans and
 agents architect software together. Go check it out.
 
+## Security
+
+Blackboard serves your own files on loopback and keeps no accounts. To report a vulnerability, read
+[SECURITY.md](SECURITY.md) first — please do not open a public issue for it.
+
 ## License
 
 [MIT](LICENSE) © Jun Guo
