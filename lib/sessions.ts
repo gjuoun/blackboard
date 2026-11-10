@@ -19,7 +19,7 @@ import { Lock } from "./lock";
  * Sessions written now carry no kind.
  */
 export type Session = { id: string; path: string; createdAt: string; openedAt: string; kind?: string };
-type Registry = { version: 1; sessions: Session[] };
+export type Registry = { version: 1; sessions: Session[] };
 
 export const SCRATCHPAD_ID = "scratchpad";
 const ID = /^[a-z0-9]{1,32}$/;
@@ -31,7 +31,7 @@ const failure = (error: unknown) => new IoFailure({ message: errorMessage(error)
 const registryPath = (home: string) => join(home, "sessions.json");
 
 /** The registry as JSON; a file that does not parse is an error, never silently replaced. */
-function readRegistry(home: string): Registry {
+export function readRegistry(home: string): Registry {
   const p = registryPath(home);
   if (!existsSync(p)) return { version: 1, sessions: [] };
   const data = JSON.parse(readFileSync(p, "utf8"));

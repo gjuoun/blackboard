@@ -31,6 +31,9 @@ export class IoFailure extends Data.TaggedError("IoFailure")<Wire> {}
 /** A git command the diff or the pr pin depends on failed. */
 export class GitFailure extends Data.TaggedError("GitFailure")<Wire> {}
 
+/** The SQLite data layer failed: a bad open, a rejected write, an unsupported runtime. */
+export class DbFailure extends Data.TaggedError("DbFailure")<Wire> {}
+
 /** An upload that is not a png, jpeg, gif or webp, or is too big. */
 export class ImageRejected extends Data.TaggedError("ImageRejected")<Wire> {}
 
@@ -43,7 +46,8 @@ export type ApiFailure =
   | LockTimeout
   | IoFailure
   | GitFailure
-  | ImageRejected;
+  | ImageRejected
+  | DbFailure;
 
 /** The one string every face uses for an id that names no session. */
 export const sessionNotFound = (status: WireStatus): SessionNotFound => new SessionNotFound({ message: "unknown session", status });

@@ -8,8 +8,9 @@ import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
 import { Cause, Effect, Exit, Result } from "effect";
 import { CliError, formatComments, formatSessions } from "../lib/cli";
-import { CommentArgs, decodeArgs, ReviewArgs } from "../lib/cli/args";
+import { CommentArgs, decodeArgs, MigrateArgs, ReviewArgs } from "../lib/cli/args";
 import * as commentsCli from "../lib/cli/comments";
+import * as dbCli from "../lib/cli/db";
 import * as sessionsCli from "../lib/cli/sessions";
 import type { AppServices } from "../lib/effect/layers";
 import { errorMessage } from "../lib/effect/errors";
@@ -33,6 +34,7 @@ Usage:
   blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>
   blackboard comment  <session> --general <note>
   blackboard review   <session> --round <n> <body>
+  blackboard db       migrate [--dry-run] | stats   move the JSON stores into blackboard.db / show its contents
 
 <session> is a session id or a path to the registered file.
 <id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).
@@ -43,6 +45,7 @@ Options:
   --json           machine-readable output
   --round <n>      review: the round this verdict reports on
   --no-browser     open: do not launch the browser (or set BLACKBOARD_NO_BROWSER=1)
+  --dry-run        db migrate: count what would move, touch nothing
   --no-server      open: do not start the web app (or set BLACKBOARD_NO_SERVER=1)
   --port <n>       serve start / restart: port to listen on (default: from $BLACKBOARD_URL, else 38770)
   --foreground     serve start: run in this terminal until Ctrl-C
@@ -86,6 +89,7 @@ const OPTIONS = {
   round: { type: "string" },
   occurrence: { type: "string" },
   "no-browser": { type: "boolean" },
+  "dry-run": { type: "boolean" },
   "no-server": { type: "boolean" },
   port: { type: "string" },
   foreground: { type: "boolean" },
@@ -182,6 +186,21 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
         const c = yield* commentsCli.status(home, args[0], args[1], cmd === "resolve" ? "resolved" : "open", author);
         print(c, `${cmd === "resolve" ? "resolved" : "reopened"} ${c.id} on ${c.doc}`);
         return 0;
+      }
+      case "db": {
+        const sub = args[0];
+        if (sub === "migrate") {
+          const opts = yield* decodeArgs(MigrateArgs, { dry: o["dry-run"] });
+          const r = yield* dbCli.migrateCmd(home, opts.dry ?? false);
+          print(r, dbCli.formatReport(r));
+          return 0;
+        }
+        if (sub === "stats") {
+          const s = yield* dbCli.statsCmd(home);
+          print(s, dbCli.formatStats(s));
+          return 0;
+        }
+        return yield* dbCli.dbUsage();
       }
       case "review": {
         yield* need(1, "review <session> --round <n> <body>");
