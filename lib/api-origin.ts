@@ -11,5 +11,6 @@ export function apiOrigin(home: string): string {
   const env = process.env.BLACKBOARD_API_URL;
   if (env) return env.replace(/\/+$/, "");
   const st = readState(home);
-  return (st?.api.url ?? DEFAULT_API).replace(/\/+$/, "");
+  // A pre-split single-pid record names no API — fall through to the default port.
+  return (st && "api" in st ? st.api.url : DEFAULT_API).replace(/\/+$/, "");
 }

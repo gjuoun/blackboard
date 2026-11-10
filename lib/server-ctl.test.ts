@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { clearState, DEFAULT_API_URL, DEFAULT_URL, pidAlive, portOf, prepareServer, readState, resolveApiUrl, resolveUrl, restart, runForeground, runtimeFor, ServerError, stop, unrecordedNote, verifyRecord, writeState } from "./server-ctl";
@@ -36,15 +37,19 @@ describe("runtimeFor", () => {
 });
 
 describe("server state", () => {
-  test("round-trips a two-proc record, and junk or the old single-pid shape reads as none", () => {
+  test("round-trips a two-proc record, junk reads as none, and the old single-pid shape reads as legacy", () => {
     const home = tmp();
     expect(readState(home)).toBeNull();
     const proc = { pid: 123, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
     writeState(home, { ui: proc, api: { ...proc, pid: 124, url: "http://127.0.0.1:2" } });
-    expect(readState(home)?.ui.pid).toBe(123);
-    expect(readState(home)?.api.pid).toBe(124);
-    // the A-era single-pid file is stale, not a state we honour
+    const st = readState(home);
+    expect(st && "ui" in st && st.ui.pid).toBe(123);
+    expect(st && "api" in st && st.api.pid).toBe(124);
+    // the pre-split single-pid file is a marked legacy record: the pid it names is ours to stop
     writeFileSync(join(home, "server.json"), JSON.stringify({ pid: 123, url: "http://127.0.0.1:1", startedAt: "x" }));
+    const legacy = readState(home);
+    expect(legacy).toEqual({ legacy: { pid: 123, url: "http://127.0.0.1:1", startedAt: "x" } });
+    writeFileSync(join(home, "server.json"), "not json");
     expect(readState(home)).toBeNull();
     clearState(home);
     expect(readState(home)).toBeNull();
@@ -191,6 +196,70 @@ describe("stop names the process when nothing is recorded", () => {
       else process.env.BLACKBOARD_URL = prev;
     }
   });
+});
+
+describe("a pre-split single-pid record", () => {
+  const writeLegacy = (home: string, proc: { pid: number; url: string; startedAt: string }) =>
+    writeFileSync(join(home, "server.json"), JSON.stringify(proc) + "\n");
+
+  test("stop kills the recorded process when it is alive, and clears the record", async () => {
+    const home = tmp();
+    const child = spawn("sleep", ["30"], { stdio: "ignore" });
+    const pid = child.pid!;
+    child.unref();
+    try {
+      expect(pidAlive(pid)).toBe(true);
+      // Nothing listens on the recorded url's port: the kill is what stop is proving.
+      writeLegacy(home, { pid, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" });
+      const r = await stop(home);
+      expect(r).toEqual({ stopped: true });
+      expect(pidAlive(pid)).toBe(false);
+      expect(readState(home)).toBeNull();
+    } finally {
+      try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ }
+    }
+  }, 20_000);
+
+  test("stop on a dead pid just clears the record", async () => {
+    const home = tmp();
+    writeLegacy(home, { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" });
+    const r = await stop(home);
+    expect(r).toEqual({ stopped: true });
+    expect(readState(home)).toBeNull();
+  }, 20_000);
+
+  test("stop is not stopped while a stranger still holds the recorded port", async () => {
+    const foreign = slowServer(0);
+    const url = `http://127.0.0.1:${foreign.port}`;
+    try {
+      const home = tmp();
+      writeLegacy(home, { pid: 2 ** 22 + 12345, url, startedAt: "2026-01-01T00:00:00.000Z" });
+      const r = await stop(home);
+      // The recorded pid is dead and the record is cleared, but the port answers: "stopped"
+      // here would let a restart lose whoever owns it.
+      expect(r.stopped).toBe(false);
+      expect(r.note).toContain("port still listens");
+      expect(readState(home)).toBeNull();
+    } finally {
+      foreign.stop(true);
+    }
+  }, 20_000);
+
+  test("restart stops the legacy process and starts a fresh pair", async () => {
+    const home = tmp();
+    writeLegacy(home, { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" });
+    let started = false;
+    const proc = { pid: process.pid, url: "http://127.0.0.1:1", startedAt: "x", log: "/x/server.log" };
+    const r = await restart(home, { port: 1, apiPort: 1 }, {
+      start: async () => {
+        started = true;
+        return { running: true, url: proc.url, managed: true, degraded: [], ui: proc, api: { ...proc, url: "http://127.0.0.1:2", log: "/x/api.log" }, started: true };
+      },
+    });
+    expect(started).toBe(true);
+    expect(r.started).toBe(true);
+    expect(readState(home)).toBeNull();
+  }, 20_000);
 });
 
 describe("serve start --foreground", () => {

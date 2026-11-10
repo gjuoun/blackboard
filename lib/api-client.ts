@@ -20,7 +20,8 @@ export function apiUrl(home: string): string | null {
   const env = process.env.BLACKBOARD_API_URL;
   if (env) return env.replace(/\/+$/, "");
   const st = readState(home);
-  return st ? st.api.url.replace(/\/+$/, "") : null;
+  // A pre-split single-pid record names no API — no URL beats guessing another home's port.
+  return st && "api" in st ? st.api.url.replace(/\/+$/, "") : null;
 }
 
 const messageOf = (data: unknown, fallback: string): string => {

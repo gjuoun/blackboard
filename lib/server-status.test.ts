@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 import { formatStatus, probe, readState, status, writeState } from "../lib/server-ctl";
 import { bigHome, slowServer, tmp } from "../test/serve-fixture";
@@ -49,6 +51,54 @@ describe("status with a live server", () => {
     expect(s.running).toBe(false);
     expect(formatStatus(s)).toBe("not running (http://127.0.0.1:1)");
   });
+});
+
+describe("status with a pre-split single-pid record", () => {
+  const writeLegacy = (home: string, proc: { pid: number; url: string; startedAt: string }) =>
+    writeFileSync(join(home, "server.json"), JSON.stringify(proc) + "\n");
+
+  test("a live legacy process reads as running, named as a pre-split record", async () => {
+    const server = slowServer(0);
+    const url = `http://127.0.0.1:${server.port}`;
+    try {
+      const home = tmp();
+      const proc = { pid: process.pid, url, startedAt: "2026-01-01T00:00:00.000Z" };
+      writeLegacy(home, proc);
+      const s = await status(home);
+      expect(s).toEqual({ running: true, url, legacy: { ...proc, state: "running", cleared: false } });
+      const text = formatStatus(s);
+      expect(text).toContain(`running at ${url}  pid ${proc.pid}`);
+      expect(text).toContain("pre-split");
+      expect(text).toContain("blackboard serve restart");
+      expect(readState(home)).not.toBeNull();
+    } finally {
+      server.stop(true);
+    }
+  }, 20_000);
+
+  test("a dead legacy pid clears the record and reports it cleared", async () => {
+    const home = tmp();
+    const proc = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+    writeLegacy(home, proc);
+    const s = await status(home);
+    expect(s).toEqual({ running: false, url: proc.url, legacy: { ...proc, state: "down", cleared: true } });
+    expect(readState(home)).toBeNull();
+    const text = formatStatus(s);
+    expect(text).toContain("pid (" + proc.pid + ") is gone");
+    expect(text).toContain("cleared");
+  });
+
+  test("a live legacy pid whose port answers nothing is down, and the record stays for stop", async () => {
+    const home = tmp();
+    const proc = { pid: process.pid, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+    writeLegacy(home, proc);
+    const s = await status(home);
+    expect(s).toEqual({ running: false, url: proc.url, legacy: { ...proc, state: "down", cleared: false } });
+    expect(readState(home)).not.toBeNull();
+    const text = formatStatus(s);
+    expect(text).toContain("pid " + proc.pid + " is alive");
+    expect(text).toContain("blackboard serve stop");
+  }, 20_000);
 });
 
 describe("a large home: a slow pair keeps its record", () => {
