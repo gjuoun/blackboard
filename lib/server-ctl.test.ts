@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { clearState, DEFAULT_URL, formatStatus, pidAlive, portOf, prepareServer, probe, readState, resolveUrl, runtimeFor, ServerError, status, writeState } from "./server-ctl";
+import { clearState, DEFAULT_URL, formatStatus, pidAlive, portOf, prepareServer, probe, readState, resolveUrl, runtimeFor, ServerError, status, stop, unrecordedNote, verifyRecord, writeState } from "./server-ctl";
 
 const dirs: string[] = [];
 const tmp = () => {
@@ -141,3 +141,107 @@ describe("prepareServer", () => {
     expect(prepareServer(server, home, "1.0.0", readOnly)).toBe(dir);
   });
 });
+
+describe("a large home does not change which pair is ours", () => {
+  /** A home with many registered sessions and comment folders, the shape of a long-used one. */
+  const bigHome = () => {
+    const home = tmp();
+    for (let i = 1; i <= 120; i += 1) {
+      const dir = join(home, "sessions", `s${String(i).padStart(3, "0")}`);
+      mkdirSync(dir, { recursive: true });
+      if (i % 3 === 0) writeFileSync(join(dir, "comments.json"), '{"version":1,"docs":{"design.md":[]}}\n');
+    }
+    return home;
+  };
+
+  test("a slow pair keeps its record in a home with many sessions", async () => {
+    const home = bigHome();
+    const api = slowServer(2600);
+    const ui = slowServer(2600);
+    try {
+      const apiUrl = `http://127.0.0.1:${api.port}`;
+      const uiUrl = `http://127.0.0.1:${ui.port}`;
+      const now = new Date().toISOString();
+      writeState(home, { ui: { pid: process.pid, url: uiUrl, startedAt: now }, api: { pid: process.pid, url: apiUrl, startedAt: now } });
+      const s = await status(home, uiUrl);
+      expect(readState(home)).not.toBeNull();
+      expect(s.running).toBe(false);
+    } finally {
+      api.stop(true);
+      ui.stop(true);
+    }
+  }, 20_000);
+
+  test("a stop with both recorded pids gone clears the record, and does not call the port a stranger's", async () => {
+    const home = bigHome();
+    const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+    writeState(home, { ui: dead, api: dead });
+    const r = await stop(home);
+    // The record existed, so stop cleared it; it never reaches the "not started by this command" note.
+    expect(r).toEqual({ stopped: true });
+    expect(readState(home)).toBeNull();
+  }, 20_000);
+});
+
+describe("start verifies the record it wrote", () => {
+  test("a record that reads back as written passes", () => {
+    const home = tmp();
+    const proc = { pid: process.pid, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+    const rec = { ui: proc, api: { ...proc, url: "http://127.0.0.1:2" } };
+    writeState(home, rec);
+    expect(() => verifyRecord(home, rec)).not.toThrow();
+  });
+
+  test("a record that is missing after the write fails, naming the pids to stop by hand", () => {
+    const home = tmp();
+    const proc = { pid: 4242, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+    const rec = { ui: proc, api: { ...proc, pid: 4343, url: "http://127.0.0.1:2" } };
+    expect(() => verifyRecord(home, rec)).toThrow(/did not read back.*kill 4242 4343/);
+  });
+
+  test("a record that reads back with another pid fails", () => {
+    const home = tmp();
+    const proc = { pid: 4242, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+    writeState(home, { ui: { ...proc, pid: 9999 }, api: { ...proc, url: "http://127.0.0.1:2" } });
+    expect(() => verifyRecord(home, { ui: proc, api: { ...proc, url: "http://127.0.0.1:2" } })).toThrow(ServerError);
+  });
+});
+
+describe("stop names the process when nothing is recorded", () => {
+  test("unrecordedNote with a listener gives the pid and the kill command", () => {
+    const note = unrecordedNote("http://127.0.0.1:38770", [4321]);
+    expect(note).toContain("pid 4321");
+    expect(note).toContain("kill 4321");
+  });
+
+  test("unrecordedNote with no listener says how to find one", () => {
+    const note = unrecordedNote("http://127.0.0.1:38770", []);
+    expect(note).toContain("lsof -nP -iTCP:38770");
+  });
+
+  test("stop on a home with no record and nothing answering reports not stopped", async () => {
+    // Point at a port nothing listens on, so the result does not depend on what this machine runs.
+    const prev = process.env.BLACKBOARD_URL;
+    process.env.BLACKBOARD_URL = "http://127.0.0.1:1";
+    try {
+      const r = await stop(tmp());
+      expect(r).toEqual({ stopped: false });
+    } finally {
+      if (prev === undefined) delete process.env.BLACKBOARD_URL;
+      else process.env.BLACKBOARD_URL = prev;
+    }
+  });
+});
+
+/** A stand-in for one Blackboard process that answers /api/health only after `delayMs`. */
+function slowServer(delayMs: number) {
+  return Bun.serve({
+    port: 0,
+    hostname: "127.0.0.1",
+    async fetch(req) {
+      await Bun.sleep(delayMs);
+      if (new URL(req.url).pathname === "/api/health") return Response.json({ app: "blackboard", version: "x" });
+      return new Response("ok");
+    },
+  });
+}

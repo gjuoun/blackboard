@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -202,18 +202,52 @@ function apiEnv(home: string, apiUrl: string): NodeJS.ProcessEnv {
   return { ...process.env, NODE_ENV: "production", BLACKBOARD_HOME: home, BLACKBOARD_API_URL: apiUrl, PORT: String(portOf(apiUrl)) };
 }
 
+/**
+ * Read the record back and compare it with what was written. A pair that started but whose record cannot be
+ * read is reported as a failure, with the pids to stop by hand: a silent "started" would leave them running
+ * with nothing recording them.
+ */
+export function verifyRecord(home: string, expected: ServerState): void {
+  const back = readState(home);
+  if (back && back.ui.pid === expected.ui.pid && back.api.pid === expected.api.pid) return;
+  throw new ServerError(
+    `the pair started (ui pid ${expected.ui.pid}, api pid ${expected.api.pid}) but ${statePath(home)} did not read back; stop them with: kill ${expected.ui.pid} ${expected.api.pid}`,
+  );
+}
+
+/**
+ * How long a pair gets to answer before it is called down. A cold start of the API (a large registry) or
+ * the UI (its first compile) can take longer than one probe, so a single miss is not evidence of anything.
+ */
+const ANSWER_WINDOW_MS = 2000;
+
+/** Poll `check` until it passes or the window closes. */
+async function answersWithin(check: () => Promise<boolean>, windowMs = ANSWER_WINDOW_MS): Promise<boolean> {
+  const until = Date.now() + windowMs;
+  for (;;) {
+    if (await check()) return true;
+    if (Date.now() >= until) return false;
+    await sleep(200);
+  }
+}
+
 export async function status(home: string, url = resolveUrl()): Promise<ServerStatus> {
   const st = readState(home);
   if (st) {
-    const uiUp = pidAlive(st.ui.pid) && (await listening(st.ui.url));
-    const apiUp = pidAlive(st.api.pid) && (await probe(st.api.url));
-    if (uiUp && apiUp) {
-      return { running: true, url: st.ui.url, managed: true, ui: { ...st.ui, log: uiLogPath(home) }, api: { ...st.api, log: apiLogPath(home) } };
+    const uiPid = pidAlive(st.ui.pid);
+    const apiPid = pidAlive(st.api.pid);
+    // A record is cleared only when neither process exists. A live pid that does not answer yet is starting
+    // or slow, and the record is still the only proof that this home started it.
+    if (!uiPid && !apiPid) {
+      clearState(home);
+    } else {
+      const uiUp = uiPid && (await answersWithin(() => listening(st.ui.url)));
+      const apiUp = apiPid && (await answersWithin(() => probe(st.api.url)));
+      if (uiUp && apiUp) {
+        return { running: true, url: st.ui.url, managed: true, ui: { ...st.ui, log: uiLogPath(home) }, api: { ...st.api, log: apiLogPath(home) } };
+      }
+      return { running: false, url, partial: { ui: uiUp ? "up" : "down", api: apiUp ? "up" : "down", pids: { ui: st.ui.pid, api: st.api.pid } } };
     }
-    // A half-dead pair is not running, but its record is kept: the surviving process is still ours
-    // to stop, and `stop` finds it through the record.
-    if (uiUp || apiUp) return { running: false, url, partial: { ui: uiUp ? "up" : "down", api: apiUp ? "up" : "down", pids: { ui: st.ui.pid, api: st.api.pid } } };
-    clearState(home);
   }
   return (await probe(url)) ? { running: true, url, managed: false } : { running: false, url };
 }
@@ -288,12 +322,16 @@ export async function start(home: string, opts: { port?: number | string; apiPor
   }
 
   const startedAt = new Date().toISOString();
-  writeState(home, {
+  const record: ServerState = {
     ui: { pid: uiChild.pid!, url, startedAt },
     api: { pid: apiPid, url: apiUrl, startedAt },
-  });
-  const now = await status(home, url);
-  return { ...now, started: true };
+  };
+  writeState(home, record);
+  // Success is the record reading back as written, not a probe: a probe can miss a pair that is up.
+  verifyRecord(home, record);
+  // Report what this command started, from the record it just verified. A probe here could miss a pair
+  // that is up, and then the output would call our own processes someone else's.
+  return { running: true, url, managed: true, ui: { ...record.ui, log: uiLogPath(home) }, api: { ...record.api, log: apiLogPath(home) }, started: true };
 }
 
 /** Run both processes in this terminal until they stop (Ctrl-C). For containers and service managers. */
@@ -312,12 +350,35 @@ export async function runForeground(home: string, opts: { port?: number | string
   return new Promise((resolve) => ui.on("exit", (code) => { api.kill("SIGTERM"); resolve(code ?? 0); }));
 }
 
+/**
+ * The pids that hold a TCP port, from lsof. Read-only: nothing is signalled here. Empty when lsof is missing
+ * or finds nothing, so the caller can still say what happened.
+ */
+export function listenersOn(port: number): number[] {
+  try {
+    const out = execFileSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], { encoding: "utf8", timeout: 3000, stdio: ["ignore", "pipe", "ignore"] });
+    return [...new Set(out.split(/\s+/).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+  } catch {
+    return [];
+  }
+}
+
+/** What `stop` says when a Blackboard answers but this home recorded nothing: the pids, and the command to run. */
+export function unrecordedNote(url: string, pids: number[]): string {
+  if (pids.length === 0) return `a Blackboard answers at ${url}, but this home did not start it and no process could be found on that port (look for it with: lsof -nP -iTCP:${portOf(url)} -sTCP:LISTEN)`;
+  return `a Blackboard answers at ${url}, but this home did not start it. Process on that port: pid ${pids.join(", ")}. To stop it, run: kill ${pids.join(" ")}`;
+}
+
 /** Stop the pair this home started. Returns false when there was none; refuses one it did not start. */
 export async function stop(home: string): Promise<{ stopped: boolean; note?: string }> {
   const st = readState(home);
   if (!st) {
-    const ext = await probe(resolveUrl());
-    return { stopped: false, note: ext ? "a Blackboard is answering at that address, but this command did not start it (stop it where you started it)" : undefined };
+    const at = resolveUrl();
+    if (!(await probe(at))) return { stopped: false };
+    // Nothing recorded, but a Blackboard answers here. Name the process that holds the port, so the next
+    // step is a command the user can run, not a guess about where it was started.
+    const pids = listenersOn(portOf(at));
+    return { stopped: false, note: unrecordedNote(at, pids) };
   }
   for (const proc of [st.ui, st.api]) {
     if (!pidAlive(proc.pid)) continue;
