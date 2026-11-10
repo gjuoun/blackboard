@@ -1,0 +1,30 @@
+/*
+ * Composite tokens for the cold family: same set and shape as theme/warm.css, cold values.
+ */
+:root, [data-theme="cold"][data-mode="light"] {
+  --primary-soft: #e7f0fb;
+  --code: #f6f8fa;
+  --mark: #fff1a8;
+  --mark-line: #b58f00;
+  --hl: rgba(48, 116, 191, 0.16);
+  --hl-hover: rgba(48, 116, 191, 0.24);
+  --hl-active: rgba(48, 116, 191, 0.32);
+  --warn: #8a5a00;
+  --success: #1d7a34;
+  --success-soft: #eaf6ec;
+  --destructive-soft: #fdecec;
+}
+
+[data-theme="cold"][data-mode="dark"] {
+  --primary-soft: #16324d;
+  --code: #141a21;
+  --mark: #3d3410;
+  --mark-line: #c8a02a;
+  --hl: rgba(88, 166, 255, 0.18);
+  --hl-hover: rgba(88, 166, 255, 0.26);
+  --hl-active: rgba(88, 166, 255, 0.34);
+  --warn: #d29922;
+  --success: #3fb950;
+  --success-soft: #12261a;
+  --destructive-soft: #2a1416;
+}

@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { TopBar } from "@/components/TopBar";
 import { bootScript } from "@/lib/prefs";
-import { DEFAULT_THEME } from "@/lib/theme";
+import { DEFAULT_MODE, DEFAULT_THEME } from "@/lib/theme";
 import "./globals.css";
 import "./katex.css";
 import "./syntax.css";
@@ -24,11 +24,11 @@ export const viewport: Viewport = { viewportFit: "cover" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // data-theme is the server fallback; the inline script reads the stored record before the first
-    // paint and sets the real palette, the dark class, the font attributes and both panel widths.
-    // Suppressing the hydration warning is what lets that happen without React "fixing" the <html>
-    // attributes back to the fallback for a frame.
-    <html lang="en" data-theme={DEFAULT_THEME} suppressHydrationWarning>
+    // data-theme + data-mode are the server fallback; the inline script reads the stored record
+    // before the first paint and sets the real palette, the dark class, the font attributes and
+    // both panel widths. Suppressing the hydration warning is what lets that happen without React
+    // "fixing" the <html> attributes back to the fallback for a frame.
+    <html lang="en" data-theme={DEFAULT_THEME} data-mode={DEFAULT_MODE} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: bootScript() }} />
       </head>

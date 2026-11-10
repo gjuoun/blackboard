@@ -86,6 +86,6 @@ export function togglePanel(which: "toc" | "cm", desktop: boolean) {
 
 /** Reset the reading picks (palette, the three faces) without touching how the panels are laid out. */
 export function resetReading() {
-  setChrome({ theme: DEFAULTS.theme, fontLatin: DEFAULTS.fontLatin, fontCjk: DEFAULTS.fontCjk, fontMono: DEFAULTS.fontMono });
+  setChrome({ theme: DEFAULTS.theme, mode: DEFAULTS.mode, fontLatin: DEFAULTS.fontLatin, fontCjk: DEFAULTS.fontCjk, fontMono: DEFAULTS.fontMono });
 }
 

@@ -9,23 +9,27 @@
  */
 export const PREFS_KEY = "bb-chrome";
 
-export const THEME_IDS = ["warm-light", "warm-dark", "cold-light", "cold-dark"] as const;
+export const THEME_IDS = ["warm", "cold"] as const;
 export type ThemeId = (typeof THEME_IDS)[number];
-/** Each theme is one mode; the `.dark` class is derived from it so Tailwind's `dark:` still applies. */
-export const THEME_MODE: Record<ThemeId, "light" | "dark"> = {
-  "warm-light": "light",
-  "warm-dark": "dark",
-  "cold-light": "light",
-  "cold-dark": "dark",
-};
+export const MODES = ["light", "dark"] as const;
+export type Mode = (typeof MODES)[number];
+export const DEFAULT_MODE: Mode = "light";
 
 /**
- * Palettes this version no longer defines, and the one that replaced each. A stored record from
- * before the warm/cold split is read through this map and written back with the new id, so a
- * browser that picked paper/plain/night keeps its nearest counterpart instead of snapping to the
- * default. Only the new ids appear in THEME_IDS.
+ * Theme ids this version no longer defines — the retired paper/plain/night palettes and the
+ * combined theme-mode ids from before the data-mode split — and the pair that replaced each. A
+ * stored record is read through this map and written back as theme + mode, so a browser keeps its
+ * nearest counterpart instead of snapping to the default. Only the new ids appear in THEME_IDS.
  */
-export const LEGACY_THEME: Record<string, ThemeId> = { paper: "warm-light", plain: "cold-light", night: "warm-dark" };
+export const LEGACY_THEME: Record<string, { theme: ThemeId; mode: Mode }> = {
+  paper: { theme: "warm", mode: "light" },
+  plain: { theme: "cold", mode: "light" },
+  night: { theme: "warm", mode: "dark" },
+  "warm-light": { theme: "warm", mode: "light" },
+  "warm-dark": { theme: "warm", mode: "dark" },
+  "cold-light": { theme: "cold", mode: "light" },
+  "cold-dark": { theme: "cold", mode: "dark" },
+};
 
 export const LATIN_IDS = ["qublack", "inter", "charter", "georgia", "system"] as const;
 export type LatinId = (typeof LATIN_IDS)[number];
@@ -46,6 +50,8 @@ export type TextWidthId = (typeof TEXT_WIDTH_IDS)[number];
 /** The reading subset of the persisted record. */
 type Prefs = {
   theme: ThemeId;
+  /** Light or dark within the theme; drives `data-mode` and Tailwind's `.dark` class. */
+  mode: Mode;
   fontLatin: LatinId;
   fontCjk: CjkId;
   fontMono: MonoId;
@@ -65,7 +71,8 @@ type Prefs = {
 };
 
 export const DEFAULT_PREFS: Prefs = {
-  theme: "warm-light",
+  theme: "warm",
+  mode: "light",
   fontLatin: "qublack",
   fontCjk: "qublack",
   fontMono: "qublack-mono",
@@ -103,8 +110,14 @@ export const LIST_MIN = 320;
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const inList = <T extends readonly string[]>(list: T, v: unknown): v is T[number] => typeof v === "string" && (list as readonly string[]).includes(v);
 
-/** A stored id, migrated if it names a retired palette; anything unrecognised gets the default. */
-const themeOf = (v: unknown): ThemeId => (inList(THEME_IDS, v) ? v : typeof v === "string" && LEGACY_THEME[v] ? LEGACY_THEME[v] : DEFAULT_PREFS.theme);
+/** A stored theme id, migrated if it names a retired or combined id; anything unrecognised gets the default. */
+const themeOf = (v: unknown): ThemeId => (inList(THEME_IDS, v) ? v : typeof v === "string" && LEGACY_THEME[v] ? LEGACY_THEME[v].theme : DEFAULT_PREFS.theme);
+/** The stored mode. A combined legacy theme id carries its own mode; otherwise "dark"/"light" or the default. */
+const modeOf = (o: Record<string, unknown>): Mode => {
+  const m = inList(MODES, o.mode) ? o.mode : DEFAULT_MODE;
+  if (typeof o.theme === "string" && LEGACY_THEME[o.theme]) return LEGACY_THEME[o.theme].mode;
+  return m;
+};
 
 /** One panel width inside its own range. Garbage in (NaN, a string) gives the default back. */
 export function clampPanel(px: unknown, which: PanelKey): number {
@@ -155,6 +168,7 @@ export function parsePrefs(raw: string | null): StoredChrome {
   const bool = <K extends keyof StoredChrome>(k: K): StoredChrome[K] => (typeof o[k] === "boolean" ? (o[k] as StoredChrome[K]) : DEFAULT_CHROME[k]);
   return {
     theme: themeOf(o.theme),
+    mode: modeOf(o),
     fontLatin: inList(LATIN_IDS, o.fontLatin) ? o.fontLatin : DEFAULT_PREFS.fontLatin,
     fontCjk: inList(CJK_IDS, o.fontCjk) ? o.fontCjk : DEFAULT_PREFS.fontCjk,
     fontMono: inList(MONO_IDS, o.fontMono) ? o.fontMono : DEFAULT_PREFS.fontMono,
@@ -178,6 +192,7 @@ export function parsePrefs(raw: string | null): StoredChrome {
 export function serializePrefs(s: StoredChrome): string {
   return JSON.stringify({
     theme: s.theme,
+    mode: s.mode,
     fontLatin: s.fontLatin,
     fontCjk: s.fontCjk,
     fontMono: s.fontMono,
@@ -200,7 +215,8 @@ export function serializePrefs(s: StoredChrome): string {
 /** Put a stored record on `<html>`: the palette, the dark class, the three font attributes and the widths. */
 export function applyPrefs(el: HTMLElement, p: Prefs): void {
   el.setAttribute("data-theme", p.theme);
-  el.classList.toggle("dark", THEME_MODE[p.theme] === "dark");
+  el.setAttribute("data-mode", p.mode);
+  el.classList.toggle("dark", p.mode === "dark");
   el.setAttribute("data-font-latin", p.fontLatin);
   el.setAttribute("data-font-cjk", p.fontCjk);
   el.setAttribute("data-font-mono", p.fontMono);
@@ -222,13 +238,16 @@ export function bootScript(): string {
     "(function(){try{" +
     'var s=JSON.parse(localStorage.getItem("' + PREFS_KEY + '")||"{}")||{};' +
     "var r=document.documentElement;" +
-    "var modes=" + JSON.stringify(THEME_MODE) + ";" +
+    "var themes=" + JSON.stringify(THEME_IDS) + ";" +
+    "var modes=" + JSON.stringify(MODES) + ";" +
     "var old=" + JSON.stringify(LEGACY_THEME) + ";" +
     "var latin=" + JSON.stringify(LATIN_IDS) + ";" +
     "var cjk=" + JSON.stringify(CJK_IDS) + ";" +
     "var mono=" + JSON.stringify(MONO_IDS) + ";" +
-    'var th=typeof s.theme!=="string"?"":modes[s.theme]?s.theme:old[s.theme]||"";' +
-    'if(th){r.setAttribute("data-theme",th);r.classList.toggle("dark",modes[th]==="dark");}' +
+    'var leg=typeof s.theme==="string"?old[s.theme]:null;' +
+    'var th=leg?leg.theme:themes.indexOf(s.theme)>=0?s.theme:"";' +
+    'var mo=leg?leg.mode:modes.indexOf(s.mode)>=0?s.mode:"light";' +
+    'if(th){r.setAttribute("data-theme",th);r.setAttribute("data-mode",mo);r.classList.toggle("dark",mo==="dark");}' +
     'if(latin.indexOf(s.fontLatin)>=0)r.setAttribute("data-font-latin",s.fontLatin);' +
     'if(cjk.indexOf(s.fontCjk)>=0)r.setAttribute("data-font-cjk",s.fontCjk);' +
     'if(mono.indexOf(s.fontMono)>=0)r.setAttribute("data-font-mono",s.fontMono);' +

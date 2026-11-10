@@ -1,0 +1,64 @@
+/*
+ * Warm family: terracotta on paper. One file per family, light and dark blocks keyed by
+ * data-mode; the light block also serves :root so an unpicked browser still paints a sensible
+ * default. Every colour in the UI comes from these tokens, so a palette is one complete block:
+ * swap data-theme + data-mode on <html> and the whole set is replaced — nothing is inherited,
+ * and no token is declared only for a dark variant. Radius, type and spacing are shared: only
+ * colours change between blocks.
+ *
+ * The shape follows shadcn/ui's token vocabulary (semantic roles, each surface paired with a
+ * -foreground, plus the --radius scale and the @theme inline mapping in globals.css) and Radix
+ * dark-mode guidance (a dark block brightens the primary instead of darkening it, surfaces rise
+ * instead of sinking). Blackboard's own composite tokens on top of this vocabulary
+ * (--primary-soft, --code, --mark, --hl*, --warn, --success*, --destructive-soft) live in
+ * theme/warm.css — a block here is exactly the shadcn set, so a stock shadcn theme can drop in
+ * untouched.
+ *
+ * To add a palette: copy this file, give it a new data-theme name, add the matching
+ * theme/<name>.css, list it in lib/prefs.ts THEME_IDS, and run `bun test lib/theme.test.ts`.
+ */
+:root, [data-theme="warm"][data-mode="light"] {
+  color-scheme: light;
+  --background: #faf8f5;
+  --foreground: #2b2622;
+  --card: #ffffff;
+  --card-foreground: #2b2622;
+  --popover: #ffffff;
+  --popover-foreground: #2b2622;
+  --primary: #b3532f;
+  --primary-foreground: #ffffff;
+  --secondary: #f1ebe4;
+  --secondary-foreground: #2b2622;
+  --muted: #f1ebe4;
+  --muted-foreground: #6f675e;
+  --accent: #efe9e2;
+  --accent-foreground: #2b2622;
+  --destructive: #cf222e;
+  --border: #ebe5de;
+  --input: #ebe5de;
+  --ring: #b3532f;
+  --radius: 0.75rem;
+}
+
+[data-theme="warm"][data-mode="dark"] {
+  color-scheme: dark;
+  --background: #1b1714;
+  --foreground: #f2eae2;
+  --card: #221d19;
+  --card-foreground: #f2eae2;
+  --popover: #221d19;
+  --popover-foreground: #f2eae2;
+  --primary: #e0805a;
+  --primary-foreground: #1b1714;
+  --secondary: #2a231e;
+  --secondary-foreground: #f2eae2;
+  --muted: #2a231e;
+  --muted-foreground: #b3a89d;
+  --accent: #2a231e;
+  --accent-foreground: #f2eae2;
+  --destructive: #ff7b72;
+  --border: #332b25;
+  --input: #332b25;
+  --ring: #e0805a;
+  --radius: 0.75rem;
+}
