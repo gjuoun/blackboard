@@ -41,6 +41,9 @@ export function StreamFollow({ tailId, tailWriting }: { tailId: string | null; t
   useEffect(() => {
     if (!following || !tailId) return;
     if (tailId === initialTail.current && !tailWriting) return;
+    // A deep link names the block the reader asked for; landing the live edge instead would
+    // throw that jump away. The hash wins until the reader scrolls on their own.
+    if (location.hash.length > 1) return;
     let raf = 0;
     let tick = 0;
     let lastY = -1;

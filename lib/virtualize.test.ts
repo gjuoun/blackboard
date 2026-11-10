@@ -77,6 +77,16 @@ describe("height cache and offsets", () => {
     expect(estimateFor("aside")).toBe(estimateFor("p"));
   });
 
+
+  test("a server-computed estimate beats the kind estimate until the block is measured", () => {
+    const plan = planChunks([block("p", 10, 10), { kind: "section", marginTop: 10, marginBottom: 10, anchors: [], estimated: 200 }]);
+    const heights: (number | null)[] = [null, null];
+    expect(heightAt(heights, plan.blocks, 1)).toBe(200);
+    heights[1] = 150;
+    expect(heightAt(heights, plan.blocks, 1)).toBe(150);
+    const off = rebuildOffsets([null, null], plan.blocks);
+    expect(off[2]).toBe(off[1] + 200); // the last block has no gapAfter
+  });
   test("offsets are prefix sums of height + collapsed gap; a measurement moves everything below", () => {
     const plan = planChunks([block("p", 10, 10), block("p", 20, 10), block("p", 10, 10)]);
     const est = rebuildOffsets([null, null, null], plan.blocks);

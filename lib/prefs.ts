@@ -260,6 +260,9 @@ export function bootScript(): string {
     "var sizes=" + JSON.stringify(DOC_SIZE_IDS) + ";" +
     'if(sizes.indexOf(s.docSize)>0)r.style.setProperty("--doc-size",s.docSize+"px");' +
     'if(s.textWidth==="wide")r.setAttribute("data-doc-wide","");' +
+    // The viewport height lets the server trim a streamed doc to what the first screen
+    // can show; session cookie, refreshed on every page load, absent only until JS runs.
+    'document.cookie="bbvh="+Math.round(window.innerHeight)+";path=/;SameSite=Lax";' +
     "}catch(e){}})();"
   );
 }

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { clearState, DEFAULT_URL, pidAlive, portOf, prepareServer, readState, resolveUrl, restart, runtimeFor, ServerError, stop, unrecordedNote, verifyRecord, writeState } from "./server-ctl";
+import { clearState, DEFAULT_API_URL, DEFAULT_URL, pidAlive, portOf, prepareServer, readState, resolveApiUrl, resolveUrl, restart, runForeground, runtimeFor, ServerError, stop, unrecordedNote, verifyRecord, writeState } from "./server-ctl";
 import { bigHome, slowServer, tmp } from "../test/serve-fixture";
 
 describe("resolveUrl", () => {
@@ -189,6 +189,32 @@ describe("stop names the process when nothing is recorded", () => {
     } finally {
       if (prev === undefined) delete process.env.BLACKBOARD_URL;
       else process.env.BLACKBOARD_URL = prev;
+    }
+  });
+});
+
+describe("serve start --foreground", () => {
+  test("resolveApiUrl honours --api-port, BLACKBOARD_API_URL, and the default", () => {
+    expect(resolveApiUrl({ env: {} })).toBe(DEFAULT_API_URL);
+    expect(resolveApiUrl({ env: { BLACKBOARD_API_URL: "http://127.0.0.1:4500/" } })).toBe("http://127.0.0.1:4500");
+    expect(resolveApiUrl({ apiPort: 4501, env: { BLACKBOARD_API_URL: "http://127.0.0.1:4500" } })).toBe("http://127.0.0.1:4501");
+  });
+
+  test("foreground refuses when the api port is already listening, naming the port", async () => {
+    const busy = slowServer(0);
+    try {
+      await expect(runForeground(tmp(), { port: 1, apiPort: busy.port })).rejects.toThrow(/already in use|listening|occupied/);
+    } finally {
+      busy.stop(true);
+    }
+  });
+
+  test("foreground refuses when the ui port is already listening", async () => {
+    const busy = slowServer(0);
+    try {
+      await expect(runForeground(tmp(), { port: busy.port, apiPort: 1 })).rejects.toThrow(/already in use|listening|occupied/);
+    } finally {
+      busy.stop(true);
     }
   });
 });

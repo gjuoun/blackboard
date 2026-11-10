@@ -10,6 +10,7 @@ import { workspaceDocs } from "../../lib/reading-workspace";
 import { docKey } from "../../lib/session-model";
 import { realDoc, SCRATCHPAD_ID, SessionsStore, toWire } from "../../lib/sessions";
 import { StreamsStore } from "../../lib/stream-store";
+import { planStreamWindow, windowMeta, parseRange, DEFAULT_VIEWPORT_H } from "../../lib/stream-window";
 import { respond } from "../respond";
 
 /**
@@ -48,7 +49,10 @@ doc.get("/session", (c) =>
       const sessions = yield* SessionsStore;
       const comments = yield* CommentsStore;
       const home = getHome();
-      const id = new URL(c.req.url).searchParams.get("id") ?? "";
+      const url = new URL(c.req.url);
+      const id = url.searchParams.get("id") ?? "";
+      const rangeParam = url.searchParams.get("range");
+      const vhParam = url.searchParams.get("vh");
       if (id === SCRATCHPAD_ID) yield* sessions.scratchpad(home);
       const session = yield* sessions.get(home, id);
       if (!session) return yield* Effect.fail(sessionNotFound(404));
@@ -57,8 +61,25 @@ doc.get("/session", (c) =>
       const key = docKey(session);
       const body = yield* sessions.body(home, session.id);
       // The timeline view renders the exchanges themselves; a file session has none to send.
-      const blocks = session.kind === "stream" ? yield* (yield* StreamsStore).blocks(home, session.id) : undefined;
-      return { session, row: toWire(row), body, blocks, comments: renderComments(file.docs[key] ?? []), reviews: (file.reviews ?? []).filter((r) => r.doc === key) };
+      const all = session.kind === "stream" ? yield* (yield* StreamsStore).blocks(home, session.id) : undefined;
+      if (all) {
+        const range = parseRange(rangeParam, all.length);
+        if (range === "invalid") return yield* Effect.fail(new InvalidInput({ message: "invalid range", status: 400, field: "range" }));
+        const vh = vhParam ? Number(vhParam) : DEFAULT_VIEWPORT_H;
+        const window = planStreamWindow(all, Number.isFinite(vh) && vh > 0 ? vh : DEFAULT_VIEWPORT_H);
+        const blocks = range ? all.slice(range.from, range.to + 1) : all;
+        return {
+          session,
+          row: toWire(row),
+          body,
+          blocks,
+          stream: windowMeta(window, Number.isFinite(vh) ? vh : DEFAULT_VIEWPORT_H),
+          window: { head: window.head, tail: window.tail },
+          comments: renderComments(file.docs[key] ?? []),
+          reviews: (file.reviews ?? []).filter((r) => r.doc === key),
+        };
+      }
+      return { session, row: toWire(row), body, comments: renderComments(file.docs[key] ?? []), reviews: (file.reviews ?? []).filter((r) => r.doc === key) };
     }),
   ),
 );

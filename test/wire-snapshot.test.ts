@@ -184,6 +184,9 @@ describe("the wire the api answers today", () => {
     await record("block.POST.edit", await postBlock({ session: streamSession.id, edit: block.id, body: "hello again", author: "agent" }));
     await record("block.POST.writing", await postBlock({ session: streamSession.id, action: "append", body: "draft", author: "jun", status: "writing" }));
     await record("session.GET.stream", await api(`/api/session?id=${streamSession.id}`));
+    await record("session.GET.stream-range", await api(`/api/session?id=${streamSession.id}&range=0:0`));
+    await record("stream-blocks.GET.ok", await api(`/api/stream-blocks?id=${streamSession.id}&from=0&to=1&vh=900`));
+    await record("stream-blocks.GET.bad-range", await api(`/api/stream-blocks?id=${streamSession.id}&from=2&to=1`));
 
     await record("watch.GET.unknown-session", await api("/api/watch?session=nosuchid"));
     const abort = new AbortController();
