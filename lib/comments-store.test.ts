@@ -1,177 +1,132 @@
 import { describe, expect, test } from "bun:test";
 import { Effect } from "effect";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { addComment, addReply, CommentsStore, deleteComment, deleteReply, editComment, editReply, readComments, reviewRound, setStatus, type CommentFile } from "./comments-store";
+import { CommentsStore } from "./comments-store";
+import { DocumentsRepo } from "./db/repos/documents";
 import { run } from "../test/app";
 
-/** The store mutation as a promise: the tests act on one file the way the CLI does. */
-const mutate = <A>(file: string, change: (f: CommentFile) => A): Promise<A> =>
-  run(
-    Effect.gen(function* () {
-      const store = yield* CommentsStore;
-      return yield* store.mutate(file, change);
-    }),
-  );
-
 const quote = { exact: "The cache is warm.", prefix: "Later text. ", suffix: " End." };
-/** A temp folder; its comment file is <dir>/.blackboard/comments.json and does not exist yet. */
-const fresh = () => realpathSync(mkdtempSync(join(tmpdir(), "bb-store-")));
-const fileIn = (dir: string) => join(dir, ".blackboard", "comments.json");
+/** A temp home; the comment store needs a documents row for its foreign key. */
+const fresh = async () => {
+  const home = realpathSync(mkdtempSync(join(tmpdir(), "bb-store-")));
+  await run(Effect.gen(function* () {
+    const docs = yield* DocumentsRepo;
+    yield* docs.upsert(home, { id: "testsession", path: join(home, "design.md") });
+  }));
+  return { home, sid: "testsession", doc: "design.md" };
+};
+
+const store = <A>(work: (s: CommentsStore["Service"]) => Effect.Effect<A, { message: string }>): Promise<A> =>
+  run(Effect.gen(function* () {
+    const s = yield* CommentsStore;
+    return yield* work(s);
+  }));
 
 describe("review", () => {
-  test("review: verdict is commented only", () => {
-    // The type admits one verdict, so a review object only ever carries "commented".
-    const r: { verdict: "commented" } = { verdict: "commented" };
-    expect(r.verdict).toBe("commented");
-    // @ts-expect-error approve is not a verdict
-    const bad: { verdict: "commented" } = { verdict: "approve" };
-    expect(bad).toBeDefined();
-  });
-
-  test("review: refused while a comment has no agent reply", async () => {
-    const demo = fresh();
-    await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "Why warm?", author: "jun" }));
-    const refusal = await mutate(fileIn(demo), (f) => reviewRound(f, "design.md", { round: 1, body: "done", author: "agent" })).then(() => null, (e: Error) => e.message);
+  test("refused while a comment has no agent reply", async () => {
+    const { home, sid, doc } = await fresh();
+    await store((s) => s.add(home, sid, doc, { quote, body: "Why warm?", author: "jun" }));
+    const refusal = await store((s) => s.review(home, sid, doc, { round: 1, body: "done", author: "agent" })).then(() => null, (e: Error) => e.message);
     expect(refusal).toMatch(/no reply from agent/);
   });
 
-  test("review: round is stored", async () => {
-    const demo = fresh();
-    const c = await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "Why warm?", author: "jun" }));
-    await mutate(fileIn(demo), (f) => addReply(f, "design.md", c.id, { body: "Preloaded.", author: "agent" }));
-    const r = await mutate(fileIn(demo), (f) => reviewRound(f, "design.md", { round: 1, body: "all answered", author: "agent" }));
-    expect(r).toMatchObject({ round: 1, verdict: "commented", body: "all answered", author: "agent" });
-    expect(readComments(fileIn(demo)).reviews?.[0]).toMatchObject({ round: 1, verdict: "commented" });
+  test("round is stored after an agent reply", async () => {
+    const { home, sid, doc } = await fresh();
+    const c = await store((s) => s.add(home, sid, doc, { quote, body: "Why warm?", author: "jun" }));
+    await store((s) => s.reply(home, c.id, doc, { body: "Preloaded.", author: "agent" }));
+    const r = await store((s) => s.review(home, sid, doc, { round: 1, body: "all answered", author: "agent" }));
+    expect(r).toMatchObject({ round: 1, verdict: "commented", body: "all answered", author: "agent", doc });
+    const file = await store((s) => s.read(home, sid));
+    expect(file.reviews?.[0]).toMatchObject({ round: 1, verdict: "commented" });
+  });
+
+  test("a bad round number is refused", async () => {
+    const { home, sid, doc } = await fresh();
+    const e = await store((s) => s.review(home, sid, doc, { round: 0, body: "x", author: "agent" })).then(() => null, (e: Error) => e.message);
+    expect(e).toMatch(/whole number/);
   });
 });
 
-describe("general anchor", () => {
-  test("general: exactly one anchor kind", () => {
-    const f = { version: 1 as const, docs: {} };
-    // neither kind
-    expect(() => addComment(f, "d.md", { body: "x", author: "jun" } as never)).toThrow(/exactly one anchor/);
-    // two kinds at once
-    expect(() => addComment(f, "d.md", { quote, general: true, body: "x", author: "jun" } as never)).toThrow(/exactly one anchor/);
-    const c = addComment(f, "d.md", { general: true, body: "independent", author: "jun" } as never);
-    expect(c).toMatchObject({ general: true, body: "independent" });
-    expect(c.quote).toBeUndefined();
+describe("comments through the store", () => {
+  test("reads as empty when there are no comments yet", async () => {
+    const { home, sid } = await fresh();
+    expect(await store((s) => s.read(home, sid))).toEqual({ version: 1, docs: {} });
   });
 
-  test("general: quote comments still read", () => {
-    const f = { version: 1 as const, docs: { "d.md": [{ id: "c1", quote, body: "old", author: "jun", createdAt: "t", status: "open" as const, replies: [] }] } };
-    expect(f.docs["d.md"][0].quote).toEqual(quote);
-    expect(f.docs["d.md"][0]).not.toHaveProperty("general");
-  });
-});
-
-describe("comment file", () => {
-  test("reads as empty when there are no comments yet", () => {
-    const demo = fresh();
-    expect(readComments(fileIn(demo))).toEqual({ version: 1, docs: {} });
-    expect(existsSync(join(demo, ".blackboard"))).toBe(false);
-  });
-
-  test("round-trips a comment, a reply and a resolve through the file on disk", async () => {
-    const demo = fresh();
-    const c = await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "Why warm?", author: "jun" }));
-    await mutate(fileIn(demo), (f) => addReply(f, "design.md", c.id, { body: "Preloaded at boot.", author: "agent" }));
-    await mutate(fileIn(demo), (f) => setStatus(f, "design.md", c.id, "resolved", "jun"));
-
-    const onDisk = JSON.parse(readFileSync(join(demo, ".blackboard", "comments.json"), "utf8"));
-    const stored = onDisk.docs["design.md"][0];
+  test("round-trips a comment, a reply and a resolve", async () => {
+    const { home, sid, doc } = await fresh();
+    const c = await store((s) => s.add(home, sid, doc, { quote, body: "Why warm?", author: "jun" }));
+    await store((s) => s.reply(home, c.id, doc, { body: "Preloaded at boot.", author: "agent" }));
+    await store((s) => s.setStatus(home, c.id, doc, "resolved", "jun"));
+    const stored = (await store((s) => s.read(home, sid))).docs[doc][0];
     expect(stored.quote).toEqual(quote);
-    expect(stored.body).toBe("Why warm?");
     expect(stored.status).toBe("resolved");
     expect(stored.resolvedBy).toBe("jun");
-    expect(stored.replies.map((r: { body: string }) => r.body)).toEqual(["Preloaded at boot."]);
-
-    await mutate(fileIn(demo), (f) => setStatus(f, "design.md", c.id, "open", "jun"));
-    const reopened = readComments(fileIn(demo)).docs["design.md"][0];
+    expect(stored.replies.map((r) => r.body)).toEqual(["Preloaded at boot."]);
+    await store((s) => s.setStatus(home, c.id, doc, "open", "jun"));
+    const reopened = (await store((s) => s.read(home, sid))).docs[doc][0];
     expect(reopened).toMatchObject({ status: "open", reopenedBy: "jun" });
     expect(reopened.resolvedAt).toBeUndefined();
   });
 
-  test("two concurrent mutations both land", async () => {
-    const demo = fresh();
+  test("two concurrent adds both land", async () => {
+    const { home, sid, doc } = await fresh();
     await Promise.all([
-      mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "one", author: "jun" })),
-      mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "two", author: "jun" })),
+      store((s) => s.add(home, sid, doc, { quote, body: "one", author: "jun" })),
+      store((s) => s.add(home, sid, doc, { quote, body: "two", author: "jun" })),
     ]);
-    expect(readComments(fileIn(demo)).docs["design.md"].map((c) => c.body).sort()).toEqual(["one", "two"]);
-  });
-
-  test("six processes adding at once all land", async () => {
-    const demo = fresh();
-    const child = new URL("../test/fixtures/test-mutator.ts", import.meta.url).pathname;
-    const procs = Array.from({ length: 6 }, (_, p) => Bun.spawn(["bun", child, fileIn(demo), "15", `p${p}`], { stderr: "pipe" }));
-    const codes = await Promise.all(procs.map((p) => p.exited));
-    expect(codes).toEqual([0, 0, 0, 0, 0, 0]);
-    expect(readComments(fileIn(demo)).docs["design.md"].length).toBe(90);
-  }, 20_000);
-
-  test("leaves no temp files behind", async () => {
-    const demo = fresh();
-    await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "x", author: "jun" }));
-    expect(readdirSync(join(demo, ".blackboard"))).toEqual(["comments.json"]);
-  });
-
-  test("refuses to overwrite a file it cannot parse", async () => {
-    const demo = fresh();
-    mkdirSync(join(demo, ".blackboard"));
-    writeFileSync(join(demo, ".blackboard", "comments.json"), "{ half written");
-    await expect(mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "x", author: "jun" }))).rejects.toThrow();
-    expect(readFileSync(join(demo, ".blackboard", "comments.json"), "utf8")).toBe("{ half written");
+    const list = (await store((s) => s.read(home, sid))).docs[doc];
+    expect(list.map((c) => c.body).sort()).toEqual(["one", "two"]);
   });
 
   test("errors on an unknown comment id instead of creating one", async () => {
-    const demo = fresh();
-    await expect(mutate(fileIn(demo), (f) => addReply(f, "design.md", "c_missing", { body: "x", author: "jun" }))).rejects.toThrow(/not found/);
+    const { home, doc } = await fresh();
+    await expect(store((s) => s.reply(home, "c_missing", doc, { body: "x", author: "jun" }))).rejects.toThrow(/not found/);
   });
 
   test("edits a comment and a reply, stamping editedAt", async () => {
-    const demo = fresh();
-    const c = await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "typo", author: "jun" }));
-    const withReply = await mutate(fileIn(demo), (f) => addReply(f, "design.md", c.id, { body: "re typo", author: "jun" }));
-    await mutate(fileIn(demo), (f) => editComment(f, "design.md", c.id, "fixed"));
-    await mutate(fileIn(demo), (f) => editReply(f, "design.md", c.id, withReply.replies[0].id, "re fixed"));
-    const stored = readComments(fileIn(demo)).docs["design.md"][0];
+    const { home, sid, doc } = await fresh();
+    const c = await store((s) => s.add(home, sid, doc, { quote, body: "typo", author: "jun" }));
+    const withReply = await store((s) => s.reply(home, c.id, doc, { body: "re typo", author: "jun" }));
+    await store((s) => s.edit(home, c.id, doc, "fixed"));
+    await store((s) => s.editReply(home, c.id, withReply.replies[0].id, doc, "re fixed"));
+    const stored = (await store((s) => s.read(home, sid))).docs[doc][0];
     expect(stored.body).toBe("fixed");
     expect(stored.editedAt).toBeString();
     expect(stored.replies[0].body).toBe("re fixed");
     expect(stored.replies[0].editedAt).toBeString();
   });
 
-  test("deletes a reply, then the comment, and drops the empty doc key", async () => {
-    const demo = fresh();
-    const c = await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "gone soon", author: "jun" }));
-    const keep = await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "stays", author: "jun" }));
-    const r = await mutate(fileIn(demo), (f) => addReply(f, "design.md", c.id, { body: "r", author: "jun" }));
-    await mutate(fileIn(demo), (f) => deleteReply(f, "design.md", c.id, r.replies[0].id));
-    expect(readComments(fileIn(demo)).docs["design.md"].find((x) => x.id === c.id)?.replies).toEqual([]);
-    await mutate(fileIn(demo), (f) => deleteComment(f, "design.md", c.id));
-    expect(readComments(fileIn(demo)).docs["design.md"].map((x) => x.id)).toEqual([keep.id]);
-    await mutate(fileIn(demo), (f) => deleteComment(f, "design.md", keep.id));
-    expect(readComments(fileIn(demo)).docs).toEqual({});
+  test("deletes a reply, then the comment", async () => {
+    const { home, sid, doc } = await fresh();
+    const c = await store((s) => s.add(home, sid, doc, { quote, body: "gone soon", author: "jun" }));
+    const keep = await store((s) => s.add(home, sid, doc, { quote, body: "stays", author: "jun" }));
+    const r = await store((s) => s.reply(home, c.id, doc, { body: "r", author: "jun" }));
+    await store((s) => s.deleteReply(home, c.id, r.replies[0].id, doc));
+    expect((await store((s) => s.read(home, sid))).docs[doc].find((x) => x.id === c.id)?.replies).toEqual([]);
+    await store((s) => s.remove(home, c.id, doc));
+    expect((await store((s) => s.read(home, sid))).docs[doc].map((x) => x.id)).toEqual([keep.id]);
+    await store((s) => s.remove(home, keep.id, doc));
+    expect((await store((s) => s.read(home, sid))).docs).toEqual({});
   });
 
-  test("a comment without an anchor is refused by the store", async () => {
-    const demo = fresh();
-    await expect(
-      mutate(fileIn(demo), (f) => addComment(f, "design.md", { body: "no anchor", author: "jun" } as Parameters<typeof addComment>[2])),
-    ).rejects.toThrow(/exactly one anchor/);
+  test("reply to a reply id lands on the parent thread", async () => {
+    const { home, sid, doc } = await fresh();
+    const c = await store((s) => s.add(home, sid, doc, { quote, body: "x", author: "jun" }));
+    const first = await store((s) => s.reply(home, c.id, doc, { body: "one", author: "a" }));
+    const joined = await store((s) => s.reply(home, c.id, doc, { body: "two", author: "b", joinReplyId: first.replies[0].id }));
+    expect(joined.replies).toHaveLength(2);
+    await expect(store((s) => s.reply(home, c.id, doc, { body: "bad", author: "a", joinReplyId: "r_missing" }))).rejects.toThrow(/not found/);
   });
 
-  test("errors on an unknown reply id", async () => {
-    const demo = fresh();
-    const c = await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "x", author: "jun" }));
-    await expect(mutate(fileIn(demo), (f) => editReply(f, "design.md", c.id, "r_missing", "y"))).rejects.toThrow(/not found/);
-  });
-
-  test("creates the comment file's folder on the first write", async () => {
-    const demo = fresh();
-    await mutate(fileIn(demo), (f) => addComment(f, "design.md", { quote, body: "x", author: "jun" }));
-    expect(existsSync(fileIn(demo))).toBe(true);
+  test("open count tracks status changes", async () => {
+    const { home, sid, doc } = await fresh();
+    const c = await store((s) => s.add(home, sid, doc, { general: true, body: "x", author: "jun" }));
+    await store((s) => s.add(home, sid, doc, { general: true, body: "y", author: "jun" }));
+    expect(await store((s) => s.countOpen(home, sid))).toBe(2);
+    await store((s) => s.setStatus(home, c.id, doc, "resolved", "jun"));
+    expect(await store((s) => s.countOpen(home, sid))).toBe(1);
   });
 });

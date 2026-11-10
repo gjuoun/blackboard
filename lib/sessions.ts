@@ -1,22 +1,19 @@
 import { createHash } from "node:crypto";
-import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { Context, Effect, Layer } from "effect";
 import { CommentsStore } from "./comments-store";
+import { DocumentsRepo, type DocRow } from "./db/repos/documents";
 import { docMeta, type DocMeta } from "./doc-meta";
 import { CODE_EXTENSIONS, CODE_MAX_BYTES, extOf, servableExtension } from "./doc-type";
 import { errorMessage, IoFailure, type LockTimeout } from "./effect/errors";
 import { expandHome } from "./home";
-import { Lock } from "./lock";
 
 /**
- * A session is one markdown file, anywhere on disk, that someone opened for review.
- * The registry is <home>/sessions.json — plain JSON, so an agent can read it from disk.
- */
-/**
- * A session is one registered file. `kind` is a legacy field: a registry from the streaming era
- * carries `"stream"` on `.jsonl` sessions, and such a session is kept on read but never openable.
- * Sessions written now carry no kind.
+ * A session is one markdown file, anywhere on disk, that someone opened for review. Since the
+ * data-layer round the registry lives in `blackboard.db`'s `documents` table; `sessions.json`
+ * is only migration input now. `kind` is a legacy field: a pre-migration registry could carry
+ * `"stream"` on `.jsonl` sessions, and such a row is kept on read but never openable.
  */
 export type Session = { id: string; path: string; createdAt: string; openedAt: string; kind?: string };
 export type Registry = { version: 1; sessions: Session[] };
@@ -26,24 +23,15 @@ const ID = /^[a-z0-9]{1,32}$/;
 
 export class SessionError extends Error {}
 
-const now = () => new Date().toISOString();
 const failure = (error: unknown) => new IoFailure({ message: errorMessage(error), status: 500 });
-const registryPath = (home: string) => join(home, "sessions.json");
 
-/** The registry as JSON; a file that does not parse is an error, never silently replaced. */
+/** sessions.json as a value — kept for the migration's registry source; a file that does not parse is an error. */
 export function readRegistry(home: string): Registry {
-  const p = registryPath(home);
+  const p = join(home, "sessions.json");
   if (!existsSync(p)) return { version: 1, sessions: [] };
   const data = JSON.parse(readFileSync(p, "utf8"));
   if (data?.version !== 1 || !Array.isArray(data.sessions)) throw new SessionError(`unsupported session registry: ${p}`);
   return data as Registry;
-}
-
-function writeAtomic(p: string, data: Registry) {
-  mkdirSync(dirname(p), { recursive: true });
-  const tmp = `${p}.${process.pid}.${Date.now()}.tmp`;
-  writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n");
-  renameSync(tmp, p);
 }
 
 type Checked = { ok: true; path: string } | { ok: false; error: SessionError };
@@ -89,19 +77,6 @@ export function servablePath(s: Session): string | null {
 /** Stable per file: opening the same file again finds the same session. */
 export const sessionId = (realPath: string) => createHash("sha1").update(realPath).digest("hex").slice(0, 10);
 
-function upsert(reg: Registry, id: string, path: string): Session {
-  const t = now();
-  const found = reg.sessions.find((s) => s.id === id);
-  if (found) {
-    found.path = path;
-    found.openedAt = t;
-    return { ...found };
-  }
-  const s: Session = { id, path, createdAt: t, openedAt: t };
-  reg.sessions.push(s);
-  return { ...s };
-}
-
 /** One line of the session list: the registry entry plus what the file says about itself. */
 export type SessionRow = Session &
   Pick<DocMeta, "title" | "repo" | "branch" | "detached" | "worktree" | "project" | "missing" | "stats"> & {
@@ -119,15 +94,23 @@ export function tildify(p: string): string {
 }
 
 /**
- * Where a session comments live: <home>/sessions/<id>/comments.json, outside the doc repo.
- * The file docs map has one key, the doc file name.
+ * Where a session's comment file would live: <home>/sessions/<id>/comments.json. Post-migration
+ * the folder only matters to the JSON sources and to docMeta's updatedAt blend; it is not read.
  */
 export function sessionCommentsPath(home: string, id: string): string {
   if (!ID.test(id)) throw new SessionError(`bad session id "${id}"`);
   return join(home, "sessions", id, "comments.json");
 }
 
-/** The session registry, under the same cross-process lock the comment files use. */
+const toSession = (row: DocRow): Session => ({
+  id: row.id,
+  path: row.path ?? "",
+  createdAt: row.createdAt,
+  openedAt: row.openedAt,
+  ...(row.kind ? { kind: row.kind } : {}),
+});
+
+/** The session registry, backed by the documents table. */
 export class SessionsStore extends Context.Service<
   SessionsStore,
   {
@@ -145,38 +128,21 @@ export class SessionsStore extends Context.Service<
 export const layer = Layer.effect(
   SessionsStore,
   Effect.gen(function* () {
-    const lock = yield* Lock;
+    const docs = yield* DocumentsRepo;
     const comments = yield* CommentsStore;
 
-    const read = (home: string) => Effect.try({ try: () => readRegistry(home), catch: failure });
-    const update = <A>(home: string, change: (reg: Registry) => A): Effect.Effect<A, IoFailure | LockTimeout> =>
-      Effect.gen(function* () {
-        yield* Effect.sync(() => mkdirSync(home, { recursive: true }));
-        return yield* lock.withLock(
-          registryPath(home),
-          Effect.try({
-            try: () => {
-              const reg = readRegistry(home);
-              const out = change(reg);
-              writeAtomic(registryPath(home), reg);
-              return out;
-            },
-            catch: failure,
-          }),
-        );
-      });
-
-    const list = (home: string) => read(home).pipe(Effect.map((reg) => reg.sessions));
+    const list = (home: string) => docs.list(home).pipe(Effect.map((rows) => rows.map(toSession)), Effect.mapError(failure));
     const get = (home: string, id: string) =>
-      Effect.suspend(() => (ID.test(id) ? list(home).pipe(Effect.map((all) => all.find((s) => s.id === id) ?? null)) : Effect.succeed(null)));
+      Effect.suspend(() =>
+        ID.test(id)
+          ? docs.get(home, id).pipe(Effect.map((row) => (row ? toSession(row) : null)), Effect.mapError(failure))
+          : Effect.succeed(null),
+      );
 
     const row = (home: string, s: Session): Effect.Effect<SessionRow, IoFailure> =>
       Effect.gen(function* () {
         const commentsFile = sessionCommentsPath(home, s.id);
-        const open = yield* comments.read(commentsFile).pipe(
-          Effect.map((file) => Object.values(file.docs).flat().filter((c) => c.status === "open").length),
-          Effect.catch(() => Effect.succeed(0)),
-        );
+        const open = yield* comments.countOpen(home, s.id).pipe(Effect.catch(() => Effect.succeed(0)));
         const m = yield* Effect.try({ try: () => docMeta(s.path, commentsFile), catch: failure });
         return {
           ...s,
@@ -200,14 +166,15 @@ export const layer = Layer.effect(
       row,
       open: (home, file, cwd = process.cwd()) =>
         Effect.flatMap(Effect.try({ try: () => realDoc(file, cwd), catch: failure }), (real) =>
-          update(home, (reg) => upsert(reg, sessionId(real), real)),
+          docs.upsert(home, { id: sessionId(real), path: real }).pipe(Effect.map(toSession), Effect.mapError(failure)),
         ),
       close: (home, id) =>
-        update(home, (reg) => {
-          const i = reg.sessions.findIndex((s) => s.id === id);
-          if (i < 0) throw new SessionError(`no session ${id}`);
-          return reg.sessions.splice(i, 1)[0];
-        }),
+        docs.remove(home, id).pipe(
+          Effect.flatMap((row) =>
+            row ? Effect.succeed(toSession(row)) : Effect.fail(new IoFailure({ message: `no session ${id}`, status: 500 })),
+          ),
+          Effect.mapError((e) => (e instanceof IoFailure ? e : failure(e))),
+        ),
       resolve: (home, idOrPath, cwd = process.cwd()) =>
         Effect.gen(function* () {
           const byId = yield* get(home, idOrPath);
@@ -230,7 +197,7 @@ export const layer = Layer.effect(
           );
           const existing = yield* get(home, SCRATCHPAD_ID);
           if (existing) return existing;
-          return yield* update(home, (reg) => upsert(reg, SCRATCHPAD_ID, realpathSync(file)));
+          return yield* docs.upsert(home, { id: SCRATCHPAD_ID, path: realpathSync(file) }).pipe(Effect.map(toSession), Effect.mapError(failure));
         }),
       rows: (home) =>
         Effect.gen(function* () {

@@ -22,7 +22,8 @@ const DDL: string[] = [
     path TEXT,
     created_at TEXT NOT NULL,
     opened_at TEXT NOT NULL,
-    kind TEXT
+    kind TEXT,
+    closed_at TEXT
   )`,
   `CREATE TABLE IF NOT EXISTS blocks (
     id TEXT PRIMARY KEY,
@@ -113,6 +114,9 @@ const open = (home: string): Effect.Effect<Conn, DbFailure> =>
       raw.run("PRAGMA foreign_keys=ON");
       raw.run("PRAGMA busy_timeout=5000");
       for (const stmt of DDL) raw.exec(stmt);
+      // A database created before closed_at existed converges here; a fresh one skips it.
+      const hasClosed = raw.query("SELECT name FROM pragma_table_info('documents') WHERE name='closed_at'").get() !== null;
+      if (!hasClosed) raw.exec("ALTER TABLE documents ADD COLUMN closed_at TEXT");
       return { orm: drizzle(raw), raw };
     },
     catch: (error) => new DbFailure({ message: `cannot open blackboard.db: ${errorMessage(error)}`, status: 500 }),

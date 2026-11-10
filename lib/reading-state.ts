@@ -1,18 +1,19 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { Context, Effect, Layer, Semaphore } from "effect";
-import { errorMessage, IoFailure, type LockTimeout } from "./effect/errors";
-import { Lock } from "./lock";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { Context, Effect, Layer } from "effect";
+import { ReadingStateRepo, type ReadingStateRow } from "./db/repos/reading-state";
+import type { DbFailure } from "./effect/errors";
 import { clampProgress, isReadingStatus, type ReadingEntry } from "./reading-model";
 
 /**
- * Reading state is `~/.blackboard/reading-state.json`: one record per session id, next to the
- * session registry, so it survives a server restart without touching `sessions.json`'s schema.
- * Plain JSON on purpose: a person or an agent can read it from disk.
+ * Reading state lived in `~/.blackboard/reading-state.json`; since the data-layer round it is the
+ * `reading_state` table, one row per document id. The JSON file is only migration input. The
+ * `ReadingFile`/`ReadingEntry` shapes stay — `effectiveEntry` and the workspace model consume
+ * them unchanged.
  */
 export type ReadingFile = { version: 1; docs: Record<string, ReadingEntry> };
 
-/** `<home>/reading-state.json`. */
+/** `<home>/reading-state.json` — the migration source only. */
 export const readingStatePath = (home: string) => join(home, "reading-state.json");
 
 const isTime = (v: unknown): v is string => typeof v === "string" && Number.isFinite(Date.parse(v));
@@ -30,7 +31,7 @@ function entryOf(v: unknown): ReadingEntry | null {
   };
 }
 
-/** The state file as a value; a missing file is empty, a file that does not parse is an error. */
+/** The state file as a value — migration source; a missing file is empty, a file that does not parse is an error. */
 export function readReadingState(p: string): ReadingFile {
   if (!existsSync(p)) return { version: 1, docs: {} };
   const data = JSON.parse(readFileSync(p, "utf8"));
@@ -43,48 +44,46 @@ export function readReadingState(p: string): ReadingFile {
   return { version: 1, docs };
 }
 
-function writeAtomic(p: string, data: ReadingFile) {
-  mkdirSync(dirname(p), { recursive: true });
-  const tmp = `${p}.${process.pid}.${Date.now()}.tmp`;
-  writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n");
-  renameSync(tmp, p);
-}
+const toRow = (documentId: string, e: ReadingEntry): ReadingStateRow => ({
+  documentId,
+  status: e.status,
+  progress: e.progress,
+  readAt: e.readAt,
+  sourceMtime: e.sourceMtime,
+});
 
-const failure = (error: unknown) => new IoFailure({ message: errorMessage(error), status: 500 });
+const toEntry = (r: ReadingStateRow): ReadingEntry => ({
+  status: r.status,
+  progress: r.progress,
+  readAt: r.readAt,
+  sourceMtime: r.sourceMtime,
+});
 
-/**
- * The reading state store: read, change and write the one state file. Same discipline as the
- * comment file store — an in-process semaphore plus the cross-process file lock hold the whole
- * read-change-write, because `node:fs` sync calls yield nothing between the read and the write.
- */
+/** The reading state store, backed by the reading_state table. */
 export class ReadingStateStore extends Context.Service<
   ReadingStateStore,
   {
-    read(home: string): Effect.Effect<ReadingFile, IoFailure>;
-    mutate<A>(home: string, change: (file: ReadingFile) => A): Effect.Effect<A, IoFailure | LockTimeout>;
+    /** Every stored entry as a ReadingFile-shaped map. */
+    read(home: string): Effect.Effect<ReadingFile, DbFailure>;
+    /** Upsert one document's entry. */
+    set(home: string, documentId: string, entry: ReadingEntry): Effect.Effect<void, DbFailure>;
   }
 >()("blackboard/ReadingStateStore") {}
 
 export const layer = Layer.effect(
   ReadingStateStore,
   Effect.gen(function* () {
-    const lock = yield* Lock;
-    const gate = yield* Semaphore.make(1);
-    const read = (home: string) => Effect.try({ try: () => readReadingState(readingStatePath(home)), catch: failure });
-    const mutate = <A>(home: string, change: (file: ReadingFile) => A): Effect.Effect<A, IoFailure | LockTimeout> => {
-      const path = readingStatePath(home);
-      return gate.withPermits(1)(
-        lock.withLock(
-          path,
-          Effect.gen(function* () {
-            const current = yield* read(home);
-            const result = yield* Effect.try({ try: () => change(current), catch: failure });
-            yield* Effect.try({ try: () => writeAtomic(path, current), catch: failure });
-            return result;
+    const repo = yield* ReadingStateRepo;
+    return ReadingStateStore.of({
+      read: (home) =>
+        repo.list(home).pipe(
+          Effect.map((rows) => {
+            const docs: Record<string, ReadingEntry> = {};
+            for (const r of rows) docs[r.documentId] = toEntry(r);
+            return { version: 1 as const, docs };
           }),
         ),
-      );
-    };
-    return ReadingStateStore.of({ read, mutate });
+      set: (home, documentId, entry) => repo.set(home, toRow(documentId, entry)).pipe(Effect.asVoid),
+    });
   }),
 );

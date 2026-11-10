@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { NextRequest } from "next/server";
 import { run } from "../../../test/app";
 import { open } from "@/lib/cli/sessions";
-import { readReadingState, readingStatePath } from "@/lib/reading-state";
+import { ReadingStateStore } from "@/lib/reading-state";
 import { POST } from "./route";
 
 /** A temp home with two documents, the same fixture the other route tests build. */
@@ -40,7 +40,10 @@ const send = (payload: unknown) =>
     }),
   );
 
-const stored = (home: string) => readReadingState(readingStatePath(home)).docs;
+const stored = async (home: string) => (await run(Effect.gen(function* () {
+  const s = yield* ReadingStateStore;
+  return yield* s.read(home);
+}))).docs;
 
 describe("POST /api/reading", () => {
   test("marks one document read and persists the position it had", async () => {
@@ -49,8 +52,8 @@ describe("POST /api/reading", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ docs: { [designId]: { status: "read", progress: 0 } } });
     // The file on disk is what a restarted server reads back.
-    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 0 });
-    expect(stored(home)[designId].sourceMtime).toBeGreaterThan(0);
+    expect((await stored(home))[designId]).toMatchObject({ status: "read", progress: 0 });
+    expect((await stored(home))[designId].sourceMtime).toBeGreaterThan(0);
   });
 
   test("marks a document unread and clears its progress", async () => {
@@ -59,7 +62,7 @@ describe("POST /api/reading", () => {
     const res = await send({ session: designId, action: "unread" });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ docs: { [designId]: { status: "unread", progress: 0 } } });
-    expect(stored(home)[designId]).toMatchObject({ status: "unread", progress: 0 });
+    expect((await stored(home))[designId]).toMatchObject({ status: "unread", progress: 0 });
   });
 
   test("records a position as reading — even the bottom never marks it read", async () => {
@@ -67,11 +70,11 @@ describe("POST /api/reading", () => {
     const mid = await send({ session: designId, action: "progress", progress: 0.42 });
     expect(mid.status).toBe(200);
     expect(await mid.json()).toEqual({ docs: { [designId]: { status: "reading", progress: 0.42 } } });
-    expect(stored(home)[designId]).toMatchObject({ status: "reading", progress: 0.42 });
+    expect((await stored(home))[designId]).toMatchObject({ status: "reading", progress: 0.42 });
 
     const end = await send({ session: designId, action: "progress", progress: 0.98 });
     expect(await end.json()).toEqual({ docs: { [designId]: { status: "reading", progress: 0.98 } } });
-    expect(stored(home)[designId]).toMatchObject({ status: "reading", progress: 0.98 });
+    expect((await stored(home))[designId]).toMatchObject({ status: "reading", progress: 0.98 });
   });
 
   test("scrolling a read document updates only its position", async () => {
@@ -79,7 +82,7 @@ describe("POST /api/reading", () => {
     await send({ session: designId, action: "read" });
     const res = await send({ session: designId, action: "progress", progress: 0.3 });
     expect(await res.json()).toEqual({ docs: { [designId]: { status: "read", progress: 0.3 } } });
-    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 0.3 });
+    expect((await stored(home))[designId]).toMatchObject({ status: "read", progress: 0.3 });
   });
 
   test("marking read after scrolling keeps the position — never jumps to the end", async () => {
@@ -87,7 +90,7 @@ describe("POST /api/reading", () => {
     await send({ session: designId, action: "progress", progress: 0.42 });
     const res = await send({ session: designId, action: "read" });
     expect(await res.json()).toEqual({ docs: { [designId]: { status: "read", progress: 0.42 } } });
-    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 0.42 });
+    expect((await stored(home))[designId]).toMatchObject({ status: "read", progress: 0.42 });
   });
 
   test("read-all marks every document read without touching positions", async () => {
@@ -99,8 +102,8 @@ describe("POST /api/reading", () => {
     // The scrolled doc keeps its position; the never-opened one stays at 0.
     expect(docs[designId]).toEqual({ status: "read", progress: 0.5 });
     expect(docs[notesId]).toEqual({ status: "read", progress: 0 });
-    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 0.5 });
-    expect(stored(home)[notesId]).toMatchObject({ status: "read", progress: 0 });
+    expect((await stored(home))[designId]).toMatchObject({ status: "read", progress: 0.5 });
+    expect((await stored(home))[notesId]).toMatchObject({ status: "read", progress: 0 });
   });
 
   test("an unknown session is refused with a plain message", async () => {

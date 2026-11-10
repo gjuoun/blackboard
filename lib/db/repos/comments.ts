@@ -21,6 +21,8 @@ export class CommentsRepo extends Context.Service<
     setStatus(home: string, id: string, status: "open" | "resolved", by: string): Effect.Effect<CommentRow | null, DbFailure>;
     addReply(home: string, id: string, reply: { id: string; body: string; author: string }): Effect.Effect<CommentRow | null, DbFailure>;
     update(home: string, id: string, body: string): Effect.Effect<CommentRow | null, DbFailure>;
+    /** Whole-row rewrite for changes that are not a body edit: replies, status fields. */
+    updateRow(home: string, row: CommentRow): Effect.Effect<CommentRow | null, DbFailure>;
     remove(home: string, id: string): Effect.Effect<CommentRow | null, DbFailure>;
     addReview(home: string, review: ReviewRow): Effect.Effect<ReviewRow, DbFailure>;
     listReviews(home: string, documentId: string): Effect.Effect<ReviewRow[], DbFailure>;
@@ -67,6 +69,13 @@ export const layer = Layer.effect(
           if (!c) return null;
           d.update(comments).set({ body, editedAt: now() }).where(eq(comments.id, id)).run();
           return { ...c, body, editedAt: now() };
+        }),
+      updateRow: (home, row) =>
+        db.use(home, (d) => {
+          const found = d.select().from(comments).where(eq(comments.id, row.id)).get() ?? null;
+          if (!found) return null;
+          d.update(comments).set(row).where(eq(comments.id, row.id)).run();
+          return row;
         }),
       remove: (home, id) =>
         db.use(home, (d) => {

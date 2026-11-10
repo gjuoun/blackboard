@@ -1,8 +1,9 @@
 import { Effect } from "effect";
 import { runtime } from "./effect/runtime";
+import { CommentsStore, type CommentFile } from "./comments-store";
 import { SCRATCHPAD_ID, SessionsStore, type Session, type SessionRow } from "./sessions";
 
-/**: The session and its row, creating the scratchpad on first use; null when the id names no session. */
+/** The session and its row, creating the scratchpad on first use; null when the id names no session. */
 export function loadSession(home: string, id: string): Promise<{ session: Session; row: SessionRow } | null> {
   return runtime.runPromise(
     Effect.gen(function* () {
@@ -15,3 +16,12 @@ export function loadSession(home: string, id: string): Promise<{ session: Sessio
   );
 }
 
+/** The session's comments + reviews file from the store, for the doc page. */
+export function loadComments(home: string, sessionId: string): Promise<CommentFile> {
+  return runtime.runPromise(
+    Effect.gen(function* () {
+      const comments = yield* CommentsStore;
+      return yield* comments.read(home, sessionId);
+    }),
+  );
+}

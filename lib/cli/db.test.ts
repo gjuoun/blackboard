@@ -1,14 +1,28 @@
 import { describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runCli, setup } from "../../test/fixtures/cli";
 
-/** Seed the JSON stores the way `open`/`comment` do, then run db commands against them. */
-const seedJson = (home: string, docs: string) => {
-  mkdirSync(join(home, "sessions"), { recursive: true });
-  const opened = runCli(home, ["open", "--no-browser", "--no-server", "design.md"], docs);
-  const id = opened.out.trim().split(/\s+/)[0];
-  runCli(home, ["comment", "design.md", "--general", "a note"], docs);
+/** Seed the JSON stores the way a pre-migration home looks, then run db commands against them. */
+const seedJson = (home: string, docs: string, design: string) => {
+  const id = createHash("sha1").update(design).digest("hex").slice(0, 10);
+  mkdirSync(join(home, "sessions", id), { recursive: true });
+  writeFileSync(
+    join(home, "sessions.json"),
+    JSON.stringify({ version: 1, sessions: [{ id, path: design, createdAt: "2026-11-10T00:00:00Z", openedAt: "2026-11-10T00:00:00Z" }] }),
+  );
+  writeFileSync(
+    join(home, "sessions", id, "comments.json"),
+    JSON.stringify({
+      version: 1,
+      docs: {
+        "design.md": [
+          { id: "c_aaaaaaaaaaaa", general: true, body: "a note", author: "agent", createdAt: "2026-11-10T00:00:00Z", status: "open", replies: [] },
+        ],
+      },
+    }),
+  );
   writeFileSync(
     join(home, "reading-state.json"),
     JSON.stringify({ version: 1, docs: { [id]: { status: "reading", progress: 0.4, readAt: "2026-11-10T00:00:00Z", sourceMtime: 5 } } }),
@@ -18,8 +32,8 @@ const seedJson = (home: string, docs: string) => {
 
 describe("blackboard db", () => {
   test("stats on a fresh home, migrate --dry-run, migrate, stats again, bogus sub exits 2", () => {
-    const { home, docs } = setup();
-    seedJson(home, docs);
+    const { home, docs, design } = setup();
+    seedJson(home, docs, design);
 
     const empty = runCli(home, ["db", "stats"]);
     expect(empty.code).toBe(0);
@@ -30,7 +44,7 @@ describe("blackboard db", () => {
     expect(dry.out).toContain("would migrate");
     expect(dry.out).toContain("1 documents");
     expect(dry.out).toContain("1 comments");
-    // dry-run touched the JSON stores, not them (blackboard.db exists already — `db stats` opened it)
+    // dry-run touched nothing: the JSON sources stay, the real db gets no rows.
     expect(existsSync(join(home, "sessions.json"))).toBe(true);
     expect(existsSync(join(home, "sessions.json.migrated"))).toBe(false);
 

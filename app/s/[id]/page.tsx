@@ -10,13 +10,13 @@ import { DocView } from "@/components/DocView";
 import { RegisterTab } from "@/components/RegisterTab";
 import { Toc } from "@/components/Toc";
 import { renderComments } from "@/lib/comment-markdown";
-import { readComments } from "@/lib/comments-store";
+
 import { getHome } from "@/lib/home";
 import { renderCode } from "@/lib/code-view";
 import { docType } from "@/lib/doc-type";
 import { renderMarkdown } from "@/lib/markdown";
-import { servablePath, sessionCommentsPath, tildify } from "@/lib/sessions";
-import { loadSession as load } from "@/lib/session-view";
+import { servablePath, tildify } from "@/lib/sessions";
+import { loadComments, loadSession as load } from "@/lib/session-view";
 
 /** The tab title is the doc's own title; the description names the file, never its folder. */
 export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promise<Metadata> {
@@ -118,7 +118,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
     const src = readFileSync(file, "utf8");
     const { html } = await renderCode(src, file);
     // Comments on a source file anchor to its text like a doc's do, so they are read the same way.
-    const codeComments = renderComments(readComments(sessionCommentsPath(home, session.id)).docs[basename(file)] ?? []);
+    const codeComments = renderComments((await loadComments(home, session.id)).docs[basename(file)] ?? []);
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} />
@@ -130,7 +130,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   const src = readFileSync(file, "utf8");
   const { html, toc } = await renderMarkdown(src, { assetBase: `/api/asset/${id}` });
   const doc = basename(file);
-  const commentFile = readComments(sessionCommentsPath(home, session.id));
+  const commentFile = await loadComments(home, session.id);
   const renderedComments = renderComments(commentFile.docs[doc] ?? []);
   const reviews = (commentFile.reviews ?? []).filter((r) => r.doc === doc);
   return (

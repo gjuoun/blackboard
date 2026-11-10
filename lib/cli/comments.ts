@@ -1,6 +1,6 @@
 import { Effect, FileSystem } from "effect";
 import { cliFailure, CliError, docOf, find, threadOf, type DocComment } from "../cli";
-import { addComment, addReply, CommentsStore, reviewRound, setStatus } from "../comments-store";
+import { CommentsStore } from "../comments-store";
 import { renderPlainText } from "../markdown";
 import { selectorFor } from "../selector";
 import { SessionsStore } from "../sessions";
@@ -12,10 +12,9 @@ export function comments(
   cwd = process.cwd(),
 ): Effect.Effect<DocComment[], CliError, SessionsStore | CommentsStore> {
   return Effect.gen(function* () {
-    const { file } = yield* find(home, ref, cwd);
+    const { session } = yield* find(home, ref, cwd);
     const store = yield* CommentsStore;
-    const commentFile = yield* store.read(file).pipe(Effect.mapError((error) => cliFailure(error)));
-    return Object.entries(commentFile.docs).flatMap(([doc, list]) => list.map((c) => ({ ...c, doc })));
+    return yield* store.list(home, session.id).pipe(Effect.mapError((error) => cliFailure(error)));
   });
 }
 
@@ -30,9 +29,9 @@ export function review(
 ): Effect.Effect<{ id: string; doc: string; round: number; verdict: "commented" }, CliError, SessionsStore | CommentsStore> {
   return Effect.gen(function* () {
     if (!body.trim()) return yield* new CliError({ message: "review text is empty", code: 2 });
-    const { file, doc } = yield* find(home, ref, cwd);
+    const { session, doc } = yield* find(home, ref, cwd);
     const store = yield* CommentsStore;
-    return yield* store.mutate(file, (f) => reviewRound(f, doc, { round, body: body.trim(), author })).pipe(
+    return yield* store.review(home, session.id, doc, { round, body: body.trim(), author }).pipe(
       Effect.mapError((error) => cliFailure(error)),
     );
   });
@@ -48,9 +47,9 @@ export function commentGeneral(
 ): Effect.Effect<DocComment, CliError, SessionsStore | CommentsStore> {
   return Effect.gen(function* () {
     if (!note.trim()) return yield* new CliError({ message: "comment text is empty", code: 2 });
-    const { file, doc } = yield* find(home, ref, cwd);
+    const { session, doc } = yield* find(home, ref, cwd);
     const store = yield* CommentsStore;
-    const made = yield* store.mutate(file, (f) => addComment(f, doc, { general: true, body: note.trim(), author })).pipe(
+    const made = yield* store.add(home, session.id, doc, { general: true, body: note.trim(), author }).pipe(
       Effect.mapError((error) => cliFailure(error)),
     );
     return { ...made, doc };
@@ -71,12 +70,12 @@ export function reply(
 ): Effect.Effect<DocComment, CliError, SessionsStore | CommentsStore> {
   return Effect.gen(function* () {
     if (!body.trim()) return yield* new CliError({ message: "reply text is empty", code: 2 });
-    const { file } = yield* find(home, ref, cwd);
+    const { session } = yield* find(home, ref, cwd);
     const store = yield* CommentsStore;
-    const commentFile = yield* store.read(file).pipe(Effect.mapError((error) => cliFailure(error)));
+    const commentFile = yield* store.read(home, session.id).pipe(Effect.mapError((error) => cliFailure(error)));
     const { doc, commentId } = yield* threadOf(commentFile, id);
     const made = yield* store
-      .mutate(file, (f) => addReply(f, doc, commentId, { body: body.trim(), author }))
+      .reply(home, commentId, doc, { body: body.trim(), author })
       .pipe(Effect.mapError((error) => cliFailure(error)));
     return { ...made, doc };
   });
@@ -92,11 +91,11 @@ export function status(
   cwd = process.cwd(),
 ): Effect.Effect<DocComment, CliError, SessionsStore | CommentsStore> {
   return Effect.gen(function* () {
-    const { file } = yield* find(home, ref, cwd);
+    const { session } = yield* find(home, ref, cwd);
     const store = yield* CommentsStore;
-    const commentFile = yield* store.read(file).pipe(Effect.mapError((error) => cliFailure(error)));
+    const commentFile = yield* store.read(home, session.id).pipe(Effect.mapError((error) => cliFailure(error)));
     const doc = yield* docOf(commentFile, id);
-    const made = yield* store.mutate(file, (f) => setStatus(f, doc, id, to, author)).pipe(
+    const made = yield* store.setStatus(home, id, doc, to, author).pipe(
       Effect.mapError((error) => cliFailure(error)),
     );
     return { ...made, doc };
@@ -115,7 +114,7 @@ export function comment(
 ): Effect.Effect<DocComment, CliError, SessionsStore | CommentsStore | FileSystem.FileSystem> {
   return Effect.gen(function* () {
     if (!note.trim()) return yield* new CliError({ message: "comment text is empty", code: 2 });
-    const { session, file, doc } = yield* find(home, ref, cwd);
+    const { session, doc } = yield* find(home, ref, cwd);
     const store = yield* CommentsStore;
     const fs = yield* FileSystem.FileSystem;
     const src = yield* fs.readFileString(session.path).pipe(
@@ -124,7 +123,7 @@ export function comment(
     const text = yield* Effect.tryPromise({ try: () => renderPlainText(src), catch: (error) => cliFailure({ message: String(error) }) });
     const sel = selectorFor(text, quote, occurrence);
     if (!sel.ok) return yield* new CliError({ message: sel.error, code: 1 });
-    const made = yield* store.mutate(file, (f) => addComment(f, doc, { quote: sel.selector, body: note.trim(), author })).pipe(
+    const made = yield* store.add(home, session.id, doc, { quote: sel.selector, body: note.trim(), author }).pipe(
       Effect.mapError((error) => cliFailure(error)),
     );
     return { ...made, doc };

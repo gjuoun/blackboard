@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, FileSystem } from "effect";
@@ -63,7 +62,7 @@ describe("POST /api/bind", () => {
   });
 
   test("a bind stores the record, and binding again replaces it", async () => {
-    const { home, design, session } = await setup();
+    const { design, session } = await setup();
     const res = await bind({ session, piSession: "pi-1", url: "http://127.0.0.1:40000/" });
     expect(res.status).toBe(200);
     const { binding } = await res.json();
@@ -72,15 +71,11 @@ describe("POST /api/bind", () => {
     expect(binding.piSession).toBe("pi-1");
     expect(binding.url).toBe("http://127.0.0.1:40000");
 
-    const file = JSON.parse(readFileSync(join(home, "agents.json"), "utf8"));
-    expect(file.agents).toHaveLength(1);
-    expect(file.agents[0].session).toBe(session);
+    expect((await (await get(session)).json()).binding.piSession).toBe("pi-1");
 
     await bind({ session, piSession: "pi-2", url: "http://localhost:40001" });
-    const again = JSON.parse(readFileSync(join(home, "agents.json"), "utf8"));
-    expect(again.agents).toHaveLength(1);
-    expect(again.agents[0].piSession).toBe("pi-2");
     expect((await get(session)).status).toBe(200);
+    expect((await (await get(session)).json()).binding.piSession).toBe("pi-2");
     expect((await (await get(session)).json()).binding.url).toBe("http://localhost:40001");
   });
 });

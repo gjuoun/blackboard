@@ -105,6 +105,7 @@
     "@effect/platform-node": "4.1.2",
     "drizzle-orm": "^0.45.4",
     "effect": "4.1.2",
+    "hono": "^4.13.17",
     "rehype-highlight": "^7.0.2"
   }
 }
