@@ -2,13 +2,14 @@
  * The tab strip's model, kept pure so it can be tested without a browser. Home is always there
  * and is not stored; every other tab is one session.
  */
+import { isSessionId } from "./session-id";
+
 export type Tab = { id: string; title: string; path?: string };
 
 export const TABS_KEY = "bb-tabs";
 /** Same as the server's SCRATCHPAD_ID; repeated here so the browser bundle needs no server code. */
 export const SCRATCHPAD_TAB = "scratchpad";
 export const MAX_TABS = 20;
-const ID = /^[a-z0-9]{1,32}$/;
 
 /** Add a tab at the end, or update its title/path in place. Same array back when nothing changed. */
 export function openTab(tabs: Tab[], tab: Tab): Tab[] {
@@ -69,7 +70,7 @@ export function parseTabs(raw: string | null): Tab[] {
   for (const v of data) {
     if (!v || typeof v !== "object") continue;
     const { id, title, path } = v as Record<string, unknown>;
-    if (typeof id !== "string" || !ID.test(id) || typeof title !== "string" || out.some((t) => t.id === id)) continue;
+    if (typeof id !== "string" || !isSessionId(id) || typeof title !== "string" || out.some((t) => t.id === id)) continue;
     out.push(typeof path === "string" ? { id, title, path } : { id, title });
   }
   return out.slice(-MAX_TABS);

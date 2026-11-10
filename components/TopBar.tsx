@@ -17,14 +17,12 @@ import {
 import { copyText } from "@/lib/clipboard";
 import { closeTab } from "@/lib/tabs";
 import { cn } from "@/lib/utils";
+import { sessionIdOf } from "@/lib/session-id";
 import { setChrome, togglePanel, useChrome, useIsDesktop } from "./chrome";
 import { ReadingSettings } from "./ReadingSettings";
 import { TabStrip } from "./TabStrip";
 import { WorkspaceBarControls } from "./WorkspaceBarControls";
 import { getTabs, setTabs, useTabs } from "./tabs-store";
-
-/** The session id in the current URL, or null on Home and other pages. */
-export const sessionIdOf = (pathname: string) => /^\/s\/([a-z0-9]{1,32})\/?$/.exec(pathname)?.[1] ?? null;
 
 /**
  * The one bar across the top of every page: Back to list, one tab per opened doc, then (on a doc)
