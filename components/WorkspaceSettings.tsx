@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { LATIN_FONTS } from "@/lib/fonts";
-import { THEMES } from "@/lib/theme";
+import { MODES, THEMES } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { DOC_SIZE_IDS, DOC_SIZE_LABEL } from "@/lib/prefs";
 import { setChrome, useChrome } from "./chrome";
@@ -75,6 +75,10 @@ export function WorkspaceSettings({ repos, version }: { repos: string[]; version
       <Group label="Appearance">
         <Row label="Theme" value={theme.label} onPress={() => toggle("theme")} testid="sg-theme" />
         {open === "theme" ? <Pick options={THEMES.map((t) => ({ id: t.id, label: t.label }))} value={chrome.theme} onPick={(id) => setChrome({ theme: id as typeof chrome.theme })} /> : null}
+        <Row label="Mode" value={chrome.mode === "dark" ? "Dark" : "Light"} onPress={() => toggle("mode")} testid="sg-mode" />
+        {open === "mode" ? (
+          <Pick options={MODES.map((m) => ({ id: m, label: m === "dark" ? "Dark" : "Light" }))} value={chrome.mode} onPick={(id) => setChrome({ mode: id as typeof chrome.mode })} />
+        ) : null}
         <Row label="Font" value={font.label} onPress={() => toggle("font")} testid="sg-font" />
         {open === "font" ? <Pick options={LATIN_FONTS.map((f) => ({ id: f.id, label: f.label }))} value={chrome.fontLatin} onPick={(id) => setChrome({ fontLatin: id as typeof chrome.fontLatin })} /> : null}
         <Row label="Size" value={DOC_SIZE_LABEL[chrome.docSize]} onPress={() => toggle("size")} testid="sg-size" />

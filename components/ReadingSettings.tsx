@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CJK_FONTS, LATIN_FONTS, MONO_FONTS, type FontEntry } from "@/lib/fonts";
-import { THEMES } from "@/lib/theme";
+import { MODES, THEMES } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { resetReading, setChrome, useChrome } from "./chrome";
 
@@ -99,15 +99,14 @@ export function ReadingSettings() {
                   data-testid="theme-card"
                   data-theme-id={t.id}
                   onClick={() => setChrome({ theme: t.id })}
-                  title={t.label + " · " + t.mode}
                   className={cn(
                     "border-border bg-card hover:bg-accent rounded-lg border p-1.5 text-left transition-colors outline-none",
                     "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                     on && "border-primary ring-primary ring-1",
                   )}
                 >
-                  {/* The swatch carries its own data-theme, so it reads that palette's tokens. */}
-                  <span data-theme={t.id} className="bg-background border-border mb-1 flex h-7 items-center gap-1 rounded-md border px-1.5">
+                  {/* The swatch carries its own data-theme + data-mode, so it reads that palette's tokens. */}
+                  <span data-theme={t.id} data-mode={chrome.mode} className="bg-background border-border mb-1 flex h-7 items-center gap-1 rounded-md border px-1.5">
                     <span className="bg-foreground size-1.5 rounded-full" />
                     <span className="bg-primary size-1.5 rounded-full" />
                     <span className="bg-muted-foreground size-1.5 rounded-full opacity-60" />
@@ -116,7 +115,29 @@ export function ReadingSettings() {
                     {t.label}
                     {on ? <Check className="text-primary size-3.5" /> : null}
                   </span>
-                  <span className="text-muted-foreground text-[10.5px]">{t.mode}</span>
+                </button>
+              );
+            })}
+          </div>
+          {/* Light/dark rides its own attribute, so it is one toggle under the family cards. */}
+          <div role="radiogroup" aria-label="Mode" className="mt-1.5 grid grid-cols-2 gap-1.5">
+            {MODES.map((m) => {
+              const on = chrome.mode === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  data-testid="mode-card"
+                  onClick={() => setChrome({ mode: m })}
+                  className={cn(
+                    "border-border bg-card hover:bg-accent rounded-lg border px-1.5 py-1 text-[12px] font-medium transition-colors outline-none",
+                    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                    on && "border-primary text-primary ring-primary ring-1",
+                  )}
+                >
+                  {m === "dark" ? "Dark" : "Light"}
                 </button>
               );
             })}

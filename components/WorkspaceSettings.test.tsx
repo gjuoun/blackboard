@@ -28,8 +28,9 @@ describe("WorkspaceSettings", () => {
 
   test("every row shows its current value on the right", () => {
     const html = render();
-    // Appearance defaults: Warm · Light, Qu Black Sans, Default size.
-    expect(html).toContain("Warm · Light");
+    // Appearance defaults: Warm theme, Light mode, Qu Black Sans, Default size.
+    expect(html).toContain("Warm");
+    expect(html).toContain("Light");
     expect(html).toContain("Qu Black Sans");
     expect(html).toContain("Default");
     // Reading defaults: resume at last position, mark read on open, auto width.
@@ -49,13 +50,14 @@ describe("WorkspaceSettings", () => {
   });
 
   test("stored values ride the row instead of the defaults", () => {
-    chromeState = { ...chromeState, theme: "warm-dark", docSize: "16", resumeOnOpen: false, textWidth: "wide", docRepo: "sites" };
+    chromeState = { ...chromeState, theme: "cold", mode: "dark", docSize: "16", resumeOnOpen: false, textWidth: "wide", docRepo: "sites" };
     const html = render();
-    expect(html).toContain("Warm · Dark");
+    expect(html).toContain("Cold");
+    expect(html).toContain("Dark");
     expect(html).toContain(">16<");
     expect(html).toContain("Top");
     expect(html).toContain("Full width");
     expect(html).toContain("sites");
-    chromeState = { ...chromeState, theme: "warm-light", docSize: "default", resumeOnOpen: true, textWidth: "fit", docRepo: "" };
+    chromeState = { ...chromeState, theme: "warm", mode: "light", docSize: "default", resumeOnOpen: true, textWidth: "fit", docRepo: "" };
   });
 });

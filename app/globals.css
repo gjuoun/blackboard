@@ -1,6 +1,8 @@
 @import "tailwindcss";
-@import "./themes.css";
-@import "./theme/composite.css";
+@import "./themes/warm.css";
+@import "./themes/cold.css";
+@import "./theme/warm.css";
+@import "./theme/cold.css";
 @import "./fonts.css";
 
 @custom-variant dark (&:is(.dark *));

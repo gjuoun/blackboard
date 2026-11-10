@@ -1,0 +1,33 @@
+/*
+ * Blackboard's composite tokens for the warm family: the palette colours the app layers on top of
+ * the shadcn vocabulary in themes/warm.css — soft tints, the code surface, highlight marks, the
+ * custom-highlight API colours and the status hues. One block per mode, and a block declares the
+ * whole set so a mode switch never leaves a stale value behind.
+ */
+:root, [data-theme="warm"][data-mode="light"] {
+  --primary-soft: #f8e6df;
+  --code: #f6f2ed;
+  --mark: #fbe9a6;
+  --mark-line: #d4a72c;
+  --hl: rgba(255, 196, 0, 0.35);
+  --hl-hover: rgba(255, 170, 0, 0.5);
+  --hl-active: rgba(255, 140, 0, 0.55);
+  --warn: #9a6700;
+  --success: #2f7d4f;
+  --success-soft: #ebf7ef;
+  --destructive-soft: #fdecee;
+}
+
+[data-theme="warm"][data-mode="dark"] {
+  --primary-soft: #3a241c;
+  --code: #241f1b;
+  --mark: #4a3a12;
+  --mark-line: #d4a72c;
+  --hl: rgba(224, 128, 90, 0.22);
+  --hl-hover: rgba(224, 128, 90, 0.32);
+  --hl-active: rgba(224, 128, 90, 0.42);
+  --warn: #e3b341;
+  --success: #7bc98a;
+  --success-soft: #14261a;
+  --destructive-soft: #2a1416;
+}
