@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { openTab, removeTab } from "@/lib/tabs";
 import { setChrome } from "./chrome";
-import { sessionIdOf } from "./TopBar";
+import { sessionIdOf } from "@/lib/session-id";
 import { getTabs, setTabs } from "./tabs-store";
 
 /** Rendered by a doc page: opening any /s/<id> (from Home, the CLI or a typed URL) adds its tab and tells the top bar about the doc. */

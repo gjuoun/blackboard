@@ -62,12 +62,12 @@ describe("moveTab", () => {
 
 describe("persistence", () => {
   test("round-trips and drops junk", () => {
-    const tabs = [t("a"), t("b")];
+    const tabs = [t("118d065fcf"), t("s-01M720SVVSKX0H7QGKNFRYC2JD")];
     expect(parseTabs(serializeTabs(tabs))).toEqual(tabs);
     expect(parseTabs(null)).toEqual([]);
     expect(parseTabs("{oops")).toEqual([]);
-    expect(parseTabs(JSON.stringify([{ id: "a", title: "A" }, { id: 3 }, "x", { id: "a", title: "dup" }, { id: "../x", title: "bad" }]))).toEqual([
-      { id: "a", title: "A" },
+    expect(parseTabs(JSON.stringify([{ id: "118d065fcf", title: "A" }, { id: 3 }, "x", { id: "118d065fcf", title: "dup" }, { id: "../x", title: "bad" }, { id: "a", title: "not a session id" }]))).toEqual([
+      { id: "118d065fcf", title: "A" },
     ]);
   });
 

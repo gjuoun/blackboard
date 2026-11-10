@@ -23,7 +23,8 @@ mock.module("./chrome", () => ({
 import { renderToStaticMarkup } from "react-dom/server";
 import { TopBar } from "./TopBar";
 
-const DOC = { id: "doc1", path: "/x.md", readable: true, hasToc: true, open: 2 } as const;
+const DOC = { id: "118d065fcf", path: "/x.md", readable: true, hasToc: true, open: 2 } as const;
+const STREAM_DOC = { ...DOC, id: "s-01M720SVVSKX0H7QGKNFRYC2JD" };
 
 /** Render the bar with one open doc (or none on Home) and return its markup. */
 function render(doc: Record<string, unknown> | null, over: { desktop?: boolean; path?: string } = {}) {
@@ -50,7 +51,7 @@ describe("TopBar doc toggles", () => {
   });
 
   test("a code page keeps comments only, with no timeline icon", () => {
-    const code = render({ ...DOC, id: "code1", readable: true, hasToc: false, open: 0 });
+    const code = render({ ...DOC, id: "22cc33aa00", readable: true, hasToc: false, open: 0 });
     expect(code).toContain('data-testid="toggle-comments"');
     expect(code).not.toContain('data-testid="toggle-toc"');
     expect(code).not.toContain("open-timeline");
@@ -61,6 +62,24 @@ describe("TopBar doc toggles", () => {
     expect(html).not.toContain('data-testid="toggle-comments"');
     expect(html).not.toContain('data-testid="toggle-toc"');
     expect(html).not.toContain("open-timeline");
+  });
+
+  test("a streamed doc page shows the same toggles as a file doc", () => {
+    const html = render({ ...STREAM_DOC, open: 1 });
+    expect(html).toContain('data-testid="toggle-comments"');
+    expect(html).toContain('data-testid="toggle-toc"');
+  });
+
+  test("a streamed doc with one section keeps comments only", () => {
+    const html = render({ ...STREAM_DOC, hasToc: false, open: 0 });
+    expect(html).toContain('data-testid="toggle-comments"');
+    expect(html).not.toContain('data-testid="toggle-toc"');
+  });
+
+  test("a /s/<non-id> path has no doc toggles", () => {
+    const html = render({ ...DOC, id: "118d065fcf" }, { path: "/s/not-a-session" });
+    expect(html).not.toContain('data-testid="toggle-comments"');
+    expect(html).not.toContain('data-testid="toggle-toc"');
   });
 
   test("the inbox merges its controls into the one bar; other pages keep the tab strip", () => {
