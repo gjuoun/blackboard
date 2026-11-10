@@ -18,7 +18,8 @@ type ServerState = { ui: Proc; api: Proc };
 type ServerStatus =
   | { running: false; url: string }
   | { running: true; url: string; managed: true; ui: Proc & { log: string }; api: Proc & { log: string } }
-  | { running: true; url: string; managed: false };
+  | { running: true; url: string; managed: false }
+  | { running: false; url: string; partial: { ui: "up" | "down"; api: "up" | "down"; pids: { ui: number; api: number } } };
 
 export class ServerError extends Error {}
 
@@ -83,6 +84,20 @@ export function pidAlive(pid: number): boolean {
     return true;
   } catch (err) {
     return (err as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+/**
+ * True when something answers HTTP at `url`, whatever the status. The UI process proves it is alive by
+ * answering at all: its pages return 500 when the API it fetches from is down, and that must still read
+ * as "the UI is up" for `status`, or a dead API would hide a live UI.
+ */
+export async function listening(url: string, timeoutMs = 1500): Promise<boolean> {
+  try {
+    await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -190,16 +205,15 @@ function apiEnv(home: string, apiUrl: string): NodeJS.ProcessEnv {
 export async function status(home: string, url = resolveUrl()): Promise<ServerStatus> {
   const st = readState(home);
   if (st) {
-    const uiUp = pidAlive(st.ui.pid) && (await probe(st.ui.url));
+    const uiUp = pidAlive(st.ui.pid) && (await listening(st.ui.url));
     const apiUp = pidAlive(st.api.pid) && (await probe(st.api.url));
     if (uiUp && apiUp) {
       return { running: true, url: st.ui.url, managed: true, ui: { ...st.ui, log: uiLogPath(home) }, api: { ...st.api, log: apiLogPath(home) } };
     }
-    // Half-dead is stale: the pair only counts when both answer.
-    if (!uiUp || !apiUp) {
-      clearState(home);
-      return (await probe(url)) ? { running: true, url, managed: false } : { running: false, url };
-    }
+    // A half-dead pair is not running, but its record is kept: the surviving process is still ours
+    // to stop, and `stop` finds it through the record.
+    if (uiUp || apiUp) return { running: false, url, partial: { ui: uiUp ? "up" : "down", api: apiUp ? "up" : "down", pids: { ui: st.ui.pid, api: st.api.pid } } };
+    clearState(home);
   }
   return (await probe(url)) ? { running: true, url, managed: false } : { running: false, url };
 }
@@ -318,6 +332,10 @@ export async function stop(home: string): Promise<{ stopped: boolean; note?: str
 }
 
 export function formatStatus(s: ServerStatus): string {
+  if (!s.running && "partial" in s) {
+    const p = s.partial;
+    return [`not running (${s.url}): one of the pair has stopped`, `ui: ${p.ui} (pid ${p.pids.ui})`, `api: ${p.api} (pid ${p.pids.api})`, "run: blackboard serve stop, then blackboard serve start"].join("\n");
+  }
   if (!s.running) return `not running (${s.url})`;
   if (!s.managed) return `running at ${s.url} (not started by this command)`;
   return [`running at ${s.url}  pid ${s.ui.pid}  since ${s.ui.startedAt}`, `api: running at ${s.api.url}  pid ${s.api.pid}  since ${s.api.startedAt}`, `log: ${s.ui.log}`, `log: ${s.api.log}`].join("\n");

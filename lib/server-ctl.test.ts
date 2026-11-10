@@ -89,6 +89,23 @@ describe("status with a live server", () => {
       server.stop(true);
     }
   });
+  test("a pair with one process gone reads as partial and keeps its record, so stop can still reach the survivor", async () => {
+    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => Response.json({ app: "blackboard", version: "x" }) });
+    const url = `http://127.0.0.1:${server.port}`;
+    try {
+      const home = tmp();
+      const alive = { pid: process.pid, url, startedAt: "2026-01-01T00:00:00.000Z" };
+      const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+      writeState(home, { ui: alive, api: dead });
+      const s = await status(home, "http://127.0.0.1:1");
+      expect(s.running).toBe(false);
+      expect(formatStatus(s)).toContain("one of the pair has stopped");
+      expect(formatStatus(s)).toContain("api: down");
+      expect(readState(home)).not.toBeNull();
+    } finally {
+      server.stop(true);
+    }
+  });
   test("nothing listening reads as not running", async () => {
     const s = await status(tmp(), "http://127.0.0.1:1");
     expect(s.running).toBe(false);

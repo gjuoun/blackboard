@@ -16,7 +16,7 @@ cpSync(".next/static", "server/.next/static", { recursive: true });
 if (existsSync("public")) cpSync("public", "server/public", { recursive: true });
 // The standalone trace copies the project root, including the previous server/ and the source
 // trees. Strip that so the npm pack ships only what the server runs.
-for (const junk of ["bun.lock", "lib", "server", "sketches", "test", "docs", "scripts", ".next/cache"]) {
+for (const junk of ["bun.lock", "lib", "api", "bin", "dist", "server", "sketches", "test", "docs", "scripts", ".next/cache"]) {
   rmSync(`server/${junk}`, { recursive: true, force: true });
 }
 for (const file of readdirSync("server")) {

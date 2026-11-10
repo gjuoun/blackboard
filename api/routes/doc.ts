@@ -59,8 +59,7 @@ doc.get("/session", (c) =>
 );
 
 /** GET /api/workspace — the inbox: every document with its reading state and counts. */
-doc.get("/workspace", () => respond(workspaceDocs(getHome())),
-);
+doc.get("/workspace", () => respond(workspaceDocs(getHome())));
 
 /** GET /api/resolve?ref=&cwd= — id-or-path to a session, for the CLI. Null when it names nothing. */
 doc.get("/resolve", (c) =>

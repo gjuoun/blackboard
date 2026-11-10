@@ -44,6 +44,19 @@ const store = <A>(work: (s: CommentsStore["Service"]) => Effect.Effect<A, { mess
     return yield* work(s).pipe(Effect.mapError((e) => cliFailure(e)));
   });
 
+/**
+ * Every comment in a session with its doc key, read through the API when this home has one. The API
+ * answers the doc's comments without their key, so the CLI stamps the doc it resolved.
+ */
+const listOf = (home: string, sessionId: string, doc: string): Effect.Effect<DocComment[], CliError, CommentsStore> =>
+  route(
+    home,
+    apiGet(home, `/api/comments?session=${encodeURIComponent(sessionId)}`).pipe(
+      Effect.map((data) => ((data as { comments?: Stored[] }).comments ?? []).map((c) => ({ ...plain(c), doc }))),
+    ),
+    store((s) => s.list(home, sessionId)),
+  );
+
 /** Every comment in a session, resolved ones included, each with its replies, in creation order. */
 export function comments(
   home: string,
@@ -51,9 +64,9 @@ export function comments(
   cwd = process.cwd(),
 ): Effect.Effect<DocComment[], CliError, SessionsStore | CommentsStore> {
   return Effect.gen(function* () {
-    const { session } = yield* find(home, ref, cwd);
+    const { session, doc } = yield* find(home, ref, cwd);
     const api = apiGet(home, `/api/comments?session=${encodeURIComponent(session.id)}`).pipe(
-      Effect.map((data) => ((data as { comments?: Stored[] }).comments ?? []).map(plain)),
+      Effect.map((data) => ((data as { comments?: Stored[] }).comments ?? []).map((c) => ({ ...plain(c), doc }))),
     );
     return yield* route(home, api, store((s) => s.list(home, session.id)));
   });
@@ -108,11 +121,9 @@ export function reply(
 ): Effect.Effect<DocComment, CliError, SessionsStore | CommentsStore> {
   return Effect.gen(function* () {
     if (!body.trim()) return yield* new CliError({ message: "reply text is empty", code: 2 });
-    const { session } = yield* find(home, ref, cwd);
+    const { session, doc: sessionDoc } = yield* find(home, ref, cwd);
     const text = body.trim();
-    const list = yield* route(home, apiGet(home, `/api/comments?session=${encodeURIComponent(session.id)}`).pipe(
-      Effect.map((data) => ((data as { comments?: Stored[] }).comments ?? []).map(plain)),
-    ), store((s) => s.list(home, session.id)));
+    const list = yield* listOf(home, session.id, sessionDoc);
     const { doc, commentId } = yield* threadOf({ version: 1, docs: groupByDoc(list) } as CommentFile, id);
     const api = apiPatch(home, "/api/comments", { session: session.id, id: commentId, action: "reply", body: text, author }).pipe(
       Effect.map((data) => ({ ...plain((data as { comment: Stored }).comment), doc })),
@@ -131,10 +142,8 @@ export function status(
   cwd = process.cwd(),
 ): Effect.Effect<DocComment, CliError, SessionsStore | CommentsStore> {
   return Effect.gen(function* () {
-    const { session } = yield* find(home, ref, cwd);
-    const list = yield* route(home, apiGet(home, `/api/comments?session=${encodeURIComponent(session.id)}`).pipe(
-      Effect.map((data) => ((data as { comments?: Stored[] }).comments ?? []).map(plain)),
-    ), store((s) => s.list(home, session.id)));
+    const { session, doc: sessionDoc } = yield* find(home, ref, cwd);
+    const list = yield* listOf(home, session.id, sessionDoc);
     const doc = yield* docOf({ version: 1, docs: groupByDoc(list) } as CommentFile, id);
     const action = to === "resolved" ? "resolve" : "reopen";
     const api = apiPatch(home, "/api/comments", { session: session.id, id, action, author }).pipe(

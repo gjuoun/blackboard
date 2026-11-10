@@ -1,12 +1,12 @@
-import { Effect } from "effect";
 import Link from "next/link";
 import { connection } from "next/server";
 import { SessionTable, type HomeRow, type HomeSort } from "@/components/SessionTable";
-import { runtime } from "@/lib/effect/runtime";
+import { apiGetJson } from "@/lib/api-fetch";
 import { getHome } from "@/lib/home";
 import { groupOf } from "@/lib/home-groups";
 import { relativeTime, shortDateTime } from "@/lib/relative-time";
-import { SCRATCHPAD_ID, SessionsStore } from "@/lib/sessions";
+import { SCRATCHPAD_ID } from "@/lib/session-model";
+import type { SessionRow } from "@/lib/sessions";
 
 // The title template covers child routes only, so Home spells its own.
 export const metadata = { title: { absolute: "Sessions · Blackboard" } };
@@ -17,13 +17,10 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 /** Everything Home shows, with times already formatted so server and browser render the same text. */
 async function homeData(now = Date.now()) {
   const home = getHome();
-  const { pad, list } = await runtime.runPromise(
-    Effect.gen(function* () {
-      const sessions = yield* SessionsStore;
-      const scratch = yield* sessions.scratchpad(home);
-      return { pad: yield* sessions.row(home, scratch), list: yield* sessions.rows(home) };
-    }),
-  );
+  const [{ pad }, { rows: list }] = await Promise.all([
+    apiGetJson<{ pad: SessionRow }>(home, "/api/scratchpad"),
+    apiGetJson<{ rows: SessionRow[] }>(home, "/api/sessions"),
+  ]);
   const rows: HomeRow[] = list
     .filter((r) => r.id !== SCRATCHPAD_ID)
     .map((r) => ({
