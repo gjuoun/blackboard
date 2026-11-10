@@ -412,6 +412,86 @@
     },
     "body": "base64:iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
   },
+  "stream.POST.no-title": {
+    "status": 400,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"error\":\"title is required\"}"
+  },
+  "stream.POST.ok": {
+    "status": 201,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"session\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\"}}"
+  },
+  "block.POST.unknown-session": {
+    "status": 400,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"error\":\"unknown session\"}"
+  },
+  "block.POST.no-body": {
+    "status": 400,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"error\":\"body is required\"}"
+  },
+  "block.POST.bad-action": {
+    "status": 400,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"error\":\"Expected \\\"answer\\\" | \\\"edit\\\" | \\\"append\\\"\"}"
+  },
+  "block.POST.not-a-stream": {
+    "status": 400,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"error\":\"<session> is not a stream\"}"
+  },
+  "block.POST.ok": {
+    "status": 201,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"block\":{\"id\":\"<block>\",\"n\":1,\"action\":\"answer\",\"author\":\"agent\",\"body\":\"hello\",\"status\":null,\"at\":\"<time>\"}}"
+  },
+  "block.POST.edit": {
+    "status": 201,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"block\":{\"id\":\"<block>\",\"n\":1,\"action\":\"answer\",\"author\":\"agent\",\"body\":\"hello again\",\"status\":null,\"at\":\"<time>\"}}"
+  },
+  "block.POST.writing": {
+    "status": 201,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"block\":{\"id\":\"b-<ulid>\",\"n\":2,\"action\":\"append\",\"author\":\"jun\",\"body\":\"draft\",\"status\":\"writing\",\"at\":\"<time>\"}}"
+  },
+  "session.GET.stream": {
+    "status": 200,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"session\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\"},\"row\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\",\"title\":\"Log\",\"repo\":null,\"branch\":null,\"detached\":false,\"worktree\":null,\"project\":null,\"missing\":false,\"stats\":{\"sections\":0,\"diagrams\":0},\"location\":\"stream\",\"updatedAt\":\"<time>\",\"open\":0},\"body\":\"hello again\\n\\ndraft\\n\",\"comments\":[],\"reviews\":[]}"
+  },
   "watch.GET.unknown-session": {
     "status": 400,
     "contentType": "",

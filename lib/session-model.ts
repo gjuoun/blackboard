@@ -1,5 +1,5 @@
 import { existsSync, lstatSync, realpathSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { CODE_EXTENSIONS, CODE_MAX_BYTES, extOf, servableExtension } from "./doc-type";
 import { expandHome } from "./home";
 
@@ -46,10 +46,20 @@ export function realDoc(file: string, cwd = process.cwd()): string {
 }
 
 /**
+ * The key a session's comments are filed under: the file's basename for a file session, the
+ * session id for a streamed doc (it has no file). One rule for every face that files comments.
+ */
+export function docKey(s: Session): string {
+  return s.kind === "stream" ? s.id : basename(s.path);
+}
+
+/**
  * The session file if it can still be served: it exists, is markdown, and still realpaths to
- * itself (a file swapped for a symlink to somewhere else is refused). Null otherwise.
+ * itself (a file swapped for a symlink to somewhere else is refused). Null otherwise — and always
+ * null for a streamed doc, whose markdown lives in the database, not on disk.
  */
 export function servablePath(s: Session): string | null {
+  if (s.kind === "stream") return null;
   const checked = checkDoc(s.path, process.cwd());
   return checked.ok && checked.path === s.path ? s.path : null;
 }

@@ -6,6 +6,7 @@ import { Effect } from "effect";
 import { run } from "../test/app";
 import { CommentsStore } from "./comments-store";
 import { realDoc, SCRATCHPAD_ID, servablePath, sessionCommentsPath, SessionsStore, type Session } from "./sessions";
+import { StreamsStore } from "./stream-store";
 
 /** The registry operations as the app runs them. Every test here is single process. */
 const withStore = <A>(work: (store: SessionsStore["Service"]) => Effect.Effect<A, { message: string }>): Promise<A> =>
@@ -182,5 +183,43 @@ describe("scratchpadSession", () => {
     expect(b.createdAt).toBe(a.createdAt);
     expect(readFileSync(join(home, "scratchpad.md"), "utf8")).toContain("my notes");
     expect((await listSessions(home)).filter((s) => s.id === SCRATCHPAD_ID)).toHaveLength(1);
+  });
+});
+
+describe("stream sessions", () => {
+  const openStream = (home: string, title = "Log") =>
+    run(
+      Effect.gen(function* () {
+        const streams = yield* StreamsStore;
+        return yield* streams.create(home, title);
+      }),
+    );
+
+  test("a stream session lists, resolves by id, and its row is never missing", async () => {
+    const { home } = fixture();
+    const s = await openStream(home, "Log");
+    expect(s.path).toBe("");
+    expect((await resolveSession(home, s.id))?.kind).toBe("stream");
+    const row = await withStore((store) => store.row(home, s));
+    expect(row.missing).toBe(false);
+    expect(row.title).toBe("Log");
+    expect(row.location).toBe("stream");
+    expect(row.repo).toBeNull();
+    const rows = await withStore((store) => store.rows(home));
+    expect(rows.map((r) => r.id)).toContain(s.id);
+  });
+
+  test("a stream row's updatedAt follows its newest block", async () => {
+    const { home } = fixture();
+    const s = await openStream(home);
+    const before = (await withStore((store) => store.row(home, s))).updatedAt;
+    await run(
+      Effect.gen(function* () {
+        const streams = yield* StreamsStore;
+        yield* streams.append(home, s.id, { action: "answer", body: "hi", author: "agent" });
+      }),
+    );
+    const after = (await withStore((store) => store.row(home, s))).updatedAt;
+    expect(Date.parse(after)).toBeGreaterThanOrEqual(Date.parse(before));
   });
 });

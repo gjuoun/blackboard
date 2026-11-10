@@ -17,7 +17,8 @@ export { realDoc, SCRATCHPAD_ID, servablePath, SessionError, tildify, type Sessi
  * `session-model.ts`: no database there, so the UI can import them without reaching blackboard.db.
  */
 export type Registry = { version: 1; sessions: Session[] };
-const ID = /^[a-z0-9]{1,32}$/;
+// Streamed docs carry `s-<ULID>` ids (uppercase Crockford, one dash); file sessions are sha1 hex.
+const ID = /^[A-Za-z0-9-]{1,40}$/;
 
 const failure = (error: unknown) => new IoFailure({ message: errorMessage(error), status: 500 });
 
@@ -124,7 +125,7 @@ export const layer = Layer.effect(
           project: m.project,
           missing: m.missing,
           stats: m.stats,
-          location: m.repo ? `${m.repo.name}/${m.repo.relPath}` : tildify(s.path),
+          location: s.kind === "stream" ? "stream" : m.repo ? `${m.repo.name}/${m.repo.relPath}` : tildify(s.path),
           updatedAt: latestOf(m.updatedAt, indexed.latestCommentAt) ?? s.openedAt,
           open,
           srcMtime: indexed.srcSize === -1 ? null : indexed.srcMtime,

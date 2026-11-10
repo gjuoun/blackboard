@@ -1,5 +1,5 @@
 import { statSync } from "node:fs";
-import { basename } from "node:path";
+
 import { Effect } from "effect";
 import { CommentsStore } from "./comments-store";
 import { errorMessage, InvalidInput, IoFailure, sessionNotFound, type ApiFailure } from "./effect/errors";
@@ -19,6 +19,7 @@ import {
 } from "./reading-model";
 import { ReadingStateStore } from "./reading-state";
 import { relativeTime } from "./relative-time";
+import { docKey } from "./session-model";
 import { servablePath, SessionsStore } from "./sessions";
 
 /** The doc file's own mtime, or 0 when it cannot be read: the reading state uses it to spot edits. */
@@ -82,7 +83,8 @@ export const previewDoc = (
     const comments = yield* CommentsStore;
     const session = yield* sessions.get(home, id);
     if (!session) return null;
-    const file = servablePath(session);
+    // A streamed doc's markdown lives in its row — there is no file to serve, so the check is skipped.
+    const file = session.kind === "stream" ? true : servablePath(session);
     if (!file) return null;
     const row = yield* sessions.row(home, session);
     // The markdown comes from the row the index stored. A row not yet indexed has no body to render, and `row()`
@@ -94,7 +96,7 @@ export const previewDoc = (
       catch: (error) => new IoFailure({ message: errorMessage(error), status: 500 }),
     });
     const commentFile = yield* comments.read(home, id);
-    const replies: PreviewReply[] = (commentFile.docs[basename(file)] ?? [])
+    const replies: PreviewReply[] = (commentFile.docs[docKey(session)] ?? [])
       .filter((comment) => comment.general)
       .flatMap((comment) => [
         { id: comment.id, author: comment.author, body: comment.body, createdAt: comment.createdAt, updated: relativeTime(comment.createdAt) },
