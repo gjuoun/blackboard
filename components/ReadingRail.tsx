@@ -27,18 +27,6 @@ export function ReadingRail({ filter, onFilter, counts }: { filter: string; onFi
           <span className="ml-auto font-mono text-[11.5px] opacity-80">{row.n}</span>
         </button>
       ))}
-      <div className="bg-border mx-2 my-2.5 h-px" />
-      <h2 className="text-muted-foreground mx-2.5 mt-1 mb-2 text-xs font-semibold">Order</h2>
-      <p className="text-muted-foreground mx-2.5 text-[11.5px] leading-[1.55]">
-        One flat list, newest update first, no groups. <b className="text-foreground font-medium">Unread is bold with a solid dot.</b> Opening counts as read; editing the document
-        makes it unread again. A document left mid-way keeps its position.
-      </p>
-      <div className="bg-border mx-2 my-2.5 h-px" />
-      <h2 className="text-muted-foreground mx-2.5 mt-1 mb-2 text-xs font-semibold">Where it lives</h2>
-      <p className="text-muted-foreground mx-2.5 text-[11.5px] leading-[1.55]">
-        Position comes from the preview scroll and is stored in <code className="bg-muted rounded px-1 font-mono">~/.blackboard</code>. Replies go to the document&apos;s comment
-        file.
-      </p>
       <Link href="/" title="Open a document from Sessions" className="bg-primary text-primary-foreground mt-auto flex h-[38px] items-center justify-center gap-1.5 rounded-full text-[13.5px] font-semibold">
         <span aria-hidden className="text-[17px] leading-none font-normal">＋</span>New
       </Link>
