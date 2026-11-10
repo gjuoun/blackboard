@@ -11,6 +11,34 @@ export const runtime = "nodejs";
 
 const HOP_BY_HOP = new Set(["connection", "keep-alive", "transfer-encoding", "content-length", "host"]);
 
+/** The browser went away: the request is cancelled, not the API. */
+function cancelled(signal: AbortSignal, error: unknown): boolean {
+  return signal.aborted || (error instanceof Error && error.name === "AbortError");
+}
+
+/**
+ * The upstream body, ending cleanly when the browser is gone. A closed tab cancels the fetch, and the
+ * body read then fails; Next turns any non-abort error in the pipe into "failed to pipe response", so
+ * a cancellation is closed here instead of being surfaced as a failure.
+ */
+function relay(body: ReadableStream<Uint8Array> | null, signal: AbortSignal): ReadableStream<Uint8Array> | null {
+  if (!body) return null;
+  const reader = body.getReader();
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const chunk = await reader.read();
+        if (chunk.done) controller.close();
+        else controller.enqueue(chunk.value);
+      } catch (error) {
+        if (cancelled(signal, error)) controller.close();
+        else controller.error(error);
+      }
+    },
+    cancel: (reason) => reader.cancel(reason),
+  });
+}
+
 async function forward(req: Request, { params }: { params: Promise<{ rest: string[] }> }): Promise<Response> {
   const { rest } = await params;
   const url = new URL(req.url);
@@ -25,8 +53,10 @@ async function forward(req: Request, { params }: { params: Promise<{ rest: strin
   }
   try {
     const upstream = await fetch(target, init);
-    return new Response(upstream.body, { status: upstream.status, headers: upstream.headers });
-  } catch {
+    return new Response(relay(upstream.body, req.signal), { status: upstream.status, headers: upstream.headers });
+  } catch (error) {
+    // A tab that closed mid-request is not the API being down: answer with nothing to pipe.
+    if (cancelled(req.signal, error)) return new Response(null, { status: 499 });
     return Response.json({ error: "the API is not running — start it with: blackboard serve start" }, { status: 503 });
   }
 }

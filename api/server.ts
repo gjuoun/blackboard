@@ -1,4 +1,5 @@
 import { app } from "./app";
+import { apiServeOptions } from "./serve-options";
 import { runtime } from "../lib/effect/runtime";
 import { getHome } from "../lib/home";
 import { startDocWatch } from "../lib/doc-watch";
@@ -22,10 +23,4 @@ const port = (() => {
 const stopWatch = startDocWatch(getHome(), (effect) => runtime.runPromise(effect as never));
 process.on("exit", stopWatch);
 
-const server = {
-  port,
-  hostname: "127.0.0.1",
-  fetch: app.fetch,
-};
-
-export default server;
+export default apiServeOptions(port, app.fetch);

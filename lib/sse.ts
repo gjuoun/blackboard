@@ -2,7 +2,10 @@ import { FileSystem, Schedule, Stream } from "effect";
 import { errorMessage, IoFailure, type ApiFailure } from "./effect/errors";
 
 const DEBOUNCE_MS = 100;
-const HEARTBEAT_MS = 25_000;
+/** An idle watch connection says something this often: the browser ignores a comment line, and a
+ *  proxy or a dead client cannot mistake the stream for a stalled one. 15 s also keeps the write
+ *  well inside any intermediate layer's timeout. */
+export const HEARTBEAT_MS = 15_000;
 const encoder = new TextEncoder();
 const sse = (text: string): Uint8Array => encoder.encode(text);
 
@@ -51,11 +54,12 @@ function batches(doc: Stream.Stream<"doc">, comments: Stream.Stream<"comments", 
 
 /**
  * The event stream /api/watch answers with: `: connected` first, one `changed` batch per 100 ms
- * that has news, and a `: ping` every 25 s. Both watchers are read inside this stream, so
- * cancelling the readable stream — or aborting the request — runs their finalizers and closes them.
+ * that has news, and a `: ping` every 15 s (`heartbeatMs`, which tests shorten). Both watchers are
+ * read inside this stream, so cancelling the readable stream — or aborting the request — runs their
+ * finalizers and closes them.
  */
-export function watchEvents(doc: Stream.Stream<"doc">, comments: Stream.Stream<"comments", ApiFailure>): Stream.Stream<Uint8Array, ApiFailure> {
+export function watchEvents(doc: Stream.Stream<"doc">, comments: Stream.Stream<"comments", ApiFailure>, heartbeatMs = HEARTBEAT_MS): Stream.Stream<Uint8Array, ApiFailure> {
   // The first heartbeat is due after one interval, not at connect.
-  const beat = Stream.fromSchedule(Schedule.spaced(HEARTBEAT_MS)).pipe(Stream.map(() => sse(": ping\n\n")));
+  const beat = Stream.fromSchedule(Schedule.spaced(heartbeatMs)).pipe(Stream.map(() => sse(": ping\n\n")));
   return Stream.concat(Stream.make(sse(": connected\n\n")), Stream.merge(batches(doc, comments), beat));
 }
