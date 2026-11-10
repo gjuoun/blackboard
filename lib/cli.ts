@@ -1,5 +1,5 @@
-import { basename } from "node:path";
 import { Data, Effect } from "effect";
+import { docKey } from "./session-model";
 import { type Comment, type CommentFile } from "./comments-store";
 import { SessionsStore, type Session, type SessionRow } from "./sessions";
 
@@ -22,7 +22,7 @@ export function find(home: string, ref: string, cwd = process.cwd()): Effect.Eff
     if (!session) {
       return yield* new CliError({ message: `no session "${ref}" (register the file with: blackboard open <file>)`, code: 1 });
     }
-    return { session, doc: basename(session.path) };
+    return { session, doc: docKey(session) };
   });
 }
 

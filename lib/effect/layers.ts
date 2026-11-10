@@ -11,6 +11,7 @@ import { layer as readingRepoLayer } from "../db/repos/reading-state";
 import { layer as readingLayer } from "../reading-state";
 import { layer as lockLayer } from "../lock";
 import { layer as sessionsLayer } from "../sessions";
+import { layer as streamsLayer } from "../stream-store";
 
 /**
  * Everything the server builds once: the SQLite data layer, the repos, the repo-backed stores
@@ -27,8 +28,9 @@ const commentsStore = commentsLayer.pipe(Layer.provideMerge(Layer.mergeAll(comme
 const sessions = sessionsLayer.pipe(Layer.provideMerge(Layer.mergeAll(db, documents, commentsStore)));
 const agentsStore = agentsLayer.pipe(Layer.provideMerge(agents));
 const readingStore = readingLayer.pipe(Layer.provideMerge(reading));
+const streams = streamsLayer.pipe(Layer.provideMerge(db));
 
-export const AppLayer = Layer.mergeAll(lockLayer, db, busLayer, documents, comments, agents, reading, commentsStore, sessions, agentsStore, readingStore, fileSystemLayer);
+export const AppLayer = Layer.mergeAll(lockLayer, db, busLayer, documents, comments, agents, reading, commentsStore, sessions, agentsStore, readingStore, fileSystemLayer, streams);
 
 /** The services AppLayer provides; a program that needs them is runnable by the runtime below. */
 export type AppServices = Layer.Success<typeof AppLayer>;

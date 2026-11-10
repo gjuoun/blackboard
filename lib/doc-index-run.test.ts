@@ -105,6 +105,19 @@ describe("the index follows the file", () => {
     expect(await indexOnce(home)).toMatchObject({ updated: 0, missing: 0 });
   });
 
+  test("a path-less stream row is never file-indexed, even under --force", async () => {
+    const home = freshHome();
+    await runIn(Effect.gen(function* () {
+      const docs = yield* DocumentsRepo;
+      yield* docs.upsert(home, { id: "s-stream1", path: null, kind: "stream" });
+    }));
+    const first = await indexOnce(home);
+    expect(first).toMatchObject({ scanned: 1, updated: 0, missing: 0 });
+    const forced = await Effect.runPromise(indexDocuments(home, true).pipe(Effect.provide(dbLayer)) as Effect.Effect<IndexShape, never, never>);
+    expect(forced.updated).toBe(0);
+    expect((await rowOf(home, "s-stream1"))?.body).toBeNull();
+  });
+
   test("--force re-reads every document, even one whose file has not changed", async () => {
     const home = freshHome();
     const f = join(home, "same.md");
