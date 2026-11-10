@@ -1,5 +1,5 @@
 import { FileSystem, Schedule, Stream } from "effect";
-import { errorMessage, IoFailure, type ApiFailure } from "@/lib/effect/errors";
+import { errorMessage, IoFailure, type ApiFailure } from "./effect/errors";
 
 const DEBOUNCE_MS = 100;
 const HEARTBEAT_MS = 25_000;

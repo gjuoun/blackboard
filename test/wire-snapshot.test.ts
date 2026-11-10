@@ -2,21 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NextRequest } from "next/server";
 import { open } from "@/lib/cli/sessions";
-import { GET as assetGet } from "@/app/api/asset/[id]/route";
-import { DELETE as bindDelete, GET as bindGet, POST as bindPost } from "@/app/api/bind/route";
-import { GET as commentsGet, PATCH as commentsPatch, POST as commentsPost } from "@/app/api/comments/route";
-import { GET as imageGet } from "@/app/api/comment-images/[id]/route";
-import { POST as imagePost } from "@/app/api/comment-images/route";
-import { GET as healthGet } from "@/app/api/health/route";
-import { GET as watchGet } from "@/app/api/watch/route";
+import { app } from "@/api/app";
 import { run } from "./app";
 
 /**
- * The wire snapshot: every exported route handler, called directly, every branch it has today.
- * The file next to this test is generated from the code and then never edited by hand, so a
- * refactor that changes a status, a header or a body shape fails here instead of in a browser.
+ * The wire snapshot: every branch the API answers, driven through the one Hono app. The file next
+ * to this test is generated from the code and then never edited by hand, so a refactor that
+ * changes a status, a header or a body shape fails here instead of in a browser.
  */
 
 const SNAPSHOT = join(import.meta.dir, "wire-snapshot.json");
@@ -82,28 +75,26 @@ async function docsFixture() {
   return { base, home, docs, design, session: session.id };
 }
 
-const commentsUrl = "http://127.0.0.1/api/comments";
-const body = (payload: unknown) => ({
+const HOST = { host: "127.0.0.1" };
+const api = (path: string, init?: RequestInit) => app.request(`http://127.0.0.1${path}`, { ...init, headers: { ...HOST, ...(init?.headers as Record<string, string> | undefined) } });
+const json = (payload: unknown): RequestInit => ({
   method: "POST",
   headers: { "content-type": "application/json" },
   body: typeof payload === "string" ? payload : JSON.stringify(payload),
 });
-const get = (session: unknown) => commentsGet(new NextRequest(`${commentsUrl}?session=${String(session)}`));
-const post = (payload: unknown) => commentsPost(new NextRequest(commentsUrl, body(payload)));
-const patch = (payload: unknown) => commentsPatch(new NextRequest(commentsUrl, { ...body(payload), method: "PATCH" }));
+const get = (session: unknown) => api(`/api/comments?session=${String(session)}`);
+const post = (payload: unknown) => api("/api/comments", json(payload));
+const patch = (payload: unknown) => api("/api/comments", { ...json(payload), method: "PATCH" });
 
-describe("the wire the routes answer today", () => {
-  test("every handler, every branch, matches the committed snapshot", async () => {
+describe("the wire the api answers today", () => {
+  test("every route, every branch, matches the committed snapshot", async () => {
     const fx = await docsFixture();
 
-    // health
-    await record("health.GET", await healthGet());
+    await record("health.GET", await api("/api/health"));
 
-    // comments GET
     await record("comments.GET.unknown-session", await get("nosuchid"));
     await record("comments.GET.empty", await get(fx.session));
 
-    // comments POST — every refusal, then the success
     await record("comments.POST.bad-json", await post("{not json"));
     await record("comments.POST.unknown-session", await post({ session: "nosuchid", general: true, body: "x" }));
     await record("comments.POST.no-body", await post({ session: fx.session, general: true }));
@@ -118,7 +109,6 @@ describe("the wire the routes answer today", () => {
     await record("comments.POST.quoted.ok", await post({ session: fx.session, quote: { exact: "Later text.", prefix: "", suffix: "" }, body: "a passage note", author: "agent" }));
     await record("comments.GET.two", await get(fx.session));
 
-    // comments PATCH — validation, then each action
     await record("comments.PATCH.unknown-session", await patch({ session: "nosuchid", id: comment.id, action: "resolve" }));
     await record("comments.PATCH.no-id", await patch({ session: fx.session, action: "resolve" }));
     await record("comments.PATCH.unknown-action", await patch({ session: fx.session, id: comment.id, action: "nope" }));
@@ -140,12 +130,10 @@ describe("the wire the routes answer today", () => {
     await record("comments.PATCH.delete-reply.ok", await patch({ session: fx.session, id: comment.id, action: "delete-reply", replyId }));
     await record("comments.PATCH.delete.ok", await patch({ session: fx.session, id: comment.id, action: "delete" }));
 
-    // bind — validation, the record, and unbind; the notify never answers on the wire
-    const bindUrl = "http://127.0.0.1/api/bind";
     const listenerUrl = "http://127.0.0.1:41234";
-    const postBind = (payload: unknown) => bindPost(new NextRequest(bindUrl, body(payload)));
-    const getBind = (session: string) => bindGet(new NextRequest(`${bindUrl}?session=${session}`));
-    const deleteBind = (session: string) => bindDelete(new NextRequest(`${bindUrl}?session=${session}`, { method: "DELETE" }));
+    const postBind = (payload: unknown) => api("/api/bind", json(payload));
+    const getBind = (session: string) => api(`/api/bind?session=${session}`);
+    const deleteBind = (session: string) => api(`/api/bind?session=${session}`, { method: "DELETE" });
     await record("bind.POST.unknown-session", await postBind({ session: "nosuchid", piSession: "pi-1", url: listenerUrl }));
     await record("bind.POST.no-pi-session", await postBind({ session: fx.session, url: listenerUrl }));
     await record("bind.POST.bad-url", await postBind({ session: fx.session, piSession: "pi-1", url: "http://example.com:41234" }));
@@ -155,11 +143,9 @@ describe("the wire the routes answer today", () => {
     await record("bind.GET.bound", await getBind(fx.session));
     await record("bind.DELETE.ok", await deleteBind(fx.session));
     await record("bind.DELETE.none", await deleteBind(fx.session));
-    // A submit with no binding: stored and answered as before, and the notify stays off the wire.
     await record("comments.POST.no-binding", await post({ session: fx.session, general: true, body: "unbound note" }));
 
-    // asset
-    const asset = (id: string, p?: string) => assetGet(new Request(`http://127.0.0.1/api/asset/${id}${p === undefined ? "" : `?p=${p}`}`), { params: Promise.resolve({ id }) });
+    const asset = (id: string, p?: string) => api(`/api/asset/${id}${p === undefined ? "" : `?p=${p}`}`);
     await record("asset.GET.no-session", await asset("nosuchid", "shot.png"));
     await record("asset.GET.missing-p", await asset(fx.session));
     await record("asset.GET.outside-doc-folder", await asset(fx.session, "../home/sessions.json"));
@@ -168,21 +154,19 @@ describe("the wire the routes answer today", () => {
     await record("asset.GET.no-such-image", await asset(fx.session, "gone.png"));
     await record("asset.GET.ok", await asset(fx.session, "shot.png"));
 
-    // comment images
-    const upload = (bytes: Uint8Array) => imagePost(new NextRequest("http://127.0.0.1/api/comment-images", { method: "POST", body: bytes as unknown as BodyInit }));
+    const upload = (bytes: Uint8Array) => api("/api/comment-images", { method: "POST", body: bytes as unknown as BodyInit });
     await record("comment-images.POST.rejected", await upload(new TextEncoder().encode("not an image")));
     const stored = await upload(PNG);
     const { id: imageId } = (await stored.clone().json()) as { id: string };
     await record("comment-images.POST.ok", stored);
-    const image = (id: string) => imageGet(new NextRequest(`http://127.0.0.1/api/comment-images/${id}`), { params: Promise.resolve({ id }) });
+    const image = (id: string) => api(`/api/comment-images/${id}`);
     await record("comment-images.GET.bad-id", await image("not-an-id"));
     await record("comment-images.GET.not-stored", await image("0".repeat(64) + ".png"));
     await record("comment-images.GET.ok", await image(imageId));
 
-    // watch: the unknown session, then the stream itself (first chunk, then cancel)
-    await record("watch.GET.unknown-session", await watchGet(new NextRequest("http://127.0.0.1/api/watch?session=nosuchid")));
+    await record("watch.GET.unknown-session", await api("/api/watch?session=nosuchid"));
     const abort = new AbortController();
-    const stream = await watchGet(new NextRequest(`http://127.0.0.1/api/watch?session=${fx.session}`, { signal: abort.signal }));
+    const stream = await api(`/api/watch?session=${fx.session}`, { signal: abort.signal });
     const reader = stream.body!.getReader();
     const first = await reader.read();
     await reader.cancel();

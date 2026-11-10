@@ -9,21 +9,18 @@ import { DocChip } from "@/components/DocChip";
 import { DocView } from "@/components/DocView";
 import { RegisterTab } from "@/components/RegisterTab";
 import { Toc } from "@/components/Toc";
-import { renderComments } from "@/lib/comment-markdown";
-import { readComments } from "@/lib/comments-store";
-import { getHome } from "@/lib/home";
 import { renderCode } from "@/lib/code-view";
 import { docType } from "@/lib/doc-type";
+import { getHome } from "@/lib/home";
 import { renderMarkdown } from "@/lib/markdown";
-import { servablePath, sessionCommentsPath, tildify } from "@/lib/sessions";
+import { servablePath, tildify } from "@/lib/session-model";
 import { loadSession as load } from "@/lib/session-view";
 
 /** The tab title is the doc's own title; the description names the file, never its folder. */
 export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promise<Metadata> {
   await connection();
   const { id } = await params;
-  const home = getHome();
-  const found = await load(home, id);
+  const found = await load(getHome(), id);
   if (!found) return { title: "No such session" };
   const { session, row } = found;
   const title = row.title;
@@ -35,8 +32,7 @@ export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promis
 export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   await connection();
   const { id } = await params;
-  const home = getHome();
-  const found = await load(home, id);
+  const found = await load(getHome(), id);
   if (!found) notFound();
   const { session, row } = found;
   // A registry from the streaming era may still hold kind: "stream" entries. Such a session is
@@ -112,13 +108,12 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   }
 
   // A source file is its own page: the text is shown as one highlighted block, with no front matter,
-  // no TOC and no file links.
+  // no TOC and no file links. Comments on it anchor to its text like a doc's do.
   const type = docType(file);
   if (type.ok && type.type === "code") {
     const src = readFileSync(file, "utf8");
     const { html } = await renderCode(src, file);
-    // Comments on a source file anchor to its text like a doc's do, so they are read the same way.
-    const codeComments = renderComments(readComments(sessionCommentsPath(home, session.id)).docs[basename(file)] ?? []);
+    const codeComments = found.comments.docs[basename(file)] ?? [];
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} />
@@ -130,9 +125,8 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   const src = readFileSync(file, "utf8");
   const { html, toc } = await renderMarkdown(src, { assetBase: `/api/asset/${id}` });
   const doc = basename(file);
-  const commentFile = readComments(sessionCommentsPath(home, session.id));
-  const renderedComments = renderComments(commentFile.docs[doc] ?? []);
-  const reviews = (commentFile.reviews ?? []).filter((r) => r.doc === doc);
+  const renderedComments = found.comments.docs[doc] ?? [];
+  const reviews = found.comments.reviews.filter((r) => r.doc === doc);
   return (
     <>
       <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={toc.length > 1} />
@@ -146,7 +140,6 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
         reviews={reviews}
         header={header}
         toc={toc.length > 1 ? <Toc toc={toc} /> : null}
-
       />
     </>
   );

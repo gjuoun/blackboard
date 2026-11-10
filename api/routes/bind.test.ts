@@ -1,37 +1,28 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect, FileSystem } from "effect";
-import { NextRequest } from "next/server";
-import { run } from "../../../test/app";
-import { open } from "@/lib/cli/sessions";
-import { DELETE, GET, POST } from "./route";
+import { LOCAL, fixture, register } from "../../test/api-fixture";
+import { app } from "../app";
 
-/** A temp Blackboard home and one doc, the same fixture the comments route test builds. */
+/**
+ * The bind route, driven through the API app. Behaviour matches the Next route tests it replaces:
+ * the same refusals and messages, the same record, the same replace-on-rebind. The record is read
+ * back through GET, because the bindings live in the agents table rather than a JSON file.
+ */
+
+const json = (payload: unknown): RequestInit => ({
+  method: "POST",
+  headers: { ...LOCAL, "content-type": "application/json" },
+  body: typeof payload === "string" ? payload : JSON.stringify(payload),
+});
+const bind = (payload: unknown) => app.request("http://127.0.0.1/api/bind", json(payload));
+const get = (session: string) => app.request(`http://127.0.0.1/api/bind?session=${session}`, { headers: LOCAL });
+const remove = (session: string) => app.request(`http://127.0.0.1/api/bind?session=${session}`, { method: "DELETE", headers: LOCAL });
+
 async function setup() {
-  const { base, design } = await run(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const base = yield* fs.realPath(yield* fs.makeTempDirectory({ directory: tmpdir(), prefix: "bb-bind-" }));
-      const docs = join(base, "docs");
-      yield* fs.makeDirectory(docs, { recursive: true });
-      const design = join(docs, "design.md");
-      yield* fs.writeFileString(design, "# Design\n\nLater text.\n");
-      return { base, design };
-    }),
-  );
-  const home = join(base, "home");
-  process.env.BLACKBOARD_HOME = home;
-  process.env.BLACKBOARD_NO_BROWSER = "1";
-  const { session } = await run(open(home, design));
-  return { home, design, session: session.id };
+  const { base, home, docs } = await fixture("bb-bind-", { "design.md": "# Design\n\nLater text.\n" });
+  const session = await register(home, join(docs, "design.md"));
+  return { base, home, design: join(docs, "design.md"), session: session.id };
 }
-
-const bind = (payload: unknown) =>
-  POST(new NextRequest("http://127.0.0.1/api/bind", { method: "POST", headers: { "content-type": "application/json" }, body: typeof payload === "string" ? payload : JSON.stringify(payload) }));
-const get = (session: string) => GET(new NextRequest("http://127.0.0.1/api/bind?session=" + session));
-const remove = (session: string) => DELETE(new NextRequest("http://127.0.0.1/api/bind?session=" + session, { method: "DELETE" }));
 
 describe("POST /api/bind", () => {
   test("an unknown session is refused with a plain message", async () => {
@@ -63,7 +54,7 @@ describe("POST /api/bind", () => {
   });
 
   test("a bind stores the record, and binding again replaces it", async () => {
-    const { home, design, session } = await setup();
+    const { design, session } = await setup();
     const res = await bind({ session, piSession: "pi-1", url: "http://127.0.0.1:40000/" });
     expect(res.status).toBe(200);
     const { binding } = await res.json();
@@ -72,16 +63,14 @@ describe("POST /api/bind", () => {
     expect(binding.piSession).toBe("pi-1");
     expect(binding.url).toBe("http://127.0.0.1:40000");
 
-    const file = JSON.parse(readFileSync(join(home, "agents.json"), "utf8"));
-    expect(file.agents).toHaveLength(1);
-    expect(file.agents[0].session).toBe(session);
+    // The record the route stored, read back through the same API.
+    expect((await (await get(session)).json()).binding).toMatchObject({ session, piSession: "pi-1", url: "http://127.0.0.1:40000" });
 
     await bind({ session, piSession: "pi-2", url: "http://localhost:40001" });
-    const again = JSON.parse(readFileSync(join(home, "agents.json"), "utf8"));
-    expect(again.agents).toHaveLength(1);
-    expect(again.agents[0].piSession).toBe("pi-2");
     expect((await get(session)).status).toBe(200);
-    expect((await (await get(session)).json()).binding.url).toBe("http://localhost:40001");
+    const again = (await (await get(session)).json()).binding;
+    expect(again.piSession).toBe("pi-2");
+    expect(again.url).toBe("http://localhost:40001");
   });
 });
 

@@ -4,24 +4,28 @@ import { basename, delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Running the web app from the `blackboard` command: `serve start | stop | restart | status`, and
- * `open` starting it on first use. The app is the standalone production build shipped in the
- * package's `server/` folder, run by Node, or by Bun when there is no Node. What this module started is
- * remembered in `<home>/server.json`; anything else answering at the same address (a `bun dev`
- * in a clone, say) is treated as running but not ours to stop.
+ * Running the web app + the API from the `blackboard` command: `serve start | stop | restart |
+ * status`, and `open` starting them on first use. Two processes now: the standalone Next build in
+ * `server/` (UI) and `dist/api.mjs` (API, always Bun — it owns bun:sqlite). What this module
+ * started is remembered in `<home>/server.json` as two proc entries; anything else answering at
+ * the same address is treated as running but not ours to stop.
  */
 export const DEFAULT_URL = "http://127.0.0.1:38770";
+export const DEFAULT_API_URL = "http://127.0.0.1:38771";
 
-type ServerState = { pid: number; url: string; startedAt: string };
+type Proc = { pid: number; url: string; startedAt: string };
+type ServerState = { ui: Proc; api: Proc };
 type ServerStatus =
   | { running: false; url: string }
-  | { running: true; url: string; managed: true; pid: number; startedAt: string; log: string }
-  | { running: true; url: string; managed: false };
+  | { running: true; url: string; managed: true; ui: Proc & { log: string }; api: Proc & { log: string } }
+  | { running: true; url: string; managed: false }
+  | { running: false; url: string; partial: { ui: "up" | "down"; api: "up" | "down"; pids: { ui: number; api: number } } };
 
 export class ServerError extends Error {}
 
 const statePath = (home: string) => join(home, "server.json");
-const logPath = (home: string) => join(home, "server.log");
+const uiLogPath = (home: string) => join(home, "server.log");
+const apiLogPath = (home: string) => join(home, "api.log");
 
 /** Where the app should answer: --port, else $BLACKBOARD_URL, else the default. Always an http origin. */
 export function resolveUrl(opts: { port?: number | string; env?: Record<string, string | undefined> } = {}): string {
@@ -37,16 +41,32 @@ export function resolveUrl(opts: { port?: number | string; env?: Record<string, 
   return base.origin;
 }
 
+/** Where the API should answer: --api-port, else $BLACKBOARD_API_URL, else the default API port. */
+export function resolveApiUrl(opts: { apiPort?: number | string; env?: Record<string, string | undefined> } = {}): string {
+  const env = opts.env ?? process.env;
+  const base = new URL((env.BLACKBOARD_API_URL || DEFAULT_API_URL).replace(/\/+$/, ""));
+  if (opts.apiPort !== undefined) {
+    const n = Number(opts.apiPort);
+    if (!Number.isInteger(n) || n < 1 || n > 65535) throw new ServerError(`--api-port must be a number from 1 to 65535, got "${opts.apiPort}"`);
+    base.protocol = "http:";
+    base.hostname = "127.0.0.1";
+    base.port = String(n);
+  }
+  return base.origin;
+}
+
 /** The port a URL names (80 / 443 when it names none). */
 export function portOf(url: string): number {
   const u = new URL(url);
   return Number(u.port || (u.protocol === "https:" ? 443 : 80));
 }
 
+/** Read the two-proc state file; a pre-B-round single-pid file reads as stale (null). */
 export function readState(home: string): ServerState | null {
   try {
     const v = JSON.parse(readFileSync(statePath(home), "utf8"));
-    return Number.isInteger(v?.pid) && typeof v?.url === "string" && typeof v?.startedAt === "string" ? v : null;
+    const ok = (p: unknown): p is Proc => !!p && Number.isInteger((p as Proc).pid) && typeof (p as Proc).url === "string" && typeof (p as Proc).startedAt === "string";
+    return ok(v?.ui) && ok(v?.api) ? v : null;
   } catch {
     return null;
   }
@@ -64,6 +84,20 @@ export function pidAlive(pid: number): boolean {
     return true;
   } catch (err) {
     return (err as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+/**
+ * True when something answers HTTP at `url`, whatever the status. The UI process proves it is alive by
+ * answering at all: its pages return 500 when the API it fetches from is down, and that must still read
+ * as "the UI is up" for `status`, or a dead API would hide a live UI.
+ */
+export async function listening(url: string, timeoutMs = 1500): Promise<boolean> {
+  try {
+    await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -97,7 +131,7 @@ const currentRuntime = () =>
   runtimeFor({ execPath: process.execPath, pathDirs: (process.env.PATH ?? "").split(delimiter).filter(Boolean), exists: existsSync });
 
 /**
- * The folder to run the app from. npm drops any folder named node_modules from a package, so the
+ * The folder to run the UI from. npm drops any folder named node_modules from a package, so the
  * build ships its dependencies as `modules`; the first start renames it back. When the package
  * folder is read-only (a root-owned global install) the app is copied under `<home>/runtime`.
  */
@@ -128,8 +162,8 @@ const packageVersion = (root: string): string => {
   }
 };
 
-/** The command line that starts the production app on `url`, and the folder to run it in. */
-function startCommand(root: string, home: string) {
+/** The command line that starts the production UI on `url`, and the folder to run it in. */
+function uiStartCommand(root: string, home: string) {
   const serverDir = join(root, "server");
   if (!existsSync(join(serverDir, "server.js"))) {
     throw new ServerError("this copy has no production build; run `bun run build && bun run build:server` first (or use `bun dev`)");
@@ -139,16 +173,48 @@ function startCommand(root: string, home: string) {
   return { cmd: rt.cmd, args: [...rt.args, join(dir, "server.js")], cwd: dir };
 }
 
-function appEnv(home: string, url: string): NodeJS.ProcessEnv {
-  return { ...process.env, NODE_ENV: "production", BLACKBOARD_HOME: home, BLACKBOARD_URL: url, PORT: String(portOf(url)), HOSTNAME: "127.0.0.1" };
+/**
+ * The command line that starts the API, and the folder to run it in. Always Bun: storage is
+ * bun:sqlite, so Node can never run this process. `dist/api.mjs` when the package shipped one,
+ * else the source entry for a dev checkout.
+ */
+function apiStartCommand(root: string) {
+  const bundled = join(root, "dist", "api.mjs");
+  const source = join(root, "api", "server.ts");
+  const entry = existsSync(bundled) ? bundled : existsSync(source) ? source : null;
+  if (!entry) throw new ServerError("this copy has no API entry; run `bun run build:api` first");
+  const exec = basename(process.execPath);
+  if (!/^bun/i.test(exec)) {
+    for (const d of (process.env.PATH ?? "").split(delimiter).filter(Boolean)) {
+      const p = join(d, process.platform === "win32" ? "bun.exe" : "bun");
+      if (existsSync(p)) return { cmd: p, args: [entry], cwd: dirname(entry) };
+    }
+    throw new ServerError("the API needs Bun (it stores in bun:sqlite) and no `bun` is on PATH");
+  }
+  return { cmd: process.execPath, args: [entry], cwd: dirname(entry) };
+}
+
+function appEnv(home: string, url: string, apiUrl: string): NodeJS.ProcessEnv {
+  return { ...process.env, NODE_ENV: "production", BLACKBOARD_HOME: home, BLACKBOARD_URL: url, BLACKBOARD_API_URL: apiUrl, PORT: String(portOf(url)), HOSTNAME: "127.0.0.1" };
+}
+
+function apiEnv(home: string, apiUrl: string): NodeJS.ProcessEnv {
+  return { ...process.env, NODE_ENV: "production", BLACKBOARD_HOME: home, BLACKBOARD_API_URL: apiUrl, PORT: String(portOf(apiUrl)) };
 }
 
 export async function status(home: string, url = resolveUrl()): Promise<ServerStatus> {
   const st = readState(home);
-  if (st && pidAlive(st.pid) && (await probe(st.url))) {
-    return { running: true, url: st.url, managed: true, pid: st.pid, startedAt: st.startedAt, log: logPath(home) };
+  if (st) {
+    const uiUp = pidAlive(st.ui.pid) && (await listening(st.ui.url));
+    const apiUp = pidAlive(st.api.pid) && (await probe(st.api.url));
+    if (uiUp && apiUp) {
+      return { running: true, url: st.ui.url, managed: true, ui: { ...st.ui, log: uiLogPath(home) }, api: { ...st.api, log: apiLogPath(home) } };
+    }
+    // A half-dead pair is not running, but its record is kept: the surviving process is still ours
+    // to stop, and `stop` finds it through the record.
+    if (uiUp || apiUp) return { running: false, url, partial: { ui: uiUp ? "up" : "down", api: apiUp ? "up" : "down", pids: { ui: st.ui.pid, api: st.api.pid } } };
+    clearState(home);
   }
-  if (st) clearState(home); // stale: the process is gone or no longer answers
   return (await probe(url)) ? { running: true, url, managed: false } : { running: false, url };
 }
 
@@ -162,38 +228,17 @@ function tail(file: string, lines = 8): string {
   }
 }
 
-/** Start the app in the background and wait until it answers. Returns the status; a running app is left alone. */
-export async function start(home: string, opts: { port?: number | string } = {}): Promise<ServerStatus & { started: boolean }> {
-  const url = resolveUrl({ port: opts.port });
-  const cur = await status(home, url);
-  if (cur.running) return { ...cur, started: false };
-
-  const root = appRoot();
-  mkdirSync(home, { recursive: true });
-  const { cmd, args, cwd } = startCommand(root, home);
-  const log = openSync(logPath(home), "a");
-  let child: ChildProcess;
-  try {
-    child = spawn(cmd, args, { cwd, detached: true, stdio: ["ignore", log, log], env: appEnv(home, url) });
-  } finally {
-    closeSync(log);
-  }
+async function spawnAndWait(child: ChildProcess, url: string, log: string): Promise<void> {
   let exited: number | null | undefined;
   child.on("exit", (code) => (exited = code ?? -1));
   child.on("error", () => (exited = -1));
   child.unref();
-  if (!child.pid) throw new ServerError(`could not start ${cmd}`);
-  writeState(home, { pid: child.pid, url, startedAt: new Date().toISOString() });
-
+  if (!child.pid) throw new ServerError(`could not start ${child.spawnfile}`);
   for (let i = 0; i < 100; i++) {
     if (exited !== undefined) break;
-    if (await probe(url, 500)) {
-      const now = await status(home, url);
-      return { ...now, started: true };
-    }
+    if (await probe(url, 500)) return;
     await sleep(300);
   }
-  clearState(home);
   if (exited === undefined) {
     try {
       process.kill(child.pid, "SIGKILL");
@@ -202,41 +247,84 @@ export async function start(home: string, opts: { port?: number | string } = {})
     }
   }
   const why = exited !== undefined ? "the server exited" : "the server did not answer within 30 s";
-  throw new ServerError(`${why} (${url}). Last log lines (${logPath(home)}):\n${tail(logPath(home))}`);
+  throw new ServerError(`${why} (${url}). Last log lines (${log}):\n${tail(log)}`);
 }
 
-/** Run the app in this terminal until it stops (Ctrl-C). For containers and service managers. */
-export async function runForeground(home: string, opts: { port?: number | string } = {}): Promise<number> {
+/** Start the app + API in the background and wait until both answer. A running pair is left alone. */
+export async function start(home: string, opts: { port?: number | string; apiPort?: number | string } = {}): Promise<ServerStatus & { started: boolean }> {
   const url = resolveUrl({ port: opts.port });
+  const apiUrl = resolveApiUrl({ apiPort: opts.apiPort });
+  const cur = await status(home, url);
+  if (cur.running) return { ...cur, started: false };
+
   const root = appRoot();
-  const { cmd, args, cwd } = startCommand(root, home);
-  const child = spawn(cmd, args, { cwd, stdio: "inherit", env: appEnv(home, url) });
-  const forward = (sig: NodeJS.Signals) => () => child.kill(sig);
+  mkdirSync(home, { recursive: true });
+  // The API opens the database on first request — migration is the caller's (bin folds it once).
+
+  const apiCmd = apiStartCommand(root);
+  const apiLog = openSync(apiLogPath(home), "a");
+  let apiChild: ChildProcess;
+  try {
+    apiChild = spawn(apiCmd.cmd, apiCmd.args, { cwd: apiCmd.cwd, detached: true, stdio: ["ignore", apiLog, apiLog], env: apiEnv(home, apiUrl) });
+  } finally {
+    closeSync(apiLog);
+  }
+  await spawnAndWait(apiChild, apiUrl, apiLogPath(home));
+  const apiPid = apiChild.pid!;
+
+  const uiCmd = uiStartCommand(root, home);
+  const uiLog = openSync(uiLogPath(home), "a");
+  let uiChild: ChildProcess;
+  try {
+    uiChild = spawn(uiCmd.cmd, uiCmd.args, { cwd: uiCmd.cwd, detached: true, stdio: ["ignore", uiLog, uiLog], env: appEnv(home, url, apiUrl) });
+  } finally {
+    closeSync(uiLog);
+  }
+  try {
+    await spawnAndWait(uiChild, url, uiLogPath(home));
+  } catch (e) {
+    try { process.kill(apiPid, "SIGKILL"); } catch { /* already gone */ }
+    throw e;
+  }
+
+  const startedAt = new Date().toISOString();
+  writeState(home, {
+    ui: { pid: uiChild.pid!, url, startedAt },
+    api: { pid: apiPid, url: apiUrl, startedAt },
+  });
+  const now = await status(home, url);
+  return { ...now, started: true };
+}
+
+/** Run both processes in this terminal until they stop (Ctrl-C). For containers and service managers. */
+export async function runForeground(home: string, opts: { port?: number | string; apiPort?: number | string } = {}): Promise<number> {
+  const url = resolveUrl({ port: opts.port });
+  const apiUrl = resolveApiUrl({ apiPort: opts.apiPort });
+  const root = appRoot();
+  const apiCmd = apiStartCommand(root);
+  const uiCmd = uiStartCommand(root, home);
+  const api = spawn(apiCmd.cmd, apiCmd.args, { cwd: apiCmd.cwd, stdio: "inherit", env: apiEnv(home, apiUrl) });
+  const ui = spawn(uiCmd.cmd, uiCmd.args, { cwd: uiCmd.cwd, stdio: "inherit", env: appEnv(home, url, apiUrl) });
+  const forward = (sig: NodeJS.Signals) => () => { api.kill(sig); ui.kill(sig); };
   process.on("SIGINT", forward("SIGINT"));
   process.on("SIGTERM", forward("SIGTERM"));
-  console.error(`blackboard: serving ${url}`);
-  return new Promise((resolve) => child.on("exit", (code) => resolve(code ?? 0)));
+  console.error(`blackboard: serving ${url} (api ${apiUrl})`);
+  return new Promise((resolve) => ui.on("exit", (code) => { api.kill("SIGTERM"); resolve(code ?? 0); }));
 }
 
-/** Stop the app this home started. Returns false when there was none; refuses one it did not start. */
+/** Stop the pair this home started. Returns false when there was none; refuses one it did not start. */
 export async function stop(home: string): Promise<{ stopped: boolean; note?: string }> {
   const st = readState(home);
-  if (!st || !pidAlive(st.pid)) {
-    clearState(home);
+  if (!st) {
     const ext = await probe(resolveUrl());
     return { stopped: false, note: ext ? "a Blackboard is answering at that address, but this command did not start it (stop it where you started it)" : undefined };
   }
-  try {
-    process.kill(st.pid, "SIGTERM");
-  } catch {
-    // already gone
-  }
-  for (let i = 0; i < 40 && pidAlive(st.pid); i++) await sleep(150);
-  if (pidAlive(st.pid)) {
-    try {
-      process.kill(st.pid, "SIGKILL");
-    } catch {
-      // already gone
+  for (const proc of [st.ui, st.api]) {
+    if (!pidAlive(proc.pid)) continue;
+    try { process.kill(proc.pid, "SIGTERM"); } catch { /* already gone */ }
+    for (let i = 0; i < 40 && pidAlive(proc.pid); i++) await sleep(150);
+    if (pidAlive(proc.pid)) {
+      try { process.kill(proc.pid, "SIGKILL"); } catch { /* already gone */ }
     }
   }
   clearState(home);
@@ -244,7 +332,11 @@ export async function stop(home: string): Promise<{ stopped: boolean; note?: str
 }
 
 export function formatStatus(s: ServerStatus): string {
+  if (!s.running && "partial" in s) {
+    const p = s.partial;
+    return [`not running (${s.url}): one of the pair has stopped`, `ui: ${p.ui} (pid ${p.pids.ui})`, `api: ${p.api} (pid ${p.pids.api})`, "run: blackboard serve stop, then blackboard serve start"].join("\n");
+  }
   if (!s.running) return `not running (${s.url})`;
   if (!s.managed) return `running at ${s.url} (not started by this command)`;
-  return `running at ${s.url}  pid ${s.pid}  since ${s.startedAt}\nlog: ${s.log}`;
+  return [`running at ${s.url}  pid ${s.ui.pid}  since ${s.ui.startedAt}`, `api: running at ${s.api.url}  pid ${s.api.pid}  since ${s.api.startedAt}`, `log: ${s.ui.log}`, `log: ${s.api.log}`].join("\n");
 }

@@ -19,6 +19,8 @@ export const documents = sqliteTable("documents", (d) => ({
   createdAt: d.text("created_at").notNull(),
   openedAt: d.text("opened_at").notNull(),
   kind: d.text("kind"),
+  /** Non-null once the session is closed: children are kept on purpose — close never deletes a doc's comments. */
+  closedAt: d.text("closed_at"),
 }));
 
 /** One exchange of the reply-style stream: the unit the streamed doc UI appends. */

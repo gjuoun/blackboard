@@ -1,58 +1,54 @@
 import { describe, expect, test } from "bun:test";
-import { Effect, FileSystem } from "effect";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NextRequest } from "next/server";
-import { run } from "../../../test/app";
-import { comment, comments, reply } from "@/lib/cli/comments";
-import { open } from "@/lib/cli/sessions";
-import { GET, PATCH, POST } from "./route";
+import { LOCAL, fixture, register } from "../../test/api-fixture";
+import { comment, comments, reply } from "../../lib/cli/comments";
+import { run } from "../../test/app";
+import { app } from "../app";
 
-/** A temp Blackboard home and one doc. The route reads the home from BLACKBOARD_HOME on each call. */
+/**
+ * The comments route, driven through the API app. Same cases as the Next route test it replaces:
+ * bodies rendered to HTML with the raw text kept, a POST that returns the rendered comment, and the
+ * reply-join rules: a reply id names a reply on the same comment, a reply id in the comment slot is
+ * refused. Comments are written through the store helpers the CLI uses, so each case starts from
+ * the same state a real session has.
+ */
+
+const json = (payload: unknown, method = "POST"): RequestInit => ({
+  method,
+  headers: { ...LOCAL, "content-type": "application/json" },
+  body: JSON.stringify(payload),
+});
+const get = (session: string) => app.request(`http://127.0.0.1/api/comments?session=${session}`, { headers: LOCAL });
+const post = (payload: unknown) => app.request("http://127.0.0.1/api/comments", json(payload));
+const patch = (payload: unknown) => app.request("http://127.0.0.1/api/comments", json(payload, "PATCH"));
+
 async function setup() {
-  const { base, design } = await run(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const base = yield* fs.realPath(yield* fs.makeTempDirectory({ directory: tmpdir(), prefix: "bb-route-" }));
-      const docs = join(base, "docs");
-      yield* fs.makeDirectory(docs, { recursive: true });
-      const design = join(docs, "design.md");
-      yield* fs.writeFileString(design, "# Design\n\nLater text. More text.\n");
-      return { base, design };
-    }),
-  );
-  const home = join(base, "home");
-  process.env.BLACKBOARD_HOME = home;
-  process.env.BLACKBOARD_NO_BROWSER = "1";
-  const { session } = await run(open(home, design));
+  const { home, docs } = await fixture("bb-route-", { "design.md": "# Design\n\nLater text. More text.\n" });
+  const design = join(docs, "design.md");
+  const session = await register(home, design);
   return { home, design, session: session.id };
 }
-
-const get = (session: string) => GET(new NextRequest("http://127.0.0.1/api/comments?session=" + session));
-const patch = (payload: Record<string, unknown>) =>
-  PATCH(new NextRequest("http://127.0.0.1/api/comments", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }));
 
 describe("comments API renders bodies", () => {
   test("GET returns each comment and reply with its body rendered to HTML and the raw text kept", async () => {
     const { home, design, session } = await setup();
     const c = await run(comment(home, design, "Later text.", "**first** note", "jun"));
     await run(reply(home, design, c.id, "answer with `x`", "agent"));
-    const res = await get(session);
-    const { comments: list } = await res.json();
+    const { comments: list } = await (await get(session)).json();
     expect(list[0].body).toBe("**first** note");
     expect(list[0].html).toContain("<strong>first</strong>");
     expect(list[0].replies[0].html).toContain("<code>x</code>");
     expect(list[0].replies[0].body).toBe("answer with `x`");
   });
 
-  test("POST returns the new comment with its body rendered", async () => {
+  test("POST returns the new comment with its body rendered, and drops a script link", async () => {
     const { session } = await setup();
-    const res = await POST(new NextRequest("http://127.0.0.1/api/comments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ session, quote: { exact: "More text.", prefix: "Later text. ", suffix: "" }, body: "see [x](javascript:alert(1))" }) }));
+    const res = await post({ session, quote: { exact: "More text.", prefix: "Later text. ", suffix: "" }, body: "see [x](javascript:alert(1))" });
+    expect(res.status).toBe(201);
     const { comment: made } = await res.json();
     expect(made.html).toBe("<p>see x</p>");
   });
 });
-
 
 describe("reply joins the comment thread", () => {
   test("a reply with a reply id joins that comment: one flat list, one more entry, no nesting", async () => {

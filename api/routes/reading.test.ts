@@ -1,46 +1,42 @@
 import { describe, expect, test } from "bun:test";
-import { Effect, FileSystem } from "effect";
-import { tmpdir } from "node:os";
+import { Effect } from "effect";
 import { join } from "node:path";
-import { NextRequest } from "next/server";
-import { run } from "../../../test/app";
-import { open } from "@/lib/cli/sessions";
-import { readReadingState, readingStatePath } from "@/lib/reading-state";
-import { POST } from "./route";
+import { LOCAL, fixture, register } from "../../test/api-fixture";
+import { ReadingStateStore, type ReadingFile } from "../../lib/reading-state";
+import { run } from "../../test/app";
+import { app } from "../app";
 
-/** A temp home with two documents, the same fixture the other route tests build. */
-async function setup() {
-  const { base, design, notes } = await run(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const base = yield* fs.realPath(yield* fs.makeTempDirectory({ directory: tmpdir(), prefix: "bb-reading-route-" }));
-      const docs = join(base, "docs");
-      yield* fs.makeDirectory(docs, { recursive: true });
-      const design = join(docs, "design.md");
-      const notes = join(docs, "notes.md");
-      yield* fs.writeFileString(design, "# Design\n\nLater text.\n");
-      yield* fs.writeFileString(notes, "# Notes\n\nAnother doc.\n");
-      return { base, design, notes };
-    }),
-  );
-  const home = join(base, "home");
-  process.env.BLACKBOARD_HOME = home;
-  process.env.BLACKBOARD_NO_BROWSER = "1";
-  const designSession = await run(open(home, design));
-  const notesSession = await run(open(home, notes));
-  return { home, design, notes, designId: designSession.session.id, notesId: notesSession.session.id };
-}
+/**
+ * The reading route, driven through the API app. The reading state lives in the reading_state table,
+ * so "persisted" means: the row the store reads back, the same read a restarted API performs. The
+ * original test read a JSON file and asserted the same values; the assertions now read the table.
+ */
 
 const send = (payload: unknown) =>
-  POST(
-    new NextRequest("http://127.0.0.1/api/reading", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: typeof payload === "string" ? payload : JSON.stringify(payload),
+  app.request("http://127.0.0.1/api/reading", {
+    method: "POST",
+    headers: { ...LOCAL, "content-type": "application/json" },
+    body: typeof payload === "string" ? payload : JSON.stringify(payload),
+  });
+
+/** The stored reading state, read through the store the API writes with. */
+const stored = (home: string): Promise<ReadingFile["docs"]> =>
+  run(
+    Effect.gen(function* () {
+      const s = yield* ReadingStateStore;
+      return (yield* s.read(home)).docs;
     }),
   );
 
-const stored = (home: string) => readReadingState(readingStatePath(home)).docs;
+async function setup() {
+  const { home, docs } = await fixture("bb-reading-route-", {
+    "design.md": "# Design\n\nLater text.\n",
+    "notes.md": "# Notes\n\nAnother doc.\n",
+  });
+  const design = await register(home, join(docs, "design.md"));
+  const notes = await register(home, join(docs, "notes.md"));
+  return { home, designId: design.id, notesId: notes.id };
+}
 
 describe("POST /api/reading", () => {
   test("marks one document read and persists the position it had", async () => {
@@ -48,9 +44,9 @@ describe("POST /api/reading", () => {
     const res = await send({ session: designId, action: "read" });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ docs: { [designId]: { status: "read", progress: 0 } } });
-    // The file on disk is what a restarted server reads back.
-    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 0 });
-    expect(stored(home)[designId].sourceMtime).toBeGreaterThan(0);
+    // The row is what a restarted API reads back.
+    expect((await stored(home))[designId]).toMatchObject({ status: "read", progress: 0 });
+    expect((await stored(home))[designId].sourceMtime).toBeGreaterThan(0);
   });
 
   test("marks a document unread and clears its progress", async () => {
@@ -59,7 +55,7 @@ describe("POST /api/reading", () => {
     const res = await send({ session: designId, action: "unread" });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ docs: { [designId]: { status: "unread", progress: 0 } } });
-    expect(stored(home)[designId]).toMatchObject({ status: "unread", progress: 0 });
+    expect((await stored(home))[designId]).toMatchObject({ status: "unread", progress: 0 });
   });
 
   test("records a position as reading — even the bottom never marks it read", async () => {
@@ -67,11 +63,11 @@ describe("POST /api/reading", () => {
     const mid = await send({ session: designId, action: "progress", progress: 0.42 });
     expect(mid.status).toBe(200);
     expect(await mid.json()).toEqual({ docs: { [designId]: { status: "reading", progress: 0.42 } } });
-    expect(stored(home)[designId]).toMatchObject({ status: "reading", progress: 0.42 });
+    expect((await stored(home))[designId]).toMatchObject({ status: "reading", progress: 0.42 });
 
     const end = await send({ session: designId, action: "progress", progress: 0.98 });
     expect(await end.json()).toEqual({ docs: { [designId]: { status: "reading", progress: 0.98 } } });
-    expect(stored(home)[designId]).toMatchObject({ status: "reading", progress: 0.98 });
+    expect((await stored(home))[designId]).toMatchObject({ status: "reading", progress: 0.98 });
   });
 
   test("scrolling a read document updates only its position", async () => {
@@ -79,7 +75,7 @@ describe("POST /api/reading", () => {
     await send({ session: designId, action: "read" });
     const res = await send({ session: designId, action: "progress", progress: 0.3 });
     expect(await res.json()).toEqual({ docs: { [designId]: { status: "read", progress: 0.3 } } });
-    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 0.3 });
+    expect((await stored(home))[designId]).toMatchObject({ status: "read", progress: 0.3 });
   });
 
   test("marking read after scrolling keeps the position — never jumps to the end", async () => {
@@ -87,7 +83,7 @@ describe("POST /api/reading", () => {
     await send({ session: designId, action: "progress", progress: 0.42 });
     const res = await send({ session: designId, action: "read" });
     expect(await res.json()).toEqual({ docs: { [designId]: { status: "read", progress: 0.42 } } });
-    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 0.42 });
+    expect((await stored(home))[designId]).toMatchObject({ status: "read", progress: 0.42 });
   });
 
   test("read-all marks every document read without touching positions", async () => {
@@ -99,8 +95,8 @@ describe("POST /api/reading", () => {
     // The scrolled doc keeps its position; the never-opened one stays at 0.
     expect(docs[designId]).toEqual({ status: "read", progress: 0.5 });
     expect(docs[notesId]).toEqual({ status: "read", progress: 0 });
-    expect(stored(home)[designId]).toMatchObject({ status: "read", progress: 0.5 });
-    expect(stored(home)[notesId]).toMatchObject({ status: "read", progress: 0 });
+    expect((await stored(home))[designId]).toMatchObject({ status: "read", progress: 0.5 });
+    expect((await stored(home))[notesId]).toMatchObject({ status: "read", progress: 0 });
   });
 
   test("an unknown session is refused with a plain message", async () => {

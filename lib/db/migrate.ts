@@ -1,13 +1,12 @@
-import { existsSync, mkdtempSync, readdirSync, renameSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, renameSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
-import { readAgents } from "../agents-store";
-import { readComments, type Comment, type CommentFile } from "../comments-store";
+import type { Comment, CommentFile } from "../comments-file";
 import { errorMessage, IoFailure, type LockTimeout, type DbFailure } from "../effect/errors";
+import { commentFiles, readAgentsFile, readCommentsFile, readReadingFile, readRegistryFile } from "../json-sources";
 import { Lock } from "../lock";
-import { readReadingState } from "../reading-state";
-import { readRegistry, sessionCommentsPath, type Session } from "../sessions";
+import type { Session } from "../sessions";
 import { Db } from "./client";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { agents, comments, documents, readingState, reviews } from "./schema";
@@ -35,17 +34,7 @@ export type MigrateReport = {
   nothing: boolean;
 };
 
-const SESSION_ID = /^[a-z0-9]{1,32}$/;
 const failure = (error: unknown) => new IoFailure({ message: errorMessage(error), status: 500 });
-
-/** The comment file for session `id`, when it exists on disk. */
-const commentFiles = (home: string): string[] => {
-  const dir = join(home, "sessions");
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter((id) => SESSION_ID.test(id) && existsSync(sessionCommentsPath(home, id)))
-    .map((id) => sessionCommentsPath(home, id));
-};
 
 /** Every migratable source that still exists as .json (not yet renamed). */
 const sources = (home: string) => ({
@@ -62,7 +51,7 @@ const insert = (db: BunSQLiteDatabase, home: string): MigrateReport => {
   const hasAgents = existsSync(src.agents);
   const report: MigrateReport = { dry: false, documents: 0, comments: 0, reviews: 0, readingState: 0, agents: 0, renamed: [], nothing: false };
 
-  const registry = hasRegistry ? readRegistry(home) : ({ version: 1, sessions: [] } as const);
+  const registry = hasRegistry ? readRegistryFile(home) : ({ version: 1, sessions: [] } as const);
   const ids = new Set(registry.sessions.map((s: Session) => s.id));
 
   // documents: registry rows first
@@ -77,7 +66,7 @@ const insert = (db: BunSQLiteDatabase, home: string): MigrateReport => {
   // comments + reviews: every comments.json, session-stubbed when the session is gone
   for (const file of src.comments) {
     const id = file.split("/").at(-2)!;
-    const parsed: CommentFile = readComments(file);
+    const parsed: CommentFile = readCommentsFile(file);
     if (!ids.has(id)) {
       db.insert(documents)
         .values({ id, path: null, createdAt: new Date(0).toISOString(), openedAt: new Date(0).toISOString(), kind: null })
@@ -115,7 +104,7 @@ const insert = (db: BunSQLiteDatabase, home: string): MigrateReport => {
 
   // reading state
   if (hasReading) {
-    const file = readReadingState(join(home, "reading-state.json"));
+    const file = readReadingFile(join(home, "reading-state.json"));
     for (const [id, e] of Object.entries(file.docs)) {
       if (!ids.has(id)) {
         db.insert(documents)
@@ -135,7 +124,7 @@ const insert = (db: BunSQLiteDatabase, home: string): MigrateReport => {
 
   // agent bindings
   if (hasAgents) {
-    const file = readAgents(home);
+    const file = readAgentsFile(home);
     for (const b of file.agents) {
       if (!ids.has(b.session)) {
         db.insert(documents)

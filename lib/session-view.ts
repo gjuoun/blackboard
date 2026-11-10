@@ -1,17 +1,33 @@
-import { Effect } from "effect";
-import { runtime } from "./effect/runtime";
-import { SCRATCHPAD_ID, SessionsStore, type Session, type SessionRow } from "./sessions";
+import type { Comment, Review } from "./comments-file";
+import { apiGetJson } from "./api-fetch";
+import type { RenderedComment } from "./comment-markdown";
+import type { Session, SessionRow } from "./sessions";
 
-/**: The session and its row, creating the scratchpad on first use; null when the id names no session. */
-export function loadSession(home: string, id: string): Promise<{ session: Session; row: SessionRow } | null> {
-  return runtime.runPromise(
-    Effect.gen(function* () {
-      const sessions = yield* SessionsStore;
-      if (id === SCRATCHPAD_ID) yield* sessions.scratchpad(home);
-      const session = yield* sessions.get(home, id);
-      if (!session) return null;
-      return { session, row: yield* sessions.row(home, session) };
-    }),
-  );
+/** One session as the doc page reads it: its row, and its comments and reviews rendered for the page. */
+export type LoadedSession = {
+  session: Session;
+  row: SessionRow;
+  comments: { docs: Record<string, RenderedComment[]>; reviews: Review[] };
+};
+
+/** The session from the API; null when the id names no session. */
+export async function loadSession(home: string, id: string): Promise<LoadedSession | null> {
+  const data = await apiGetJson<{ session: Session; row: SessionRow; comments: RenderedComment[]; reviews: Review[] }>(
+    home,
+    `/api/session?id=${encodeURIComponent(id)}`,
+  ).catch(() => null);
+  if (!data) return null;
+  return {
+    session: data.session,
+    row: data.row,
+    comments: { docs: groupDocs(data.session.path, data.comments), reviews: data.reviews },
+  };
 }
 
+/** The API answers one session's comments flat; the page reads them keyed by doc, so group them here. */
+function groupDocs(path: string, list: RenderedComment[]): Record<string, RenderedComment[]> {
+  const key = path.slice(path.lastIndexOf("/") + 1);
+  return { [key]: list };
+}
+
+export type { Comment };

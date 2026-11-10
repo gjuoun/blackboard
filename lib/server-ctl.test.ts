@@ -46,11 +46,16 @@ describe("runtimeFor", () => {
 });
 
 describe("server state", () => {
-  test("round-trips, and junk reads as none", () => {
+  test("round-trips a two-proc record, and junk or the old single-pid shape reads as none", () => {
     const home = tmp();
     expect(readState(home)).toBeNull();
-    writeState(home, { pid: 123, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" });
-    expect(readState(home)).toEqual({ pid: 123, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" });
+    const proc = { pid: 123, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+    writeState(home, { ui: proc, api: { ...proc, pid: 124, url: "http://127.0.0.1:2" } });
+    expect(readState(home)?.ui.pid).toBe(123);
+    expect(readState(home)?.api.pid).toBe(124);
+    // the A-era single-pid file is stale, not a state we honour
+    writeFileSync(join(home, "server.json"), JSON.stringify({ pid: 123, url: "http://127.0.0.1:1", startedAt: "x" }));
+    expect(readState(home)).toBeNull();
     clearState(home);
     expect(readState(home)).toBeNull();
   });
@@ -68,7 +73,8 @@ describe("status with a live server", () => {
       const home = tmp();
       expect(await probe(url)).toBe(true);
       expect(await status(home, url)).toEqual({ running: true, url, managed: false });
-      writeState(home, { pid: 2 ** 22 + 12345, url, startedAt: "2026-01-01T00:00:00.000Z" });
+      const dead = { pid: 2 ** 22 + 12345, url, startedAt: "2026-01-01T00:00:00.000Z" };
+      writeState(home, { ui: dead, api: dead });
       expect(await status(home, url)).toEqual({ running: true, url, managed: false });
       expect(readState(home)).toBeNull();
     } finally {
@@ -79,6 +85,23 @@ describe("status with a live server", () => {
     const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response("<html>hi</html>") });
     try {
       expect(await probe(`http://127.0.0.1:${server.port}`)).toBe(false);
+    } finally {
+      server.stop(true);
+    }
+  });
+  test("a pair with one process gone reads as partial and keeps its record, so stop can still reach the survivor", async () => {
+    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => Response.json({ app: "blackboard", version: "x" }) });
+    const url = `http://127.0.0.1:${server.port}`;
+    try {
+      const home = tmp();
+      const alive = { pid: process.pid, url, startedAt: "2026-01-01T00:00:00.000Z" };
+      const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+      writeState(home, { ui: alive, api: dead });
+      const s = await status(home, "http://127.0.0.1:1");
+      expect(s.running).toBe(false);
+      expect(formatStatus(s)).toContain("one of the pair has stopped");
+      expect(formatStatus(s)).toContain("api: down");
+      expect(readState(home)).not.toBeNull();
     } finally {
       server.stop(true);
     }

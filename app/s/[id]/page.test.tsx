@@ -43,6 +43,7 @@ mock.module("@/lib/session-view", () => ({
       stats: { sections: 2 },
       open: 0,
     },
+    comments: { docs: {}, reviews: [] },
   }),
 }));
 

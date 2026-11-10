@@ -1,12 +1,14 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { Context, Effect, Layer } from "effect";
-import { errorMessage, IoFailure, type LockTimeout } from "./effect/errors";
-import { Lock } from "./lock";
+import { AgentsRepo } from "./db/repos/agents";
+import type { DbFailure } from "./effect/errors";
 
 /**
  * A document bound to the pi session that opened it. The pi extension posts this record, and the
- * server posts each new comment to `url`, so the session that owns the doc hears about it.
+ * API posts each new comment to `url`, so the session that owns the doc hears about it. Since the
+ * data-layer round the record lives in `blackboard.db`'s `agents` table; `agents.json` is only
+ * migration input now.
  */
 export type Binding = {
   /** The Blackboard session id. */
@@ -26,90 +28,37 @@ export type AgentsFile = { version: 1; agents: Binding[] };
 /** A binding as it is posted: the stamps are the store's business. */
 export type BindInput = Omit<Binding, "boundAt" | "lastSeenAt">;
 
-const now = () => new Date().toISOString();
-const failure = (error: unknown) => new IoFailure({ message: errorMessage(error), status: 500 });
-
-/** `<home>/agents.json`: plain JSON, so anyone can read the bindings straight from disk. */
-const agentsPath = (home: string) => join(home, "agents.json");
-
-/** The bindings as JSON; a file that does not parse is an error, never silently replaced. */
+/** `<home>/agents.json` — the migration source only; the app no longer reads it. */
 export function readAgents(home: string): AgentsFile {
-  const p = agentsPath(home);
+  const p = join(home, "agents.json");
   if (!existsSync(p)) return { version: 1, agents: [] };
   const data = JSON.parse(readFileSync(p, "utf8"));
   if (data?.version !== 1 || !Array.isArray(data.agents)) throw new Error(`unsupported agents file: ${p}`);
   return data as AgentsFile;
 }
 
-function writeAtomic(p: string, data: AgentsFile) {
-  mkdirSync(dirname(p), { recursive: true });
-  const tmp = `${p}.${process.pid}.${Date.now()}.tmp`;
-  writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n");
-  renameSync(tmp, p);
-}
-
-/** The bindings, under the same cross-process lock and atomic rename the session registry uses. */
+/** The bindings, backed by the agents table. */
 export class AgentsStore extends Context.Service<
   AgentsStore,
   {
-    get(home: string, session: string): Effect.Effect<Binding | null, IoFailure>;
+    get(home: string, session: string): Effect.Effect<Binding | null, DbFailure>;
     /** One record per session: binding again replaces the record. */
-    bind(home: string, input: BindInput): Effect.Effect<Binding, IoFailure | LockTimeout>;
-    unbind(home: string, session: string): Effect.Effect<Binding | null, IoFailure | LockTimeout>;
+    bind(home: string, input: BindInput): Effect.Effect<Binding, DbFailure>;
+    unbind(home: string, session: string): Effect.Effect<Binding | null, DbFailure>;
     /** The extension asked about its binding: record that it is still there. */
-    touch(home: string, session: string): Effect.Effect<void, IoFailure | LockTimeout>;
+    touch(home: string, session: string): Effect.Effect<void, DbFailure>;
   }
 >()("blackboard/AgentsStore") {}
 
 export const layer = Layer.effect(
   AgentsStore,
   Effect.gen(function* () {
-    const lock = yield* Lock;
-
-    const get = (home: string, session: string) =>
-      Effect.try({
-        try: () => readAgents(home).agents.find((b) => b.session === session) ?? null,
-        catch: failure,
-      });
-
-    const update = <A>(home: string, change: (file: AgentsFile) => A): Effect.Effect<A, IoFailure | LockTimeout> =>
-      Effect.gen(function* () {
-        yield* Effect.sync(() => mkdirSync(home, { recursive: true }));
-        return yield* lock.withLock(
-          agentsPath(home),
-          Effect.try({
-            try: () => {
-              const file = readAgents(home);
-              const out = change(file);
-              writeAtomic(agentsPath(home), file);
-              return out;
-            },
-            catch: failure,
-          }),
-        );
-      });
-
+    const repo = yield* AgentsRepo;
     return AgentsStore.of({
-      get,
-      bind: (home, input) =>
-        update(home, (file) => {
-          const bound: Binding = { ...input, boundAt: now(), lastSeenAt: now() };
-          const at = file.agents.findIndex((b) => b.session === input.session);
-          if (at >= 0) file.agents[at] = bound;
-          else file.agents.push(bound);
-          return bound;
-        }),
-      unbind: (home, session) =>
-        update(home, (file) => {
-          const found = file.agents.find((b) => b.session === session) ?? null;
-          file.agents = file.agents.filter((b) => b.session !== session);
-          return found;
-        }),
-      touch: (home, session) =>
-        update(home, (file) => {
-          const found = file.agents.find((b) => b.session === session);
-          if (found) found.lastSeenAt = now();
-        }),
+      get: (home, session) => repo.get(home, session),
+      bind: (home, input) => repo.bind(home, input),
+      unbind: (home, session) => repo.unbind(home, session),
+      touch: (home, session) => repo.touch(home, session),
     });
   }),
 );

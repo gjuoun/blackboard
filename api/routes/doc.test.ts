@@ -1,34 +1,23 @@
 import { describe, expect, test } from "bun:test";
-import { Effect, FileSystem } from "effect";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NextRequest } from "next/server";
-import { run } from "../../../../test/app";
-import { commentGeneral } from "@/lib/cli/comments";
-import { open } from "@/lib/cli/sessions";
-import { GET } from "./route";
+import { commentGeneral } from "../../lib/cli/comments";
+import { LOCAL, fixture, register } from "../../test/api-fixture";
+import { run } from "../../test/app";
+import { app } from "../app";
 
-/** One temp doc the preview can render. */
+/**
+ * The doc preview endpoint, driven through the API app: the rendered document plus its metadata and
+ * the general-comment thread under it.
+ */
+
 async function setup() {
-  const { base, design } = await run(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const base = yield* fs.realPath(yield* fs.makeTempDirectory({ directory: tmpdir(), prefix: "bb-reading-doc-" }));
-      const docs = join(base, "docs");
-      yield* fs.makeDirectory(docs, { recursive: true });
-      const design = join(docs, "design.md");
-      yield* fs.writeFileString(design, "# Design\n\n## Plan\n\nLater text. More text.\n");
-      return { base, design };
-    }),
-  );
-  const home = join(base, "home");
-  process.env.BLACKBOARD_HOME = home;
-  process.env.BLACKBOARD_NO_BROWSER = "1";
-  const { session } = await run(open(home, design));
+  const { home, docs } = await fixture("bb-reading-doc-", { "design.md": "# Design\n\n## Plan\n\nLater text. More text.\n" });
+  const design = join(docs, "design.md");
+  const session = await register(home, design);
   return { home, design, id: session.id };
 }
 
-const get = (session: string) => GET(new NextRequest("http://127.0.0.1/api/reading/doc?session=" + session));
+const get = (session: string) => app.request(`http://127.0.0.1/api/reading/doc?session=${session}`, { headers: LOCAL });
 
 describe("GET /api/reading/doc", () => {
   test("renders the whole document and its metadata", async () => {

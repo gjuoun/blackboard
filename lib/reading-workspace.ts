@@ -19,7 +19,7 @@ import {
 } from "./reading-model";
 import { ReadingStateStore } from "./reading-state";
 import { relativeTime } from "./relative-time";
-import { servablePath, sessionCommentsPath, SessionsStore } from "./sessions";
+import { servablePath, SessionsStore } from "./sessions";
 
 /** The doc file's own mtime, or 0 when it cannot be read: the reading state uses it to spot edits. */
 const mtimeOf = (path: string): Effect.Effect<number> =>
@@ -92,7 +92,7 @@ export const previewDoc = (
       try: () => renderMarkdown(src, { assetBase: `/api/asset/${id}` }),
       catch: (error) => new IoFailure({ message: errorMessage(error), status: 500 }),
     });
-    const commentFile = yield* comments.read(sessionCommentsPath(home, id));
+    const commentFile = yield* comments.read(home, id);
     const replies: PreviewReply[] = (commentFile.docs[basename(file)] ?? [])
       .filter((comment) => comment.general)
       .flatMap((comment) => [
@@ -142,12 +142,8 @@ export const applyReading = (
           return [session.id, markRead(at, mtime, prev.progress)] as const;
         }),
       );
-      yield* state.mutate(home, (file) => {
-        for (const [id, entry] of entries) {
-          file.docs[id] = entry;
-          changed[id] = { status: entry.status, progress: entry.progress };
-        }
-      });
+      yield* Effect.forEach(entries, ([id, entry]) => state.set(home, id, entry));
+      for (const [id, entry] of entries) changed[id] = { status: entry.status, progress: entry.progress };
       return { docs: changed };
     }
 
@@ -165,8 +161,6 @@ export const applyReading = (
         : input.action === "unread"
           ? markUnread(at, mtime)
           : withProgress(input.progress, at, mtime, prevEntry.status);
-    yield* state.mutate(home, (file) => {
-      file.docs[session.id] = entry;
-    });
+    yield* state.set(home, session.id, entry);
     return { docs: { [session.id]: { status: entry.status, progress: entry.progress } } };
   });

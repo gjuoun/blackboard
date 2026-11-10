@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import { Effect } from "effect";
 import { run } from "../../test/app";
 import { DESIGN, runCli, setup } from "../../test/fixtures/cli";
 import { anchor } from "../anchor";
-import { readComments } from "../comments-store";
+import { CommentsStore } from "../comments-store";
 import { renderPlainText } from "../markdown";
-import { sessionCommentsPath } from "../sessions";
 import { formatComments } from "../cli";
 import { comment, comments, reply, status } from "./comments";
 import { open, sessions } from "./sessions";
@@ -17,7 +17,11 @@ describe("comments", () => {
     const c = await run(comment(home, design, "The cache is warm.", "why warm?", "agent", 2));
     const text = await renderPlainText(DESIGN);
     expect(anchor(text, c.quote!)?.start).toBe(text.lastIndexOf("The cache is warm."));
-    expect(readComments(sessionCommentsPath(home, session.id)).docs["design.md"][0]).toMatchObject({ author: "agent", body: "why warm?" });
+    const file = await run(Effect.gen(function* () {
+      const store = yield* CommentsStore;
+      return yield* store.read(home, session.id);
+    }));
+    expect(file.docs["design.md"][0]).toMatchObject({ author: "agent", body: "why warm?" });
   });
 
   test("reply and resolve find the comment by id; sessions counts open comments", async () => {

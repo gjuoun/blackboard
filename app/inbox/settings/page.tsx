@@ -1,9 +1,9 @@
 import { connection } from "next/server";
 import Link from "next/link";
 import { WorkspaceSettings } from "@/components/WorkspaceSettings";
-import { runtime } from "@/lib/effect/runtime";
+import { apiGetJson } from "@/lib/api-fetch";
 import { getHome } from "@/lib/home";
-import { workspaceDocs } from "@/lib/reading-workspace";
+import type { WorkspaceData } from "@/lib/reading-model";
 import pkg from "../../../package.json";
 
 export const metadata = { title: "Workspace settings" };
@@ -15,7 +15,7 @@ export const metadata = { title: "Workspace settings" };
  */
 export default async function WorkspaceSettingsPage() {
   await connection();
-  const data = await runtime.runPromise(workspaceDocs(getHome()));
+  const data = await apiGetJson<WorkspaceData>(getHome(), "/api/workspace");
   return (
     <div className="mx-auto min-h-[calc(100dvh-var(--bar-h))] max-w-[560px] pb-8">
       <div className="flex h-[52px] items-center gap-2 px-3.5">

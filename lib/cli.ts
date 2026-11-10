@@ -1,7 +1,7 @@
 import { basename } from "node:path";
 import { Data, Effect } from "effect";
 import { type Comment, type CommentFile } from "./comments-store";
-import { SessionsStore, sessionCommentsPath, type Session, type SessionRow } from "./sessions";
+import { SessionsStore, type Session, type SessionRow } from "./sessions";
 
 /** A failure the CLI reports on stderr. code 1 = the command failed, 2 = bad usage. */
 export class CliError extends Data.TaggedError("CliError")<{ message: string; code: 1 | 2 }> {}
@@ -12,7 +12,7 @@ export const cliFailure = (error: { message: string }, code: 1 | 2 = 1) => new C
 export type DocComment = Comment & { doc: string };
 
 /** A session and the comment file its comments live in, resolved from an id or a path. */
-export type Target = { session: Session; file: string; doc: string };
+export type Target = { session: Session; doc: string };
 
 /** A session named by id or by a path to its file (relative to cwd). */
 export function find(home: string, ref: string, cwd = process.cwd()): Effect.Effect<Target, CliError, SessionsStore> {
@@ -22,7 +22,7 @@ export function find(home: string, ref: string, cwd = process.cwd()): Effect.Eff
     if (!session) {
       return yield* new CliError({ message: `no session "${ref}" (register the file with: blackboard open <file>)`, code: 1 });
     }
-    return { session, file: sessionCommentsPath(home, session.id), doc: basename(session.path) };
+    return { session, doc: basename(session.path) };
   });
 }
 
