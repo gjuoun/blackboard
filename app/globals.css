@@ -164,7 +164,23 @@ html[data-doc-wide] .doc-body, html[data-doc-wide] .doc-grid main > div { max-wi
 
 /* ---- streamed docs: one timeline node per exchange (sketch variant A — the quiet meta line) ---- */
 
-.stream-block { margin: 0 0 2.6em; scroll-margin-top: calc(var(--bar-h) + 12px); }
+.stream-block { margin: 0 0 3.4em; scroll-margin-top: calc(var(--bar-h) + 12px); }
+/* The boundary between two exchanges is a hairline that fades at both ends: it says "another reply
+   starts here" without cutting the column in two. Jun picked it off four shots (2026-11-10) over a
+   full rule and over no rule at all; no left indent, no box change on placeholders.
+   Keyed on data-n, not on `.stream-block + .stream-block`: the payload loader slides `div.vspacer`
+   elements between the blocks as they hydrate, so adjacent-sibling selectors stop matching on any
+   long doc — exactly the case the rule exists for. */
+.stream-block[data-n]:not([data-n="1"]) { position: relative; }
+.stream-block[data-n]:not([data-n="1"])::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1.7em;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border) 14%, var(--border) 86%, transparent);
+}
 .stream-block .stream-meta { margin: 0 0 0.5em; font-size: 0.78em; color: var(--muted-foreground); }
 .stream-block .stream-meta .stream-caret { margin-left: 0.5em; color: var(--primary); animation: bb-writing 1.4s ease-in-out infinite; }
 .stream-block .stream-tail { margin: 0; color: var(--primary); font-size: 0.9em; animation: bb-writing 1.4s ease-in-out infinite; }

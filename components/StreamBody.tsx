@@ -34,6 +34,7 @@ function Pending({ b }: { b: PendingNode }) {
       <section
         id={b.id}
         className="stream-block"
+        data-n={b.n}
         {...{ [PENDING_ATTR]: "", [EST_ATTR]: b.est }}
         style={{ height: b.est }}
       />
@@ -43,6 +44,7 @@ function Pending({ b }: { b: PendingNode }) {
     <section
       id={b.id}
       className="stream-block"
+      data-n={b.n}
       {...{ [PENDING_ATTR]: "", [EST_ATTR]: b.est }}
       style={{ height: b.est }}
       data-testid={`stream-block-pending-${b.n}`}
@@ -76,6 +78,7 @@ export function StreamBody({ nodes, pending = [] }: { nodes: StreamNode[]; pendi
             key={b.id}
             id={b.id}
             className="stream-block"
+            data-n={b.n}
             data-testid={`stream-block-${b.n}`}
             data-block-id={b.id}
             {...(b.writing ? { "data-status": "writing" } : {})}
