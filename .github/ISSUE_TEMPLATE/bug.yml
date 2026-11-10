@@ -1,0 +1,70 @@
+name: Bug report
+description: Something in Blackboard is broken or behaves unexpectedly
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. If the web app is running, `blackboard serve status`
+        prints the pid and the log file — the log usually has the stack for a 500.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The shortest sequence that triggers it — commands run, page opened, button clicked.
+      placeholder: |
+        1. blackboard open docs/plan.md
+        2. select a passage, click Comment
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Terminal output, browser console errors, or lines from the server log ($BLACKBOARD_HOME/server.log).
+      render: shell
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Blackboard version
+      description: "`blackboard --version`, or the version on the Settings page (/inbox/settings)."
+      placeholder: "e.g. 0.3.0-beta.0"
+    validations:
+      required: false
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      description: What runs the `blackboard` command.
+      options:
+        - Node
+        - Bun
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "e.g. macOS 15.2 arm64, Ubuntu 24.04"
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      description: Chrome/Edge and Safari 17.2+ are supported (CSS Custom Highlight API).
+      placeholder: "e.g. Chrome 131, Safari 18.1"
+    validations:
+      required: false

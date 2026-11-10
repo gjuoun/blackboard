@@ -15,6 +15,8 @@ same `blackboard` CLI (see [CLI for agents](#cli-for-agents)).
   <img src="docs/screenshots/phone.png" alt="The same doc on a phone, with the comments sheet open" width="170">
 </p>
 
+![Home: every session as a card](docs/screenshots/home.png)
+
 ## Install
 
 ```sh
@@ -115,6 +117,35 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
 - **Missing files** — a session whose file was moved or deleted shows as `missing`; open the new
   path with `blackboard open`.
 
+## Reading workspace
+
+`/inbox` is a mail-style inbox for every document you have ever served: the scratchpad plus all
+sessions in one flat list, newest update first.
+
+![The reading workspace: filter rail, document list and preview pane](docs/screenshots/workspace.png)
+
+- **Three states** — every document is **unread**, **reading** or **read**. Opening a row counts
+  as reading it; marking read is always explicit. A document left mid-page keeps its position and
+  resumes where you stopped, and a document whose file changed on disk goes back to unread.
+- **Click a row** — the right pane renders the document inline (same renderer as the doc page),
+  with its general comments as a thread and a **reply box pinned at the bottom**, Gmail-style.
+  `m` toggles read/unread on the selected row, `Enter` opens the doc, `Esc` closes the preview.
+- **Filter and search** — the left rail switches All / Unread / Reading; the bar holds a search
+  box, a repo filter and an **awaiting replies** count (open comments across every document).
+- **On a phone** — the inbox is the list full-screen with a five-tab bar at the bottom:
+  **Inbox**, **Unread**, **Reading**, **New** and **Settings**.
+
+<p>
+  <img src="docs/screenshots/workspace-phone.png" alt="The inbox list on a phone with its five bottom tabs" width="195">
+  <img src="docs/screenshots/workspace-settings.png" alt="The global settings page on a phone" width="195">
+</p>
+
+The settings gear (or the last phone tab) opens `/inbox/settings`, the global settings page:
+appearance (theme, fonts, size), reading behaviour (resume position, mark read on open, body
+width) and the workspace's default repo filter. The old `/workspace` URL redirects here. Reading
+state lives in `$BLACKBOARD_HOME/reading-state.json` next to `sessions.json`, plain JSON you can
+read or hand-edit.
+
 ## CLI for agents
 
 `blackboard` opens files and reads and answers comments from a shell, so any agent with a shell
@@ -168,6 +199,7 @@ blackboard resolve docs/design.md <comment-id>     # once it is settled
 ```text
 $BLACKBOARD_HOME/
   sessions.json                 the registered files
+  reading-state.json            the inbox's per-document reading record (status, position)
   server.json, server.log       the web app `serve start` launched: pid and url; its output
   sessions/<id>/comments.json   one session's comments
   scratchpad.md                 the scratchpad
@@ -233,14 +265,16 @@ half-written; a file that does not parse is reported, never overwritten):
 ## Layout
 
 ```text
-app/                      Home (/), a session (/s/<id>), /api/comments, /api/watch (SSE)
-components/               TopBar (tabs, toggles, menu), SessionTable, DocView (selection + highlights, collapsible panels),
+app/                      Home (/), a session (/s/<id>), the inbox (/inbox, /inbox/settings), /api/comments, /api/watch (SSE)
+components/               TopBar (tabs, toggles, menu), SessionTable, ReadingWorkspace (rail, list, preview), DocView (selection + highlights, collapsible panels),
                           CommentPanel, Toc, Mermaid; ui/ holds the shadcn pieces; chrome.ts is the shared panel state
 app/themes.css            one complete palette per [data-theme] block
 app/fonts.css             @font-face rules and the font stacks keyed by data-font-*
 app/katex.css            KaTeX's stylesheet; its woff2 faces are served from public/fonts/katex/
 app/globals.css           Tailwind, the markdown styles for a rendered doc
 lib/prefs.ts              the persisted reading record (theme, three fonts, both widths), parser + boot script
+lib/reading-state.ts      the inbox's state file (status + scroll position per document), locked atomic writes
+lib/reading-workspace.ts  the inbox's server assembly: list, preview, state writes
 lib/theme.ts, lib/fonts.ts  the palettes and the picker vocabularies
 public/fonts/             QuBlack Latin subsets (.woff2) + OFL licence
 scripts/subset-fonts.py   regenerates those subsets from a QuBlack release
@@ -263,8 +297,8 @@ Built with Next.js 16, React 19, Tailwind 4 and [shadcn/ui](https://ui.shadcn.co
 **Three palettes.** `paper` is the warm theme the app had, with two tokens moved to reach AA
 (`--muted-foreground` `#8a8178` → `#6f675e` at 5.24:1, `--primary` `#c4603f` → `#b3532f` at
 4.72:1); every other value is unchanged. `plain` is a neutral white/graphite light theme with a
-blue accent, `night` is a near-black dark theme. Pick one from the palette button in the top bar;
-the default is `paper`.
+blue accent, `night` is a near-black dark theme. Pick one from the palette button in the top bar
+or under **Appearance** on `/inbox/settings`; the default is `paper`.
 
 **The conventions it follows.** The token set is shadcn/ui's vocabulary — semantic roles with a
 `-foreground` partner for every surface, the `@theme inline` mapping in `globals.css`, the
