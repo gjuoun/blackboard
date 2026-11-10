@@ -44,6 +44,7 @@ function normalize(text: string, base: string): string {
     .replace(/@ [0-9a-f]{7}\b/g, "@ <sha>")
     .replace(/\b[0-9a-f]{10}\b/g, "<id>")
     .replace(/\b[crv]_[0-9a-f]{12}\b/g, (m) => `${m.slice(0, 2)}<id>`)
+    .replace(/\b[sb]-[0-9A-HJKMNP-TV-Z]{26}\b/g, (m) => `${m.slice(0, 2)}<ulid>`)
     .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g, "<time>");
 }
 
@@ -113,6 +114,18 @@ describe("the CLI answers the same thing after every refactor", () => {
     record("review.refused", ["review", "design.md", "--round", "1", "all done"]);
     record("review.ok", ["review", "design.md", "--round", "1", "all done"]);
     record("review.bad-round", ["review", "design.md", "--round", "0", "x"]);
+    // streamed documents: create, write exchanges, read the header, export
+    record("stream.ok", ["stream", "Log"]);
+    const streamId = json("stream.again", ["stream", "T2", "--json"]).id;
+    record("block.append", ["block", streamId, "--action", "answer", "first block"]);
+    const written = json("block.append-json", ["block", streamId, "--action", "append", "--status", "writing", "--json", "second"]);
+    record("block.edit", ["block", streamId, "--edit", written.id, "first rewritten"]);
+    record("block.bad-action", ["block", streamId, "--action", "nope", "x"]);
+    record("block.not-a-stream", ["block", "design.md", "--action", "answer", "x"]);
+    record("header.ok", ["header", streamId]);
+    record("header.set-title", ["header", streamId, "--title", "Renamed"]);
+    record("export.ok", ["export", streamId]);
+
     record("close.ok", ["close", "design.md"]);
     record("close.again", ["close", "design.md"]);
 

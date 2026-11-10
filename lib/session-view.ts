@@ -1,7 +1,8 @@
 import type { Comment, Review } from "./comments-file";
 import { apiGetJson } from "./api-fetch";
 import type { RenderedComment } from "./comment-markdown";
-import type { Session, SessionRow } from "./sessions";
+import { docKey, type Session } from "./session-model";
+import type { SessionRow } from "./sessions";
 
 /** One session as the doc page reads it: its row, and its comments and reviews rendered for the page. */
 export type LoadedSession = {
@@ -23,14 +24,13 @@ export async function loadSession(home: string, id: string): Promise<LoadedSessi
     session: data.session,
     row: data.row,
     body: data.body,
-    comments: { docs: groupDocs(data.session.path, data.comments), reviews: data.reviews },
+    comments: { docs: groupDocs(data.session, data.comments), reviews: data.reviews },
   };
 }
 
 /** The API answers one session's comments flat; the page reads them keyed by doc, so group them here. */
-function groupDocs(path: string, list: RenderedComment[]): Record<string, RenderedComment[]> {
-  const key = path.slice(path.lastIndexOf("/") + 1);
-  return { [key]: list };
+function groupDocs(session: Session, list: RenderedComment[]): Record<string, RenderedComment[]> {
+  return { [docKey(session)]: list };
 }
 
 export type { Comment };

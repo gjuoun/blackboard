@@ -29,10 +29,13 @@ function program(req: Request): Effect.Effect<Response, ApiFailure, SessionsStor
     const session = yield* sessions.get(home, new URL(req.url).searchParams.get("session") ?? "");
     if (!session) return yield* Effect.fail(sessionNotFound(400));
     const commentEvents = yield* bus.events(session.id);
-    const events = watchEvents(
-      docChanges(fs.watch(dirname(session.path)), basename(session.path)),
-      commentEvents,
-    );
+    // A streamed doc has no file: its saves arrive as bus "doc" marks published by /api/block.
+    // Watching dirname("") would watch the server's cwd — the branch must come first.
+    const docLeg =
+      session.kind === "stream"
+        ? yield* bus.docEvents(session.id)
+        : docChanges(fs.watch(dirname(session.path)), basename(session.path));
+    const events = watchEvents(docLeg, commentEvents);
     const context = yield* Effect.context<SessionsStore | FileSystem.FileSystem | ChangeBus>();
     return new Response(Stream.toReadableStreamWith(events, context, { signal: req.signal }), { headers: HEADERS });
   });

@@ -12,7 +12,7 @@ import { renderCode } from "@/lib/code-view";
 import { docType } from "@/lib/doc-type";
 import { getHome } from "@/lib/home";
 import { renderMarkdown } from "@/lib/markdown";
-import { servablePath, tildify } from "@/lib/session-model";
+import { docKey, servablePath, tildify } from "@/lib/session-model";
 import { loadSession as load } from "@/lib/session-view";
 
 /** The tab title is the doc's own title; the description names the file, never its folder. */
@@ -23,7 +23,8 @@ export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promis
   if (!found) return { title: "No such session" };
   const { session, row } = found;
   const title = row.title;
-  const description = `${basename(session.path)} on Blackboard: ${row.stats.sections} sections, ${row.open} open comments.`;
+  const where = session.kind === "stream" ? session.id : basename(session.path);
+  const description = `${where} on Blackboard: ${row.stats.sections} sections, ${row.open} open comments.`;
   return { title, description, openGraph: { title, description }, twitter: { card: "summary_large_image", title, description } };
 }
 
@@ -34,32 +35,33 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   const found = await load(getHome(), id);
   if (!found) notFound();
   const { session, row } = found;
-  // A registry from the streaming era may still hold kind: "stream" entries. Such a session is
-  // not openable: it answers this page's not-found surface instead of throwing.
-  if (session.kind === "stream") notFound();
+  // A streamed doc has no file: its body is the folded block list, which the doc branch renders.
+  const stream = session.kind === "stream";
   const file = servablePath(session);
 
   // Two rows, on every width. Row 1: the file's full path. Row 2: its project, branch and linked worktree,
   // always one line: on a narrow screen that line scrolls sideways (scrollbar hidden) instead of wrapping.
   // Each chip keeps its own copy button: path, project root, branch (or short sha) and worktree path.
-  const project = row.project ?? { name: basename(dirname(row.path)), root: dirname(row.path) };
+  const project = row.project ?? { name: stream ? "stream" : basename(dirname(row.path)), root: stream ? "" : dirname(row.path) };
   const header = (
     <div className="mb-4 flex min-w-0 flex-col gap-1.5 text-xs" data-testid="doc-head">
-      <DocChip testid="doc-location" title={row.path} className="flex w-full min-w-0" copy={{ value: row.path, label: "Copy path" }}>
+      <DocChip testid="doc-location" title={stream ? `streamed document ${session.id}` : row.path} className="flex w-full min-w-0" copy={stream ? { value: session.id, label: "Copy session id" } : { value: row.path, label: "Copy path" }}>
         <Folder aria-hidden />
         <span dir="rtl" className="min-w-0 flex-1 truncate text-left">
-          <bdi dir="ltr">{tildify(row.path)}</bdi>
+          <bdi dir="ltr">{stream ? `stream · ${session.id}` : tildify(row.path)}</bdi>
         </span>
       </DocChip>
       <div
         className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         data-testid="doc-meta-row"
       >
-        <DocChip testid="doc-project" title={`project root ${project.root}`} className="shrink-0" copy={{ value: project.root, label: "Copy project path" }}>
-          <FolderTree aria-hidden />
-          <span className="min-w-0 truncate">{project.name}</span>
-        </DocChip>
-        {row.branch ? (
+        {!stream ? (
+          <DocChip testid="doc-project" title={`project root ${project.root}`} className="shrink-0" copy={{ value: project.root, label: "Copy project path" }}>
+            <FolderTree aria-hidden />
+            <span className="min-w-0 truncate">{project.name}</span>
+          </DocChip>
+        ) : null}
+        {!stream && row.branch ? (
           <DocChip
             testid="doc-branch"
             title={row.detached ? "detached HEAD" : "git branch"}
@@ -71,7 +73,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
             <span className="min-w-0 truncate">{row.branch}</span>
           </DocChip>
         ) : null}
-        {row.worktree ? (
+        {!stream && row.worktree ? (
           <DocChip
             testid="doc-worktree"
             title={`git worktree at ${row.worktree.path}`}
@@ -88,7 +90,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
     </div>
   );
 
-  if (!file) {
+  if (!file && !stream) {
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable={false} hasToc={false} />
@@ -107,12 +109,13 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   }
 
   // A source file is its own page: the text is shown as one highlighted block, with no front matter,
-  // no TOC and no file links. Comments on it anchor to its text like a doc's do.
-  const type = docType(file);
-  if (type.ok && type.type === "code") {
+  // no TOC and no file links. Comments on it anchor to its text like a doc's do. A streamed doc has
+  // no file at all — it falls through to the markdown branch below.
+  const type = stream ? null : docType(file!);
+  if (type && type.ok && type.type === "code") {
     const src = found.body ?? "";
-    const { html } = await renderCode(src, file);
-    const codeComments = found.comments.docs[basename(file)] ?? [];
+    const { html } = await renderCode(src, file!);
+    const codeComments = found.comments.docs[basename(file!)] ?? [];
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={false} />
@@ -123,7 +126,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   // The doc is read once: the same string feeds the markdown pass and the comments pane.
   const src = found.body ?? "";
   const { html, toc } = await renderMarkdown(src, { assetBase: `/api/asset/${id}` });
-  const doc = basename(file);
+  const doc = docKey(session);
   const renderedComments = found.comments.docs[doc] ?? [];
   const reviews = found.comments.reviews.filter((r) => r.doc === doc);
   return (

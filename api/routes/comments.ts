@@ -1,4 +1,4 @@
-import { basename } from "node:path";
+
 import { Effect } from "effect";
 import { Hono } from "hono";
 import { notifyAgent, payloadFor } from "../../lib/agent-notify";
@@ -10,6 +10,7 @@ import { CommentsStore, type Comment } from "../../lib/comments-store";
 import { bodyRequired, CommentNotFound, InvalidInput, ReplyNotFound, sessionNotFound, type ApiFailure } from "../../lib/effect/errors";
 import { CommentPatchBody, CommentPostBody, decodeBody, jsonBody, patchReject, postReject } from "../../lib/effect/schema";
 import { getHome } from "../../lib/home";
+import { docKey } from "../../lib/session-model";
 import { servablePath, SessionsStore, type Session } from "../../lib/sessions";
 import { respond } from "../respond";
 
@@ -26,8 +27,9 @@ function target(session: string): Effect.Effect<Target | null, ApiFailure, Sessi
     const sessions = yield* SessionsStore;
     const home = getHome();
     const found = yield* sessions.get(home, session);
-    if (!found || !servablePath(found)) return null;
-    return { home, session: found, doc: basename(found.path) };
+    // A streamed doc has no file: it is commentable while it exists — its anchor is the session itself.
+    if (!found || (found.kind !== "stream" && !servablePath(found))) return null;
+    return { home, session: found, doc: docKey(found) };
   });
 }
 

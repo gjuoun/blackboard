@@ -1,4 +1,4 @@
-import { basename } from "node:path";
+
 import { Effect } from "effect";
 import { Hono } from "hono";
 import { renderComments } from "../../lib/comment-markdown";
@@ -7,6 +7,7 @@ import { InvalidInput, sessionNotFound } from "../../lib/effect/errors";
 import { jsonBody } from "../../lib/effect/schema";
 import { getHome } from "../../lib/home";
 import { workspaceDocs } from "../../lib/reading-workspace";
+import { docKey } from "../../lib/session-model";
 import { realDoc, SCRATCHPAD_ID, SessionsStore, toWire } from "../../lib/sessions";
 import { respond } from "../respond";
 
@@ -52,7 +53,7 @@ doc.get("/session", (c) =>
       if (!session) return yield* Effect.fail(sessionNotFound(404));
       const row = yield* sessions.row(home, session);
       const file = yield* comments.read(home, session.id);
-      const key = basename(session.path);
+      const key = docKey(session);
       const body = yield* sessions.body(home, session.id);
       return { session, row: toWire(row), body, comments: renderComments(file.docs[key] ?? []), reviews: (file.reviews ?? []).filter((r) => r.doc === key) };
     }),

@@ -32,6 +32,7 @@ function normalize(text: string): string {
     .replace(/[0-9a-f]{64}/g, "<sha256>")
     .replace(/[0-9a-f]{40}/g, "<sha>")
     .replace(/\b[cr]_[0-9a-f]{12}\b/g, "<id>")
+    .replace(/\b[sb]-[0-9A-HJKMNP-TV-Z]{26}\b/g, (m) => `${m.slice(0, 2)}<ulid>`)
     .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z/g, "<time>");
 }
 
@@ -163,6 +164,26 @@ describe("the wire the api answers today", () => {
     await record("comment-images.GET.bad-id", await image("not-an-id"));
     await record("comment-images.GET.not-stored", await image("0".repeat(64) + ".png"));
     await record("comment-images.GET.ok", await image(imageId));
+
+    // streamed documents: create one, write an exchange, read it back, export the wire shape
+    const postStream = (payload: unknown) => api("/api/stream", json(payload));
+    const postBlock = (payload: unknown) => api("/api/block", json(payload));
+    await record("stream.POST.no-title", await postStream({}));
+    const made = await postStream({ title: "Log" });
+    const { session: streamSession } = (await made.clone().json()) as { session: { id: string } };
+    literals.push([streamSession.id, "<stream>"]);
+    await record("stream.POST.ok", made);
+    await record("block.POST.unknown-session", await postBlock({ session: "nosuchid", action: "answer", body: "x", author: "a" }));
+    await record("block.POST.no-body", await postBlock({ session: streamSession.id, action: "answer", body: " ", author: "a" }));
+    await record("block.POST.bad-action", await postBlock({ session: streamSession.id, action: "nope", body: "x", author: "a" }));
+    await record("block.POST.not-a-stream", await postBlock({ session: fx.session, action: "answer", body: "x", author: "a" }));
+    const firstBlock = await postBlock({ session: streamSession.id, action: "answer", body: "hello", author: "agent" });
+    const { block } = (await firstBlock.clone().json()) as { block: { id: string } };
+    literals.push([block.id, "<block>"]);
+    await record("block.POST.ok", firstBlock);
+    await record("block.POST.edit", await postBlock({ session: streamSession.id, edit: block.id, body: "hello again", author: "agent" }));
+    await record("block.POST.writing", await postBlock({ session: streamSession.id, action: "append", body: "draft", author: "jun", status: "writing" }));
+    await record("session.GET.stream", await api(`/api/session?id=${streamSession.id}`));
 
     await record("watch.GET.unknown-session", await api("/api/watch?session=nosuchid"));
     const abort = new AbortController();

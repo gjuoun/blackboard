@@ -291,6 +291,127 @@
     "stderr": "blackboard: --round must be a whole number from 1\n"
   },
   {
+    "label": "stream.ok",
+    "argv": [
+      "stream",
+      "Log"
+    ],
+    "code": 0,
+    "stdout": "s-<ulid>  http://127.0.0.1:9/s/s-<ulid>\n",
+    "stderr": ""
+  },
+  {
+    "label": "stream.again",
+    "argv": [
+      "stream",
+      "T2",
+      "--json"
+    ],
+    "code": 0,
+    "stdout": "{\n  \"id\": \"s-<ulid>\",\n  \"path\": \"\",\n  \"createdAt\": \"<time>\",\n  \"openedAt\": \"<time>\",\n  \"kind\": \"stream\",\n  \"url\": \"http://127.0.0.1:9/s/s-<ulid>\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "label": "block.append",
+    "argv": [
+      "block",
+      "s-<ulid>",
+      "--action",
+      "answer",
+      "first block"
+    ],
+    "code": 0,
+    "stdout": "block 1 (b-<ulid>) appended to s-<ulid>\nhttp://127.0.0.1:9/s/s-<ulid>#b-<ulid>\n",
+    "stderr": ""
+  },
+  {
+    "label": "block.append-json",
+    "argv": [
+      "block",
+      "s-<ulid>",
+      "--action",
+      "append",
+      "--status",
+      "writing",
+      "--json",
+      "second"
+    ],
+    "code": 0,
+    "stdout": "{\n  \"id\": \"b-<ulid>\",\n  \"n\": 2,\n  \"session\": \"s-<ulid>\",\n  \"url\": \"http://127.0.0.1:9/s/s-<ulid>#b-<ulid>\"\n}\n",
+    "stderr": ""
+  },
+  {
+    "label": "block.edit",
+    "argv": [
+      "block",
+      "s-<ulid>",
+      "--edit",
+      "b-<ulid>",
+      "first rewritten"
+    ],
+    "code": 0,
+    "stdout": "block b-<ulid> rewritten in s-<ulid>\nhttp://127.0.0.1:9/s/s-<ulid>#b-<ulid>\n",
+    "stderr": ""
+  },
+  {
+    "label": "block.bad-action",
+    "argv": [
+      "block",
+      "s-<ulid>",
+      "--action",
+      "nope",
+      "x"
+    ],
+    "code": 2,
+    "stdout": "",
+    "stderr": "blackboard: Expected \"answer\" | \"edit\" | \"append\"\n"
+  },
+  {
+    "label": "block.not-a-stream",
+    "argv": [
+      "block",
+      "design.md",
+      "--action",
+      "answer",
+      "x"
+    ],
+    "code": 2,
+    "stdout": "",
+    "stderr": "blackboard: <id> is not a stream (create one with: blackboard stream <title>)\n"
+  },
+  {
+    "label": "header.ok",
+    "argv": [
+      "header",
+      "s-<ulid>"
+    ],
+    "code": 0,
+    "stdout": "s-<ulid>  T2  by agent  created <time>  2 blocks\n",
+    "stderr": ""
+  },
+  {
+    "label": "header.set-title",
+    "argv": [
+      "header",
+      "s-<ulid>",
+      "--title",
+      "Renamed"
+    ],
+    "code": 0,
+    "stdout": "s-<ulid>  Renamed  by agent  created <time>  2 blocks\n",
+    "stderr": ""
+  },
+  {
+    "label": "export.ok",
+    "argv": [
+      "export",
+      "s-<ulid>"
+    ],
+    "code": 0,
+    "stdout": "# Renamed\n\n## 1. 长答 · agent · <time>\n\nfirst block\n\n## 2. 追加 · agent · <time>\n\nfirst rewritten\n",
+    "stderr": ""
+  },
+  {
     "label": "close.ok",
     "argv": [
       "close",
@@ -336,6 +457,6 @@
     ],
     "code": 2,
     "stdout": "",
-    "stderr": "blackboard: unknown command \"frobnicate\"\n\nblackboard — review markdown files and their comments, from the shell\n\nUsage:\n  blackboard open     <file> [--no-browser]      register a file, print \"<id>  <url>\", open it\n                                                 (starts the web app first when it is not running)\n  blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)\n  blackboard sessions [--json]                   every session: id, title, location, branch, open comments\n  blackboard close    <session>                  forget a session (its comments are kept)\n  blackboard comments <session> [--json]         every comment and its replies, resolved ones too\n  blackboard reply    <session> <id> <text>\n  blackboard resolve  <session> <comment-id>\n  blackboard reopen   <session> <comment-id>\n  blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>\n  blackboard comment  <session> --general <note>\n  blackboard review   <session> --round <n> <body>\n  blackboard db       migrate [--dry-run] | stats | reindex [--force]   move the JSON stores into blackboard.db / show its contents / index the documents\n\n<session> is a session id or a path to the registered file.\n<id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).\n\nOptions:\n  --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)\n  --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or \"agent\")\n  --json           machine-readable output\n  --round <n>      review: the round this verdict reports on\n  --no-browser     open: do not launch the browser (or set BLACKBOARD_NO_BROWSER=1)\n  --dry-run        db migrate: count what would move, touch nothing\n  --no-server      open: do not start the web app (or set BLACKBOARD_NO_SERVER=1)\n  --port <n>       serve start / restart: port to listen on (default: from $BLACKBOARD_URL, else 38770)\n  --foreground     serve start: run in this terminal until Ctrl-C\n  --version        print the version\n\nExit codes: 0 ok, 1 command failed, 2 bad usage, 3 serve status: not running.\n"
+    "stderr": "blackboard: unknown command \"frobnicate\"\n\nblackboard — review markdown files and their comments, from the shell\n\nUsage:\n  blackboard open     <file> [--no-browser]      register a file, print \"<id>  <url>\", open it\n                                                 (starts the web app first when it is not running)\n  blackboard serve    start|stop|restart|status  run the web app in the background (start --foreground: here)\n  blackboard sessions [--json]                   every session: id, title, location, branch, open comments\n  blackboard close    <session>                  forget a session (its comments are kept)\n  blackboard comments <session> [--json]         every comment and its replies, resolved ones too\n  blackboard reply    <session> <id> <text>\n  blackboard resolve  <session> <comment-id>\n  blackboard reopen   <session> <comment-id>\n  blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>\n  blackboard comment  <session> --general <note>\n  blackboard review   <session> --round <n> <body>\n  blackboard stream   <title>                        create a streamed document, print \"<id>  <url>\"\n  blackboard block    <session> --action answer|edit|append [--status writing] [--images a,b] <text|->\n                                                 write an exchange; --edit <block-id> <text|-> rewrites a block\n  blackboard header   <session> [--title <t>]        show a stream's header; --title renames it\n  blackboard export   <session>                      print the stream as markdown, one section per exchange\n  blackboard db       migrate [--dry-run] | stats | reindex [--force]   move the JSON stores into blackboard.db / show its contents / index the documents\n\n<session> is a session id or a path to the registered file.\n<id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).\n\nOptions:\n  --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)\n  --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or \"agent\")\n  --json           machine-readable output\n  --round <n>      review: the round this verdict reports on\n  --action <a>     block: answer (default), edit or append; edit carries the corrected whole document\n  --status writing block: mark the exchange still open (closed by the next block)\n  --edit <id>      block: rewrite an existing block's body instead of appending\n  --images <list>  block: comma-separated image ids\n  --title <t>      stream/header: the document title\n  --no-browser     open: do not launch the browser (or set BLACKBOARD_NO_BROWSER=1)\n  --dry-run        db migrate: count what would move, touch nothing\n  --no-server      open: do not start the web app (or set BLACKBOARD_NO_SERVER=1)\n  --port <n>       serve start / restart: port to listen on (default: from $BLACKBOARD_URL, else 38770)\n  --foreground     serve start: run in this terminal until Ctrl-C\n  --version        print the version\n\nExit codes: 0 ok, 1 command failed, 2 bad usage, 3 serve status: not running.\n"
   }
 ]

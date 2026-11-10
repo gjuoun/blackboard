@@ -27,15 +27,18 @@ mock.module("next/navigation", () => ({
   useRouter: () => ({ refresh() {}, push() {} }),
   usePathname: () => "/s/abc",
 }));
+let streamMode = false;
 mock.module("@/lib/session-view", () => ({
   loadSession: async () => ({
-    session,
+    session: streamMode
+      ? { id: "s-01K", path: "", createdAt: session.createdAt, openedAt: session.openedAt, kind: "stream" }
+      : session,
     // The page renders the markdown the index stored, so the stub carries the same text the file holds.
     body: markdown,
     row: {
       ...session,
       title: "Plan",
-      location: "plan.md",
+      location: streamMode ? "stream" : "plan.md",
       updatedAt: "2026-11-02T00:00:00.000Z",
       branch: null,
       detached: false,
@@ -86,5 +89,17 @@ describe("the left column", () => {
     const column = leftColumn(await render());
     const entries = [...column.matchAll(/<a href="#([^"]+)"/g)].map((m) => m[1]);
     expect(entries).toEqual(["plan", "first", "second"]);
+  });
+});
+
+describe("a streamed doc", () => {
+  test("renders the folded body instead of the not-found surface", async () => {
+    streamMode = true;
+    const html = await render();
+    // The body the API folded from the block list renders like a file doc's would.
+    expect(html).toContain("First");
+    expect(html).toContain("stream · s-01K");
+    expect(html).not.toContain("doc-missing");
+    streamMode = false;
   });
 });

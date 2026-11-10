@@ -60,6 +60,28 @@ export const CommentArgs = Schema.Struct({
   );
 export type CommentArgs = typeof CommentArgs.Type;
 
+/**
+ * `block`: a new exchange names its action; an in-place rewrite names the block with --edit and
+ * takes no action. --status is only "writing".
+ */
+export const BlockArgs = Schema.Struct({
+  action: Schema.optional(Schema.Literals(["answer", "edit", "append"])),
+  status: Schema.optional(Schema.Literal("writing")),
+  edit: Schema.optional(Schema.String),
+  images: Schema.optional(Schema.String),
+}).pipe(
+  Schema.refine(
+    (args): args is Omit<typeof args, "edit" | "action"> & { readonly edit?: string; readonly action?: "answer" | "edit" | "append" } =>
+      !(args.edit !== undefined && args.action !== undefined),
+    { message: "--edit and --action are exclusive" },
+  ),
+);
+export type BlockArgs = typeof BlockArgs.Type;
+
+/** `header --title` (rename) and `--owner` (refused: the first block's author owns the stream). */
+export const HeaderArgs = Schema.Struct({ title: Schema.optional(Schema.String), owner: Schema.optional(Schema.String) });
+export type HeaderArgs = typeof HeaderArgs.Type;
+
 /** `db migrate --dry-run`: the flag as given. */
 export const MigrateArgs = Schema.Struct({ dry: Schema.optional(Schema.Boolean) });
 export type MigrateArgs = typeof MigrateArgs.Type;

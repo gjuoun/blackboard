@@ -9,6 +9,7 @@ import { comments, review } from "./routes/comments";
 import { doc } from "./routes/doc";
 import { images } from "./routes/images";
 import { reading } from "./routes/reading";
+import { streams } from "./routes/streams";
 import { watch } from "./routes/watch";
 
 /**
@@ -30,4 +31,5 @@ app.route("/api/reading", reading);
 app.route("/api/comment-images", images);
 app.route("/api/asset", asset);
 app.route("/api/watch", watch);
+app.route("/api", streams);
 app.route("/api", doc);
