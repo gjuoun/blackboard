@@ -93,10 +93,6 @@ export function ReadingList({ docs, selected, onSelect, onMark }: { docs: Worksp
         <Row key={doc.id} doc={doc} selected={doc.id === selected} onSelect={onSelect} onMark={onMark} />
       ))}
       {docs.length === 0 ? <p className="text-muted-foreground px-2.5 pt-6 text-[13px]">No documents in this view.</p> : null}
-      <p className="text-muted-foreground mx-2.5 mt-[22px] text-[11.5px] leading-[1.7]">
-        One list, newest update first. Unread is bold with a solid dot; opening counts as read, and editing a document makes it unread again. A row left mid-document shows the hollow
-        dot and resumes where it was left. Replies written with <code className="bg-muted rounded px-1 font-mono">blackboard comment</code> do not move it.
-      </p>
     </div>
   );
 }
