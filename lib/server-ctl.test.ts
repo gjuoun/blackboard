@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { clearState, DEFAULT_URL, pidAlive, portOf, prepareServer, readState, resolveUrl, runtimeFor, ServerError, stop, unrecordedNote, verifyRecord, writeState } from "./server-ctl";
-import { bigHome, tmp } from "../test/serve-fixture";
+import { clearState, DEFAULT_URL, pidAlive, portOf, prepareServer, readState, resolveUrl, restart, runtimeFor, ServerError, stop, unrecordedNote, verifyRecord, writeState } from "./server-ctl";
+import { bigHome, slowServer, tmp } from "../test/serve-fixture";
 
 describe("resolveUrl", () => {
   test("defaults to the local app, honours BLACKBOARD_URL and strips a trailing slash", () => {
@@ -96,6 +96,53 @@ describe("a large home: stop clears a dead record", () => {
   }, 20_000);
 });
 
+describe("serve restart: the stopped pair must really be gone", () => {
+  // The defect: `serve restart` printed "restarted" while the old pair still listened — stop's
+  // result was ignored and start's "already running" (a foreign listener) was read as success.
+  test("restart refuses when nothing is recorded but a Blackboard still answers", async () => {
+    const server = slowServer(0);
+    const url = `http://127.0.0.1:${server.port}`;
+    try {
+      const home = tmp();
+      // No server.json (a stale single-pid record reads as none); the pair is still up.
+      await expect(
+        restart(home, { port: server.port, apiPort: 1 }, {
+          start: async () => ({ running: true, url, managed: false, started: false }),
+        }),
+      ).rejects.toThrow(/not stopped|already|not started by this command/);
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("stop does not call it stopped while a recorded port still listens", async () => {
+    const foreign = slowServer(0);
+    const url = `http://127.0.0.1:${foreign.port}`;
+    try {
+      const home = tmp();
+      const dead = { pid: 2 ** 22 + 12345, url, startedAt: "2026-01-01T00:00:00.000Z" };
+      writeState(home, { ui: dead, api: { ...dead, pid: dead.pid + 1, url: "http://127.0.0.1:1" } });
+      const r = await stop(home);
+      // The recorded pids are gone, but the ui port still answers: someone else holds it, and a
+      // "stopped" here is exactly how restart used to lose the old pair.
+      expect(r.stopped).toBe(false);
+    } finally {
+      foreign.stop(true);
+    }
+  }, 20_000);
+
+  test("restart refuses when start finds the port already taken", async () => {
+    const home = tmp();
+    const url = "http://127.0.0.1:1";
+    // The recorded pair stopped cleanly; a different process then grabbed the port, so start
+    // reports an unmanaged running pair instead of starting ours. That is not a restart.
+    await expect(
+      restart(home, { port: 1, apiPort: 1 }, {
+        start: async () => ({ running: true, url, managed: false, started: false }),
+      }),
+    ).rejects.toThrow(ServerError);
+  });
+});
 describe("start verifies the record it wrote", () => {
   test("a record that reads back as written passes", () => {
     const home = tmp();
@@ -138,7 +185,7 @@ describe("stop names the process when nothing is recorded", () => {
     process.env.BLACKBOARD_URL = "http://127.0.0.1:1";
     try {
       const r = await stop(tmp());
-      expect(r).toEqual({ stopped: false });
+      expect(r).toEqual({ stopped: false, nothing: true });
     } finally {
       if (prev === undefined) delete process.env.BLACKBOARD_URL;
       else process.env.BLACKBOARD_URL = prev;

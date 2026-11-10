@@ -7,9 +7,10 @@ import { closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, renam
 import { basename, delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { clearState, pidAlive, portOf, readState, resolveUrl, resolveApiUrl, uiLogPath, apiLogPath, ServerError, statePath, writeState, type ServerState } from "./server-record";
-import { status, type ServerStatus } from "./server-status";
+import { portListens, status, type ServerStatus } from "./server-status";
 
 export { DEFAULT_API_URL, DEFAULT_URL, ServerError, clearState, pidAlive, portOf, readState, resolveApiUrl, resolveUrl, statePath, uiLogPath, apiLogPath, writeState } from "./server-record";
+export { restart } from "./server-restart";
 export { HEALTH_BUDGET_MS, healthAnswers, portListens, procState, status } from "./server-status";
 export type { ProcName, ProcState, ServerStatus } from "./server-status";
 export type { ServerState, Proc } from "./server-record";
@@ -244,12 +245,24 @@ export function unrecordedNote(url: string, pids: number[]): string {
   return `a Blackboard answers at ${url}, but this home did not start it. Process on that port: pid ${pids.join(", ")}. To stop it, run: kill ${pids.join(" ")}`;
 }
 
-/** Stop the pair this home started. Returns false when there was none; refuses one it did not start. */
-export async function stop(home: string): Promise<{ stopped: boolean; note?: string }> {
+/** Wait until nothing accepts a connection on the url's port (~3 s budget). A killed process can
+ *  outlive its pid for a moment — a start that probes during that window reads the dying process as a
+ *  running pair it did not start, which is how "restarted" printed while the old code still listened.
+ *  False only when it is still listening. */
+async function portQuiet(url: string): Promise<boolean> {
+  for (let i = 0; i < 20; i++) {
+    if (!(await portListens(url, 100))) return true;
+    await sleep(150);
+  }
+  return false;
+}
+
+/** Stop the pair this home started. `stopped` requires both pids gone AND both recorded ports quiet —
+ *  anything less is not a stop a restart may build on. Refuses a pair it did not start. */
+export async function stop(home: string, at = resolveUrl()): Promise<{ stopped: boolean; note?: string; nothing?: boolean }> {
   const st = readState(home);
   if (!st) {
-    const at = resolveUrl();
-    if (!(await probe(at))) return { stopped: false };
+    if (!(await probe(at))) return { stopped: false, nothing: true };
     // Nothing recorded, but a Blackboard answers here. Name the process that holds the port, so the next
     // step is a command the user can run, not a guess about where it was started.
     const pids = listenersOn(portOf(at));
@@ -261,10 +274,18 @@ export async function stop(home: string): Promise<{ stopped: boolean; note?: str
     for (let i = 0; i < 40 && pidAlive(proc.pid); i++) await sleep(150);
     if (pidAlive(proc.pid)) {
       try { process.kill(proc.pid, "SIGKILL"); } catch { /* already gone */ }
+      for (let i = 0; i < 10 && pidAlive(proc.pid); i++) await sleep(100);
     }
   }
+  // The record is ours either way; what decides "stopped" is whether the ports are free of whoever
+  // answered on them — including our own pids still closing, or a foreign process squatting the port.
+  const quiet = await Promise.all([portQuiet(st.ui.url), portQuiet(st.api.url)]);
   clearState(home);
-  return { stopped: true };
+  if (quiet[0] && quiet[1]) return { stopped: true };
+  const held = [st.ui, st.api].filter((_, i) => !quiet[i]);
+  const notes = held.map((p) => unrecordedNote(p.url, listenersOn(portOf(p.url))));
+  const word = held.length === 1 ? "a port still listens" : "ports still listen";
+  return { stopped: false, note: `the recorded processes are gone but ${word} — ${notes.join("; ")}` };
 }
 
 export function formatStatus(s: ServerStatus): string {
