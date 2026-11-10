@@ -23,6 +23,11 @@ export type Proc = { pid: number; url: string; startedAt: string };
 
 export type ServerState = { ui: Proc; api: Proc };
 
+/** A record the single-process CLI wrote before the app+api split: one proc at top level, no ui/api. */
+export type LegacyState = { legacy: Proc };
+
+export type RecordedState = ServerState | LegacyState;
+
 export const statePath = (home: string) => join(home, "server.json");
 
 export const uiLogPath = (home: string) => join(home, "server.log");
@@ -63,12 +68,17 @@ export function portOf(url: string): number {
   return Number(u.port || (u.protocol === "https:" ? 443 : 80));
 }
 
-/** Read the two-proc state file; a pre-B-round single-pid file reads as stale (null). */
-export function readState(home: string): ServerState | null {
+/**
+ * Read the state file. The current shape is two procs; a file the single-process CLI wrote (before
+ * the app+api split) reads as a marked legacy record, never as none — a legacy pid is ours to stop
+ * or restart, and reading it as unrecorded was how `serve` once refused its own server.
+ */
+export function readState(home: string): RecordedState | null {
   try {
     const v = JSON.parse(readFileSync(statePath(home), "utf8"));
     const ok = (p: unknown): p is Proc => !!p && Number.isInteger((p as Proc).pid) && typeof (p as Proc).url === "string" && typeof (p as Proc).startedAt === "string";
-    return ok(v?.ui) && ok(v?.api) ? v : null;
+    if (ok(v?.ui) && ok(v?.api)) return v;
+    return ok(v) ? { legacy: v } : null;
   } catch {
     return null;
   }

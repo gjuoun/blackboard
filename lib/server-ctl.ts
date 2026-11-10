@@ -122,7 +122,7 @@ function apiEnv(home: string, apiUrl: string): NodeJS.ProcessEnv {
  */
 export function verifyRecord(home: string, expected: ServerState): void {
   const back = readState(home);
-  if (back && back.ui.pid === expected.ui.pid && back.api.pid === expected.api.pid) return;
+  if (back && "ui" in back && back.ui.pid === expected.ui.pid && back.api.pid === expected.api.pid) return;
   throw new ServerError(
     `the pair started (ui pid ${expected.ui.pid}, api pid ${expected.api.pid}) but ${statePath(home)} did not read back; stop them with: kill ${expected.ui.pid} ${expected.api.pid}`,
   );
@@ -277,7 +277,9 @@ export async function stop(home: string, at = resolveUrl()): Promise<{ stopped: 
     const pids = listenersOn(portOf(at));
     return { stopped: false, note: unrecordedNote(at, pids) };
   }
-  for (const proc of [st.ui, st.api]) {
+  // A pre-split record names one process; the pair names two. The kill-and-confirm loop is the same.
+  const procs = "legacy" in st ? [st.legacy] : [st.ui, st.api];
+  for (const proc of procs) {
     if (!pidAlive(proc.pid)) continue;
     try { process.kill(proc.pid, "SIGTERM"); } catch { /* already gone */ }
     for (let i = 0; i < 40 && pidAlive(proc.pid); i++) await sleep(150);
@@ -288,16 +290,23 @@ export async function stop(home: string, at = resolveUrl()): Promise<{ stopped: 
   }
   // The record is ours either way; what decides "stopped" is whether the ports are free of whoever
   // answered on them — including our own pids still closing, or a foreign process squatting the port.
-  const quiet = await Promise.all([portQuiet(st.ui.url), portQuiet(st.api.url)]);
+  const quiet = await Promise.all(procs.map((p) => portQuiet(p.url)));
   clearState(home);
-  if (quiet[0] && quiet[1]) return { stopped: true };
-  const held = [st.ui, st.api].filter((_, i) => !quiet[i]);
+  if (quiet.every(Boolean)) return { stopped: true };
+  const held = procs.filter((_, i) => !quiet[i]);
   const notes = held.map((p) => unrecordedNote(p.url, listenersOn(portOf(p.url))));
   const word = held.length === 1 ? "a port still listens" : "ports still listen";
   return { stopped: false, note: `the recorded processes are gone but ${word} — ${notes.join("; ")}` };
 }
 
 export function formatStatus(s: ServerStatus): string {
+  if ("legacy" in s) {
+    const p = s.legacy;
+    if (p.cleared) return `not running (${s.url}): the pid (${p.pid}) is gone — the pre-split record was cleared`;
+    const head = p.state === "down" ? `not running (${s.url}): the recorded pid ${p.pid} is alive but nothing answers` : `running at ${s.url}  pid ${p.pid}  since ${p.startedAt}`;
+    const advice = p.state === "down" ? "clear it with: blackboard serve stop" : "adopt it with: blackboard serve restart (or: blackboard serve stop)";
+    return [head, `a pre-split record (single process, written before the app+api split) — ${advice}`].join("\n");
+  }
   if (!s.running && "partial" in s) {
     const p = s.partial;
     return [`not running (${s.url}): one of the pair has stopped`, `ui: ${p.ui} (pid ${p.pids.ui})`, `api: ${p.api} (pid ${p.pids.api})`, "run: blackboard serve stop, then blackboard serve start"].join("\n");

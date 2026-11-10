@@ -14,7 +14,8 @@ export type ServerStatus =
   | { running: false; url: string }
   | { running: true; url: string; managed: true; degraded: ProcName[]; ui: Proc & { log: string }; api: Proc & { log: string } }
   | { running: true; url: string; managed: false }
-  | { running: false; url: string; partial: { ui: ProcState; api: ProcState; pids: { ui: number; api: number } } };
+  | { running: false; url: string; partial: { ui: ProcState; api: ProcState; pids: { ui: number; api: number } } }
+  | { running: boolean; url: string; legacy: Proc & { state: ProcState; cleared: boolean } };
 
 /**
  * True when something answers HTTP at `url`, whatever the status. The UI process proves it is alive by
@@ -71,6 +72,16 @@ export async function procState(pid: number, url: string): Promise<ProcState> {
  */
 export async function status(home: string, url = resolveUrl()): Promise<ServerStatus> {
   const st = readState(home);
+  if (st && "legacy" in st) {
+    // A pre-split record names one process. A dead pid makes it stale — drop it like the pair's
+    // record — but a live pid is ours: status reports it and stop/restart can still reach it.
+    if (!pidAlive(st.legacy.pid)) {
+      clearState(home);
+      return { running: false, url: st.legacy.url, legacy: { ...st.legacy, state: "down", cleared: true } };
+    }
+    const proc = await procState(st.legacy.pid, st.legacy.url);
+    return { running: proc !== "down", url: st.legacy.url, legacy: { ...st.legacy, state: proc, cleared: false } };
+  }
   if (st) {
     if (!pidAlive(st.ui.pid) && !pidAlive(st.api.pid)) {
       clearState(home);
