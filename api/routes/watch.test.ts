@@ -29,6 +29,8 @@ const HOST = { host: "127.0.0.1" };
 
 describe("GET /api/watch", () => {
   test("an unknown session is refused", async () => {
+    // The temp home must be set before the first request: the API reads BLACKBOARD_HOME per call.
+    await setup();
     const res = await app.request("http://127.0.0.1/api/watch?session=nosuchid", { headers: HOST });
     expect(res.status).toBe(400);
     expect(await res.text()).toBe("unknown session");
