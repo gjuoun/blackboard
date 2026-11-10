@@ -7,12 +7,14 @@ import type { Session, SessionRow } from "./sessions";
 export type LoadedSession = {
   session: Session;
   row: SessionRow;
+  /** The markdown the index stored, or null when the file was missing when it was read. */
+  body: string | null;
   comments: { docs: Record<string, RenderedComment[]>; reviews: Review[] };
 };
 
 /** The session from the API; null when the id names no session. */
 export async function loadSession(home: string, id: string): Promise<LoadedSession | null> {
-  const data = await apiGetJson<{ session: Session; row: SessionRow; comments: RenderedComment[]; reviews: Review[] }>(
+  const data = await apiGetJson<{ session: Session; row: SessionRow; body: string | null; comments: RenderedComment[]; reviews: Review[] }>(
     home,
     `/api/session?id=${encodeURIComponent(id)}`,
   ).catch(() => null);
@@ -20,6 +22,7 @@ export async function loadSession(home: string, id: string): Promise<LoadedSessi
   return {
     session: data.session,
     row: data.row,
+    body: data.body,
     comments: { docs: groupDocs(data.session.path, data.comments), reviews: data.reviews },
   };
 }

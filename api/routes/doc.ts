@@ -7,7 +7,7 @@ import { InvalidInput, sessionNotFound } from "../../lib/effect/errors";
 import { jsonBody } from "../../lib/effect/schema";
 import { getHome } from "../../lib/home";
 import { workspaceDocs } from "../../lib/reading-workspace";
-import { realDoc, SCRATCHPAD_ID, SessionsStore } from "../../lib/sessions";
+import { realDoc, SCRATCHPAD_ID, SessionsStore, toWire } from "../../lib/sessions";
 import { respond } from "../respond";
 
 /**
@@ -22,7 +22,7 @@ doc.get("/sessions", () =>
   respond(
     Effect.gen(function* () {
       const sessions = yield* SessionsStore;
-      return { rows: yield* sessions.rows(getHome()) };
+      return { rows: (yield* sessions.rows(getHome())).map(toWire) };
     }),
   ),
 );
@@ -34,7 +34,7 @@ doc.get("/scratchpad", () =>
       const sessions = yield* SessionsStore;
       const home = getHome();
       const scratch = yield* sessions.scratchpad(home);
-      return { pad: yield* sessions.row(home, scratch) };
+      return { pad: toWire(yield* sessions.row(home, scratch)) };
     }),
   ),
 );
@@ -53,7 +53,8 @@ doc.get("/session", (c) =>
       const row = yield* sessions.row(home, session);
       const file = yield* comments.read(home, session.id);
       const key = basename(session.path);
-      return { session, row, comments: renderComments(file.docs[key] ?? []), reviews: (file.reviews ?? []).filter((r) => r.doc === key) };
+      const body = yield* sessions.body(home, session.id);
+      return { session, row: toWire(row), body, comments: renderComments(file.docs[key] ?? []), reviews: (file.reviews ?? []).filter((r) => r.doc === key) };
     }),
   ),
 );

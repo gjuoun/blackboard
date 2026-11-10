@@ -1,4 +1,4 @@
-import { readFileSync, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import { basename } from "node:path";
 import { Effect } from "effect";
 import { CommentsStore } from "./comments-store";
@@ -41,24 +41,25 @@ export const workspaceDocs = (
     const rows = yield* sessions.rows(home);
     const file = yield* state.read(home);
     const at = new Date(now).toISOString();
-    const docs = yield* Effect.forEach(rows, (row) =>
-      Effect.map(mtimeOf(row.path), (sourceMtime): WorkspaceDoc => {
-        const entry = effectiveEntry(file.docs[row.id], sourceMtime, at);
-        return {
-          id: row.id,
-          title: row.title,
-          path: row.path,
-          location: row.location,
-          repo: row.repo?.name ?? null,
-          branch: row.branch,
-          open: row.open,
-          updatedAt: row.updatedAt,
-          updated: relativeTime(row.updatedAt, now),
-          status: entry.status,
-          progress: entry.progress,
-        };
-      }),
-    );
+    // The file mtime comes from the row the index wrote, not from a stat: the reading state is current while the
+    // file still has the mtime the index read. A missing file reads as 0, as it always has.
+    const docs: WorkspaceDoc[] = rows.map((row) => {
+      const sourceMtime = row.srcMtime ?? 0;
+      const entry = effectiveEntry(file.docs[row.id], sourceMtime, at);
+      return {
+        id: row.id,
+        title: row.title,
+        path: row.path,
+        location: row.location,
+        repo: row.repo?.name ?? null,
+        branch: row.branch,
+        open: row.open,
+        updatedAt: row.updatedAt,
+        updated: relativeTime(row.updatedAt, now),
+        status: entry.status,
+        progress: entry.progress,
+      };
+    });
     return {
       docs,
       counts: countStatuses(docs),
@@ -84,10 +85,10 @@ export const previewDoc = (
     const file = servablePath(session);
     if (!file) return null;
     const row = yield* sessions.row(home, session);
-    const src = yield* Effect.try({
-      try: () => readFileSync(file, "utf8"),
-      catch: (error) => new IoFailure({ message: errorMessage(error), status: 500 }),
-    });
+    // The markdown comes from the row the index stored. A row not yet indexed has no body to render, and `row()`
+    // indexed it a moment ago, so a null here means the file is gone.
+    const src = yield* sessions.body(home, id);
+    if (src === null) return null;
     const rendered = yield* Effect.tryPromise({
       try: () => renderMarkdown(src, { assetBase: `/api/asset/${id}` }),
       catch: (error) => new IoFailure({ message: errorMessage(error), status: 500 }),

@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { apiGet, apiPost, apiUrl, type ApiFailure } from "../api-client";
 import { cliFailure, CliError, find } from "../cli";
 import { errorMessage } from "../effect/errors";
-import { realDoc, SessionsStore, type Session, type SessionRow } from "../sessions";
+import { realDoc, SessionsStore, toWire, type Session, type SessionRow } from "../sessions";
 
 const DEFAULT_URL = "http://127.0.0.1:38770";
 
@@ -41,11 +41,11 @@ export function open(
 }
 
 /** Every registered session with its title, location, branch and open comment count. */
-export function sessions(home: string): Effect.Effect<SessionRow[], CliError, SessionsStore> {
+export function sessions(home: string): Effect.Effect<Omit<SessionRow, "srcMtime">[], CliError, SessionsStore> {
   return Effect.gen(function* () {
     const store = yield* SessionsStore;
-    const api = apiGet(home, "/api/sessions").pipe(Effect.map((d) => (d as { rows: SessionRow[] }).rows));
-    const local = store.rows(home).pipe(Effect.mapError((error) => cliFailure(error)));
+    const api = apiGet(home, "/api/sessions").pipe(Effect.map((d) => (d as { rows: Omit<SessionRow, "srcMtime">[] }).rows));
+    const local = store.rows(home).pipe(Effect.map((rows) => rows.map(toWire)), Effect.mapError((error) => cliFailure(error)));
     return yield* route(home, api, local);
   });
 }

@@ -1,18 +1,8 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { describe, expect, test } from "bun:test";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { clearState, DEFAULT_URL, formatStatus, pidAlive, portOf, prepareServer, probe, readState, resolveUrl, runtimeFor, ServerError, status, writeState } from "./server-ctl";
-
-const dirs: string[] = [];
-const tmp = () => {
-  const d = mkdtempSync(join(tmpdir(), "bb-ctl-"));
-  dirs.push(d);
-  return d;
-};
-afterEach(() => {
-  while (dirs.length) rmSync(dirs.pop()!, { recursive: true, force: true });
-});
+import { clearState, DEFAULT_URL, pidAlive, portOf, prepareServer, readState, resolveUrl, runtimeFor, ServerError, stop, unrecordedNote, verifyRecord, writeState } from "./server-ctl";
+import { bigHome, tmp } from "../test/serve-fixture";
 
 describe("resolveUrl", () => {
   test("defaults to the local app, honours BLACKBOARD_URL and strips a trailing slash", () => {
@@ -65,54 +55,6 @@ describe("server state", () => {
   });
 });
 
-describe("status with a live server", () => {
-  test("a Blackboard answering with no state of ours is running but not managed; a stale state is cleared", async () => {
-    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: (req) => (new URL(req.url).pathname === "/api/health" ? Response.json({ app: "blackboard", version: "x" }) : new Response("no", { status: 404 })) });
-    const url = `http://127.0.0.1:${server.port}`;
-    try {
-      const home = tmp();
-      expect(await probe(url)).toBe(true);
-      expect(await status(home, url)).toEqual({ running: true, url, managed: false });
-      const dead = { pid: 2 ** 22 + 12345, url, startedAt: "2026-01-01T00:00:00.000Z" };
-      writeState(home, { ui: dead, api: dead });
-      expect(await status(home, url)).toEqual({ running: true, url, managed: false });
-      expect(readState(home)).toBeNull();
-    } finally {
-      server.stop(true);
-    }
-  });
-  test("another server on the port is not a Blackboard", async () => {
-    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response("<html>hi</html>") });
-    try {
-      expect(await probe(`http://127.0.0.1:${server.port}`)).toBe(false);
-    } finally {
-      server.stop(true);
-    }
-  });
-  test("a pair with one process gone reads as partial and keeps its record, so stop can still reach the survivor", async () => {
-    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => Response.json({ app: "blackboard", version: "x" }) });
-    const url = `http://127.0.0.1:${server.port}`;
-    try {
-      const home = tmp();
-      const alive = { pid: process.pid, url, startedAt: "2026-01-01T00:00:00.000Z" };
-      const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
-      writeState(home, { ui: alive, api: dead });
-      const s = await status(home, "http://127.0.0.1:1");
-      expect(s.running).toBe(false);
-      expect(formatStatus(s)).toContain("one of the pair has stopped");
-      expect(formatStatus(s)).toContain("api: down");
-      expect(readState(home)).not.toBeNull();
-    } finally {
-      server.stop(true);
-    }
-  });
-  test("nothing listening reads as not running", async () => {
-    const s = await status(tmp(), "http://127.0.0.1:1");
-    expect(s.running).toBe(false);
-    expect(formatStatus(s)).toBe("not running (http://127.0.0.1:1)");
-  });
-});
-
 describe("prepareServer", () => {
   const fixture = () => {
     const root = tmp();
@@ -139,5 +81,67 @@ describe("prepareServer", () => {
     expect(readFileSync(join(dir, "node_modules", "next", "index.js"), "utf8")).toBe("// next");
     expect(existsSync(join(server, "modules", "next"))).toBe(true);
     expect(prepareServer(server, home, "1.0.0", readOnly)).toBe(dir);
+  });
+});
+
+describe("a large home: stop clears a dead record", () => {
+  test("a stop with both recorded pids gone clears the record, and does not call the port a stranger's", async () => {
+    const home = bigHome();
+    const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+    writeState(home, { ui: dead, api: dead });
+    const r = await stop(home);
+    // The record existed, so stop cleared it; it never reaches the "not started by this command" note.
+    expect(r).toEqual({ stopped: true });
+    expect(readState(home)).toBeNull();
+  }, 20_000);
+});
+
+describe("start verifies the record it wrote", () => {
+  test("a record that reads back as written passes", () => {
+    const home = tmp();
+    const proc = { pid: process.pid, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+    const rec = { ui: proc, api: { ...proc, url: "http://127.0.0.1:2" } };
+    writeState(home, rec);
+    expect(() => verifyRecord(home, rec)).not.toThrow();
+  });
+
+  test("a record that is missing after the write fails, naming the pids to stop by hand", () => {
+    const home = tmp();
+    const proc = { pid: 4242, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+    const rec = { ui: proc, api: { ...proc, pid: 4343, url: "http://127.0.0.1:2" } };
+    expect(() => verifyRecord(home, rec)).toThrow(/did not read back.*kill 4242 4343/);
+  });
+
+  test("a record that reads back with another pid fails", () => {
+    const home = tmp();
+    const proc = { pid: 4242, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+    writeState(home, { ui: { ...proc, pid: 9999 }, api: { ...proc, url: "http://127.0.0.1:2" } });
+    expect(() => verifyRecord(home, { ui: proc, api: { ...proc, url: "http://127.0.0.1:2" } })).toThrow(ServerError);
+  });
+});
+
+describe("stop names the process when nothing is recorded", () => {
+  test("unrecordedNote with a listener gives the pid and the kill command", () => {
+    const note = unrecordedNote("http://127.0.0.1:38770", [4321]);
+    expect(note).toContain("pid 4321");
+    expect(note).toContain("kill 4321");
+  });
+
+  test("unrecordedNote with no listener says how to find one", () => {
+    const note = unrecordedNote("http://127.0.0.1:38770", []);
+    expect(note).toContain("lsof -nP -iTCP:38770");
+  });
+
+  test("stop on a home with no record and nothing answering reports not stopped", async () => {
+    // Point at a port nothing listens on, so the result does not depend on what this machine runs.
+    const prev = process.env.BLACKBOARD_URL;
+    process.env.BLACKBOARD_URL = "http://127.0.0.1:1";
+    try {
+      const r = await stop(tmp());
+      expect(r).toEqual({ stopped: false });
+    } finally {
+      if (prev === undefined) delete process.env.BLACKBOARD_URL;
+      else process.env.BLACKBOARD_URL = prev;
+    }
   });
 });

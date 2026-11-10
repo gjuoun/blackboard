@@ -21,6 +21,24 @@ export const documents = sqliteTable("documents", (d) => ({
   kind: d.text("kind"),
   /** Non-null once the session is closed: children are kept on purpose — close never deletes a doc's comments. */
   closedAt: d.text("closed_at"),
+  /** The markdown as it was read from disk when indexed. Null until the first index run. */
+  body: d.text("body"),
+  title: d.text("title"),
+  sections: d.integer("sections"),
+  diagrams: d.integer("diagrams"),
+  branch: d.text("branch"),
+  detached: d.integer("detached", { mode: "boolean" }),
+  repoName: d.text("repo_name"),
+  repoRoot: d.text("repo_root"),
+  relPath: d.text("rel_path"),
+  worktreeName: d.text("worktree_name"),
+  worktreePath: d.text("worktree_path"),
+  projectName: d.text("project_name"),
+  projectRoot: d.text("project_root"),
+  /** The file's mtime (ms) and size when `body` was read: the index is current while both still match. */
+  srcMtime: d.integer("src_mtime"),
+  srcSize: d.integer("src_size"),
+  indexedAt: d.text("indexed_at"),
 }));
 
 /** One exchange of the reply-style stream: the unit the streamed doc UI appends. */

@@ -1,107 +1,19 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+/**
+ * Running the web app and the API from the `blackboard` command: start, stop, restart, status. The record lives in
+ * server-record.ts and the probing in server-status.ts; this file starts and stops the processes and formats output.
+ */
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { basename, delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { clearState, pidAlive, portOf, readState, resolveUrl, resolveApiUrl, uiLogPath, apiLogPath, ServerError, statePath, writeState, type ServerState } from "./server-record";
+import { status, type ServerStatus } from "./server-status";
 
-/**
- * Running the web app + the API from the `blackboard` command: `serve start | stop | restart |
- * status`, and `open` starting them on first use. Two processes now: the standalone Next build in
- * `server/` (UI) and `dist/api.mjs` (API, always Bun — it owns bun:sqlite). What this module
- * started is remembered in `<home>/server.json` as two proc entries; anything else answering at
- * the same address is treated as running but not ours to stop.
- */
-export const DEFAULT_URL = "http://127.0.0.1:38770";
-export const DEFAULT_API_URL = "http://127.0.0.1:38771";
+export { DEFAULT_API_URL, DEFAULT_URL, ServerError, clearState, pidAlive, portOf, readState, resolveApiUrl, resolveUrl, statePath, uiLogPath, apiLogPath, writeState } from "./server-record";
+export { HEALTH_BUDGET_MS, healthAnswers, portListens, procState, status } from "./server-status";
+export type { ProcName, ProcState, ServerStatus } from "./server-status";
+export type { ServerState, Proc } from "./server-record";
 
-type Proc = { pid: number; url: string; startedAt: string };
-type ServerState = { ui: Proc; api: Proc };
-type ServerStatus =
-  | { running: false; url: string }
-  | { running: true; url: string; managed: true; ui: Proc & { log: string }; api: Proc & { log: string } }
-  | { running: true; url: string; managed: false }
-  | { running: false; url: string; partial: { ui: "up" | "down"; api: "up" | "down"; pids: { ui: number; api: number } } };
-
-export class ServerError extends Error {}
-
-const statePath = (home: string) => join(home, "server.json");
-const uiLogPath = (home: string) => join(home, "server.log");
-const apiLogPath = (home: string) => join(home, "api.log");
-
-/** Where the app should answer: --port, else $BLACKBOARD_URL, else the default. Always an http origin. */
-export function resolveUrl(opts: { port?: number | string; env?: Record<string, string | undefined> } = {}): string {
-  const env = opts.env ?? process.env;
-  const base = new URL((env.BLACKBOARD_URL || DEFAULT_URL).replace(/\/+$/, ""));
-  if (opts.port !== undefined) {
-    const n = Number(opts.port);
-    if (!Number.isInteger(n) || n < 1 || n > 65535) throw new ServerError(`--port must be a number from 1 to 65535, got "${opts.port}"`);
-    base.protocol = "http:";
-    base.hostname = "127.0.0.1";
-    base.port = String(n);
-  }
-  return base.origin;
-}
-
-/** Where the API should answer: --api-port, else $BLACKBOARD_API_URL, else the default API port. */
-export function resolveApiUrl(opts: { apiPort?: number | string; env?: Record<string, string | undefined> } = {}): string {
-  const env = opts.env ?? process.env;
-  const base = new URL((env.BLACKBOARD_API_URL || DEFAULT_API_URL).replace(/\/+$/, ""));
-  if (opts.apiPort !== undefined) {
-    const n = Number(opts.apiPort);
-    if (!Number.isInteger(n) || n < 1 || n > 65535) throw new ServerError(`--api-port must be a number from 1 to 65535, got "${opts.apiPort}"`);
-    base.protocol = "http:";
-    base.hostname = "127.0.0.1";
-    base.port = String(n);
-  }
-  return base.origin;
-}
-
-/** The port a URL names (80 / 443 when it names none). */
-export function portOf(url: string): number {
-  const u = new URL(url);
-  return Number(u.port || (u.protocol === "https:" ? 443 : 80));
-}
-
-/** Read the two-proc state file; a pre-B-round single-pid file reads as stale (null). */
-export function readState(home: string): ServerState | null {
-  try {
-    const v = JSON.parse(readFileSync(statePath(home), "utf8"));
-    const ok = (p: unknown): p is Proc => !!p && Number.isInteger((p as Proc).pid) && typeof (p as Proc).url === "string" && typeof (p as Proc).startedAt === "string";
-    return ok(v?.ui) && ok(v?.api) ? v : null;
-  } catch {
-    return null;
-  }
-}
-
-export function writeState(home: string, s: ServerState) {
-  writeFileSync(statePath(home), JSON.stringify(s, null, 2) + "\n");
-}
-
-export const clearState = (home: string) => rmSync(statePath(home), { force: true });
-
-export function pidAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    return (err as NodeJS.ErrnoException).code === "EPERM";
-  }
-}
-
-/**
- * True when something answers HTTP at `url`, whatever the status. The UI process proves it is alive by
- * answering at all: its pages return 500 when the API it fetches from is down, and that must still read
- * as "the UI is up" for `status`, or a dead API would hide a live UI.
- */
-export async function listening(url: string, timeoutMs = 1500): Promise<boolean> {
-  try {
-    await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** True when a Blackboard answers at `url` (its /api/health says so). */
 export async function probe(url: string, timeoutMs = 1500): Promise<boolean> {
   try {
     const res = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(timeoutMs) });
@@ -202,20 +114,17 @@ function apiEnv(home: string, apiUrl: string): NodeJS.ProcessEnv {
   return { ...process.env, NODE_ENV: "production", BLACKBOARD_HOME: home, BLACKBOARD_API_URL: apiUrl, PORT: String(portOf(apiUrl)) };
 }
 
-export async function status(home: string, url = resolveUrl()): Promise<ServerStatus> {
-  const st = readState(home);
-  if (st) {
-    const uiUp = pidAlive(st.ui.pid) && (await listening(st.ui.url));
-    const apiUp = pidAlive(st.api.pid) && (await probe(st.api.url));
-    if (uiUp && apiUp) {
-      return { running: true, url: st.ui.url, managed: true, ui: { ...st.ui, log: uiLogPath(home) }, api: { ...st.api, log: apiLogPath(home) } };
-    }
-    // A half-dead pair is not running, but its record is kept: the surviving process is still ours
-    // to stop, and `stop` finds it through the record.
-    if (uiUp || apiUp) return { running: false, url, partial: { ui: uiUp ? "up" : "down", api: apiUp ? "up" : "down", pids: { ui: st.ui.pid, api: st.api.pid } } };
-    clearState(home);
-  }
-  return (await probe(url)) ? { running: true, url, managed: false } : { running: false, url };
+/**
+ * Read the record back and compare it with what was written. A pair that started but whose record cannot be
+ * read is reported as a failure, with the pids to stop by hand: a silent "started" would leave them running
+ * with nothing recording them.
+ */
+export function verifyRecord(home: string, expected: ServerState): void {
+  const back = readState(home);
+  if (back && back.ui.pid === expected.ui.pid && back.api.pid === expected.api.pid) return;
+  throw new ServerError(
+    `the pair started (ui pid ${expected.ui.pid}, api pid ${expected.api.pid}) but ${statePath(home)} did not read back; stop them with: kill ${expected.ui.pid} ${expected.api.pid}`,
+  );
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -288,12 +197,16 @@ export async function start(home: string, opts: { port?: number | string; apiPor
   }
 
   const startedAt = new Date().toISOString();
-  writeState(home, {
+  const record: ServerState = {
     ui: { pid: uiChild.pid!, url, startedAt },
     api: { pid: apiPid, url: apiUrl, startedAt },
-  });
-  const now = await status(home, url);
-  return { ...now, started: true };
+  };
+  writeState(home, record);
+  // Success is the record reading back as written, not a probe: a probe can miss a pair that is up.
+  verifyRecord(home, record);
+  // Report what this command started, from the record it just verified. A probe here could miss a pair
+  // that is up, and then the output would call our own processes someone else's.
+  return { running: true, url, managed: true, degraded: [], ui: { ...record.ui, log: uiLogPath(home) }, api: { ...record.api, log: apiLogPath(home) }, started: true };
 }
 
 /** Run both processes in this terminal until they stop (Ctrl-C). For containers and service managers. */
@@ -312,12 +225,35 @@ export async function runForeground(home: string, opts: { port?: number | string
   return new Promise((resolve) => ui.on("exit", (code) => { api.kill("SIGTERM"); resolve(code ?? 0); }));
 }
 
+/**
+ * The pids that hold a TCP port, from lsof. Read-only: nothing is signalled here. Empty when lsof is missing
+ * or finds nothing, so the caller can still say what happened.
+ */
+export function listenersOn(port: number): number[] {
+  try {
+    const out = execFileSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], { encoding: "utf8", timeout: 3000, stdio: ["ignore", "pipe", "ignore"] });
+    return [...new Set(out.split(/\s+/).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+  } catch {
+    return [];
+  }
+}
+
+/** What `stop` says when a Blackboard answers but this home recorded nothing: the pids, and the command to run. */
+export function unrecordedNote(url: string, pids: number[]): string {
+  if (pids.length === 0) return `a Blackboard answers at ${url}, but this home did not start it and no process could be found on that port (look for it with: lsof -nP -iTCP:${portOf(url)} -sTCP:LISTEN)`;
+  return `a Blackboard answers at ${url}, but this home did not start it. Process on that port: pid ${pids.join(", ")}. To stop it, run: kill ${pids.join(" ")}`;
+}
+
 /** Stop the pair this home started. Returns false when there was none; refuses one it did not start. */
 export async function stop(home: string): Promise<{ stopped: boolean; note?: string }> {
   const st = readState(home);
   if (!st) {
-    const ext = await probe(resolveUrl());
-    return { stopped: false, note: ext ? "a Blackboard is answering at that address, but this command did not start it (stop it where you started it)" : undefined };
+    const at = resolveUrl();
+    if (!(await probe(at))) return { stopped: false };
+    // Nothing recorded, but a Blackboard answers here. Name the process that holds the port, so the next
+    // step is a command the user can run, not a guess about where it was started.
+    const pids = listenersOn(portOf(at));
+    return { stopped: false, note: unrecordedNote(at, pids) };
   }
   for (const proc of [st.ui, st.api]) {
     if (!pidAlive(proc.pid)) continue;
@@ -338,5 +274,6 @@ export function formatStatus(s: ServerStatus): string {
   }
   if (!s.running) return `not running (${s.url})`;
   if (!s.managed) return `running at ${s.url} (not started by this command)`;
-  return [`running at ${s.url}  pid ${s.ui.pid}  since ${s.ui.startedAt}`, `api: running at ${s.api.url}  pid ${s.api.pid}  since ${s.api.startedAt}`, `log: ${s.ui.log}`, `log: ${s.api.log}`].join("\n");
+  const note = s.degraded.length === 0 ? [] : [`degraded: ${s.degraded.join(", ")} is up but slow to answer its health route (it may still be starting)`];
+  return [`running at ${s.url}  pid ${s.ui.pid}  since ${s.ui.startedAt}`, `api: running at ${s.api.url}  pid ${s.api.pid}  since ${s.api.startedAt}`, ...note, `log: ${s.ui.log}`, `log: ${s.api.log}`].join("\n");
 }

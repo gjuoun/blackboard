@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -111,7 +110,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   // no TOC and no file links. Comments on it anchor to its text like a doc's do.
   const type = docType(file);
   if (type.ok && type.type === "code") {
-    const src = readFileSync(file, "utf8");
+    const src = found.body ?? "";
     const { html } = await renderCode(src, file);
     const codeComments = found.comments.docs[basename(file)] ?? [];
     return (
@@ -122,7 +121,7 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
     );
   }
   // The doc is read once: the same string feeds the markdown pass and the comments pane.
-  const src = readFileSync(file, "utf8");
+  const src = found.body ?? "";
   const { html, toc } = await renderMarkdown(src, { assetBase: `/api/asset/${id}` });
   const doc = basename(file);
   const renderedComments = found.comments.docs[doc] ?? [];

@@ -36,7 +36,7 @@ Usage:
   blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>
   blackboard comment  <session> --general <note>
   blackboard review   <session> --round <n> <body>
-  blackboard db       migrate [--dry-run] | stats   move the JSON stores into blackboard.db / show its contents
+  blackboard db       migrate [--dry-run] | stats | reindex [--force]   move the JSON stores into blackboard.db / show its contents / index the documents
 
 <session> is a session id or a path to the registered file.
 <id> is a comment id; reply also takes a reply id (the reply joins that comment's thread).
@@ -108,6 +108,7 @@ const OPTIONS = {
   occurrence: { type: "string" },
   "no-browser": { type: "boolean" },
   "dry-run": { type: "boolean" },
+  force: { type: "boolean" },
   "no-server": { type: "boolean" },
   port: { type: "string" },
   "api-port": { type: "string" },
@@ -224,6 +225,11 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
         if (sub === "stats") {
           const s = yield* dbCli.statsCmd(home).pipe(Effect.provide(dbLayer));
           print(s, dbCli.formatStats(s));
+          return 0;
+        }
+        if (sub === "reindex") {
+          const r = yield* dbCli.reindexCmd(home, o.force === true).pipe(Effect.provide(dbLayer), Effect.provide(lockLayer));
+          print(r, dbCli.formatIndex(r));
           return 0;
         }
         return yield* dbCli.dbUsage();
