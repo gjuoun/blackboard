@@ -6,18 +6,6 @@ import { cn } from "@/lib/utils";
 import type { PreviewData, WorkspaceDoc } from "@/lib/reading-model";
 import { PreviewReplyBar } from "./PreviewReplyBar";
 
-/** A keyboard cap, the same shape as the sketch's `kbd`. */
-function Kbd({ children }: { children: string }) {
-  return <kbd className="border-border bg-background text-foreground rounded-[5px] border border-b-2 px-[5px] font-mono text-[10.5px] leading-4">{children}</kbd>;
-}
-
-const KEYS = (
-  <>
-    <Kbd>↑</Kbd>
-    <Kbd>↓</Kbd> switch · <Kbd>Enter</Kbd> open · <Kbd>m</Kbd> mark read · <Kbd>Esc</Kbd> close
-  </>
-);
-
 /** The body preview: the rendered document, the general-comment thread, and a reply box kept at the bottom. */
 const PROSE = cn(
   "pt-3.5 text-[13px] leading-[1.8] text-foreground/90",
@@ -79,7 +67,6 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
           <div className="border-border bg-background mb-1 grid size-[34px] place-items-center rounded-[9px] border text-[15px]">◫</div>
           <p className="text-foreground m-0 text-sm font-semibold">Select a document</p>
           <span className="max-w-[240px] text-[12.5px] leading-[1.65]">Click any row to open it here: the body, the replies so far, and a reply box pinned at the bottom.</span>
-          <div className="mt-3.5 flex flex-wrap items-center gap-1.5 text-[11px]">{KEYS}</div>
         </div>
       </aside>
     );
@@ -212,7 +199,6 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
             Open ↗
           </Link>
         </div>
-        <div className="text-muted-foreground mt-3.5 hidden flex-wrap items-center gap-1.5 text-[11px] md:flex">{KEYS}</div>
       </div>
 
       {/* Phone: the pinned reply affordance — a pill that expands into the inline composer. */}
