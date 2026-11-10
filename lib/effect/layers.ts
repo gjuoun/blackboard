@@ -24,7 +24,7 @@ const comments = commentsRepoLayer.pipe(Layer.provideMerge(db));
 const agents = agentsRepoLayer.pipe(Layer.provideMerge(db));
 const reading = readingRepoLayer.pipe(Layer.provideMerge(db));
 const commentsStore = commentsLayer.pipe(Layer.provideMerge(Layer.mergeAll(comments, busLayer)));
-const sessions = sessionsLayer.pipe(Layer.provideMerge(Layer.mergeAll(documents, commentsStore)));
+const sessions = sessionsLayer.pipe(Layer.provideMerge(Layer.mergeAll(db, documents, commentsStore)));
 const agentsStore = agentsLayer.pipe(Layer.provideMerge(agents));
 const readingStore = readingLayer.pipe(Layer.provideMerge(reading));
 

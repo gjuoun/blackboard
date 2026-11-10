@@ -1,18 +1,8 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { describe, expect, test } from "bun:test";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { clearState, DEFAULT_URL, formatStatus, pidAlive, portOf, prepareServer, probe, readState, resolveUrl, runtimeFor, ServerError, status, stop, unrecordedNote, verifyRecord, writeState } from "./server-ctl";
-
-const dirs: string[] = [];
-const tmp = () => {
-  const d = mkdtempSync(join(tmpdir(), "bb-ctl-"));
-  dirs.push(d);
-  return d;
-};
-afterEach(() => {
-  while (dirs.length) rmSync(dirs.pop()!, { recursive: true, force: true });
-});
+import { clearState, DEFAULT_URL, pidAlive, portOf, prepareServer, readState, resolveUrl, runtimeFor, ServerError, stop, unrecordedNote, verifyRecord, writeState } from "./server-ctl";
+import { bigHome, tmp } from "../test/serve-fixture";
 
 describe("resolveUrl", () => {
   test("defaults to the local app, honours BLACKBOARD_URL and strips a trailing slash", () => {
@@ -65,54 +55,6 @@ describe("server state", () => {
   });
 });
 
-describe("status with a live server", () => {
-  test("a Blackboard answering with no state of ours is running but not managed; a stale state is cleared", async () => {
-    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: (req) => (new URL(req.url).pathname === "/api/health" ? Response.json({ app: "blackboard", version: "x" }) : new Response("no", { status: 404 })) });
-    const url = `http://127.0.0.1:${server.port}`;
-    try {
-      const home = tmp();
-      expect(await probe(url)).toBe(true);
-      expect(await status(home, url)).toEqual({ running: true, url, managed: false });
-      const dead = { pid: 2 ** 22 + 12345, url, startedAt: "2026-01-01T00:00:00.000Z" };
-      writeState(home, { ui: dead, api: dead });
-      expect(await status(home, url)).toEqual({ running: true, url, managed: false });
-      expect(readState(home)).toBeNull();
-    } finally {
-      server.stop(true);
-    }
-  });
-  test("another server on the port is not a Blackboard", async () => {
-    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response("<html>hi</html>") });
-    try {
-      expect(await probe(`http://127.0.0.1:${server.port}`)).toBe(false);
-    } finally {
-      server.stop(true);
-    }
-  });
-  test("a pair with one process gone reads as partial and keeps its record, so stop can still reach the survivor", async () => {
-    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => Response.json({ app: "blackboard", version: "x" }) });
-    const url = `http://127.0.0.1:${server.port}`;
-    try {
-      const home = tmp();
-      const alive = { pid: process.pid, url, startedAt: "2026-01-01T00:00:00.000Z" };
-      const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
-      writeState(home, { ui: alive, api: dead });
-      const s = await status(home, "http://127.0.0.1:1");
-      expect(s.running).toBe(false);
-      expect(formatStatus(s)).toContain("one of the pair has stopped");
-      expect(formatStatus(s)).toContain("api: down");
-      expect(readState(home)).not.toBeNull();
-    } finally {
-      server.stop(true);
-    }
-  });
-  test("nothing listening reads as not running", async () => {
-    const s = await status(tmp(), "http://127.0.0.1:1");
-    expect(s.running).toBe(false);
-    expect(formatStatus(s)).toBe("not running (http://127.0.0.1:1)");
-  });
-});
-
 describe("prepareServer", () => {
   const fixture = () => {
     const root = tmp();
@@ -142,36 +84,7 @@ describe("prepareServer", () => {
   });
 });
 
-describe("a large home does not change which pair is ours", () => {
-  /** A home with many registered sessions and comment folders, the shape of a long-used one. */
-  const bigHome = () => {
-    const home = tmp();
-    for (let i = 1; i <= 120; i += 1) {
-      const dir = join(home, "sessions", `s${String(i).padStart(3, "0")}`);
-      mkdirSync(dir, { recursive: true });
-      if (i % 3 === 0) writeFileSync(join(dir, "comments.json"), '{"version":1,"docs":{"design.md":[]}}\n');
-    }
-    return home;
-  };
-
-  test("a slow pair keeps its record in a home with many sessions", async () => {
-    const home = bigHome();
-    const api = slowServer(2600);
-    const ui = slowServer(2600);
-    try {
-      const apiUrl = `http://127.0.0.1:${api.port}`;
-      const uiUrl = `http://127.0.0.1:${ui.port}`;
-      const now = new Date().toISOString();
-      writeState(home, { ui: { pid: process.pid, url: uiUrl, startedAt: now }, api: { pid: process.pid, url: apiUrl, startedAt: now } });
-      const s = await status(home, uiUrl);
-      expect(readState(home)).not.toBeNull();
-      expect(s.running).toBe(false);
-    } finally {
-      api.stop(true);
-      ui.stop(true);
-    }
-  }, 20_000);
-
+describe("a large home: stop clears a dead record", () => {
   test("a stop with both recorded pids gone clears the record, and does not call the port a stranger's", async () => {
     const home = bigHome();
     const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
@@ -232,16 +145,3 @@ describe("stop names the process when nothing is recorded", () => {
     }
   });
 });
-
-/** A stand-in for one Blackboard process that answers /api/health only after `delayMs`. */
-function slowServer(delayMs: number) {
-  return Bun.serve({
-    port: 0,
-    hostname: "127.0.0.1",
-    async fetch(req) {
-      await Bun.sleep(delayMs);
-      if (new URL(req.url).pathname === "/api/health") return Response.json({ app: "blackboard", version: "x" });
-      return new Response("ok");
-    },
-  });
-}

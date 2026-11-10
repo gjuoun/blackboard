@@ -15,6 +15,31 @@ import { errorMessage, DbFailure } from "../effect/errors";
  * database. Tests pass a temp `BLACKBOARD_HOME` and get a database of their own.
  */
 
+/**
+ * Document columns that tables created before them lack. Every column here is added by ALTER when missing, so a new
+ * database and an old one end up with the same schema. The body and the metadata are derived from the file on disk;
+ * `src_mtime` and `src_size` say which file state they were derived from.
+ */
+export const DOC_COLUMNS: readonly [string, string][] = [
+  ["closed_at", "TEXT"],
+  ["body", "TEXT"],
+  ["title", "TEXT"],
+  ["sections", "INTEGER"],
+  ["diagrams", "INTEGER"],
+  ["branch", "TEXT"],
+  ["detached", "INTEGER"],
+  ["repo_name", "TEXT"],
+  ["repo_root", "TEXT"],
+  ["rel_path", "TEXT"],
+  ["worktree_name", "TEXT"],
+  ["worktree_path", "TEXT"],
+  ["project_name", "TEXT"],
+  ["project_root", "TEXT"],
+  ["src_mtime", "INTEGER"],
+  ["src_size", "INTEGER"],
+  ["indexed_at", "TEXT"],
+];
+
 /** bun:sqlite runs exactly one statement per call — complete statements, no semicolons. */
 const DDL: string[] = [
   `CREATE TABLE IF NOT EXISTS documents (
@@ -89,7 +114,7 @@ const DDL: string[] = [
 type RawDb = {
   run(sql: string): void;
   exec(sql: string): void;
-  query(sql: string): { get(): Record<string, unknown> | null; all(): Record<string, unknown>[] };
+  query(sql: string): { get(...params: unknown[]): Record<string, unknown> | null; all(...params: unknown[]): Record<string, unknown>[] };
 };
 
 /** The live handle: drizzle for typed queries, raw for PRAGMAs and one-off SQL. */
@@ -114,9 +139,11 @@ const open = (home: string): Effect.Effect<Conn, DbFailure> =>
       raw.run("PRAGMA foreign_keys=ON");
       raw.run("PRAGMA busy_timeout=5000");
       for (const stmt of DDL) raw.exec(stmt);
-      // A database created before closed_at existed converges here; a fresh one skips it.
-      const hasClosed = raw.query("SELECT name FROM pragma_table_info('documents') WHERE name='closed_at'").get() !== null;
-      if (!hasClosed) raw.exec("ALTER TABLE documents ADD COLUMN closed_at TEXT");
+      // Columns added after a database first existed. A fresh database gets them from the same statements.
+      for (const [name, type] of DOC_COLUMNS) {
+        const has = raw.query("SELECT name FROM pragma_table_info('documents') WHERE name = ?").get(name) !== null;
+        if (!has) raw.exec(`ALTER TABLE documents ADD COLUMN ${name} ${type}`);
+      }
       return { orm: drizzle(raw), raw };
     },
     catch: (error) => new DbFailure({ message: `cannot open blackboard.db: ${errorMessage(error)}`, status: 500 }),

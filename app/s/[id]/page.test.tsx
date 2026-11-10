@@ -7,7 +7,8 @@ import { join } from "node:path";
 // replaced; the markdown pass, the page body and the TOC stay real and read one file on disk.
 const dir = realpathSync(mkdtempSync(join(tmpdir(), "bb-page-")));
 const file = join(dir, "plan.md");
-writeFileSync(file, ["# Plan", "", "## First", "", "body", "", "## Second", "", "body", ""].join("\n"));
+const markdown = ["# Plan", "", "## First", "", "body", "", "## Second", "", "body", ""].join("\n");
+writeFileSync(file, markdown);
 const session = { id: "abc", path: file, createdAt: "2026-11-02T00:00:00.000Z", openedAt: "2026-11-02T00:00:00.000Z" };
 // The page reads the session registry and the comment file through getHome(); point both at the
 // temp folder, so the render touches no real session. Restored when this file is done.
@@ -29,6 +30,8 @@ mock.module("next/navigation", () => ({
 mock.module("@/lib/session-view", () => ({
   loadSession: async () => ({
     session,
+    // The page renders the markdown the index stored, so the stub carries the same text the file holds.
+    body: markdown,
     row: {
       ...session,
       title: "Plan",

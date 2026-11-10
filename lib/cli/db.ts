@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { cliFailure, CliError } from "../cli";
 import { migrate, stats, type MigrateReport } from "../db/migrate";
+import { indexDocuments, type IndexReport } from "../doc-index-run";
 import { Db } from "../db/client";
 import { Lock } from "../lock";
 
@@ -27,10 +28,18 @@ export function statsCmd(home: string): Effect.Effect<{ path: string; tables: Re
 
 /** `db` usage when the sub-arg is missing or unknown. */
 export const dbUsage = (): CliError =>
-  new CliError({ message: "usage: blackboard db migrate [--dry-run] | stats", code: 2 });
+  new CliError({ message: "usage: blackboard db migrate [--dry-run] | stats | reindex [--force]", code: 2 });
 
 /** Format a stats result for the terminal. */
 export const formatStats = (s: { path: string; tables: Record<string, number>; bytes: number }): string =>
   [`${s.path} (${s.bytes} bytes)`, ...Object.entries(s.tables).map(([t, n]) => `  ${t}: ${n}`)].join("\n");
+
+/** `db reindex [--force]`: bring every open document's row up to its file. Idempotent; --force re-reads them all. */
+export function reindexCmd(home: string, force: boolean): Effect.Effect<IndexReport, CliError, Needs> {
+  return indexDocuments(home, force).pipe(Effect.mapError((e) => cliFailure(e)));
+}
+
+export const formatIndex = (r: IndexReport): string =>
+  `indexed: ${r.updated} updated, ${r.skipped} current, ${r.missing} missing, ${r.gitCommands} git commands`;
 
 export { formatReport };

@@ -1,107 +1,19 @@
+/**
+ * Running the web app and the API from the `blackboard` command: start, stop, restart, status. The record lives in
+ * server-record.ts and the probing in server-status.ts; this file starts and stops the processes and formats output.
+ */
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { basename, delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { clearState, pidAlive, portOf, readState, resolveUrl, resolveApiUrl, uiLogPath, apiLogPath, ServerError, statePath, writeState, type ServerState } from "./server-record";
+import { status, type ServerStatus } from "./server-status";
 
-/**
- * Running the web app + the API from the `blackboard` command: `serve start | stop | restart |
- * status`, and `open` starting them on first use. Two processes now: the standalone Next build in
- * `server/` (UI) and `dist/api.mjs` (API, always Bun — it owns bun:sqlite). What this module
- * started is remembered in `<home>/server.json` as two proc entries; anything else answering at
- * the same address is treated as running but not ours to stop.
- */
-export const DEFAULT_URL = "http://127.0.0.1:38770";
-export const DEFAULT_API_URL = "http://127.0.0.1:38771";
+export { DEFAULT_API_URL, DEFAULT_URL, ServerError, clearState, pidAlive, portOf, readState, resolveApiUrl, resolveUrl, statePath, uiLogPath, apiLogPath, writeState } from "./server-record";
+export { HEALTH_BUDGET_MS, healthAnswers, portListens, procState, status } from "./server-status";
+export type { ProcName, ProcState, ServerStatus } from "./server-status";
+export type { ServerState, Proc } from "./server-record";
 
-type Proc = { pid: number; url: string; startedAt: string };
-type ServerState = { ui: Proc; api: Proc };
-type ServerStatus =
-  | { running: false; url: string }
-  | { running: true; url: string; managed: true; ui: Proc & { log: string }; api: Proc & { log: string } }
-  | { running: true; url: string; managed: false }
-  | { running: false; url: string; partial: { ui: "up" | "down"; api: "up" | "down"; pids: { ui: number; api: number } } };
-
-export class ServerError extends Error {}
-
-const statePath = (home: string) => join(home, "server.json");
-const uiLogPath = (home: string) => join(home, "server.log");
-const apiLogPath = (home: string) => join(home, "api.log");
-
-/** Where the app should answer: --port, else $BLACKBOARD_URL, else the default. Always an http origin. */
-export function resolveUrl(opts: { port?: number | string; env?: Record<string, string | undefined> } = {}): string {
-  const env = opts.env ?? process.env;
-  const base = new URL((env.BLACKBOARD_URL || DEFAULT_URL).replace(/\/+$/, ""));
-  if (opts.port !== undefined) {
-    const n = Number(opts.port);
-    if (!Number.isInteger(n) || n < 1 || n > 65535) throw new ServerError(`--port must be a number from 1 to 65535, got "${opts.port}"`);
-    base.protocol = "http:";
-    base.hostname = "127.0.0.1";
-    base.port = String(n);
-  }
-  return base.origin;
-}
-
-/** Where the API should answer: --api-port, else $BLACKBOARD_API_URL, else the default API port. */
-export function resolveApiUrl(opts: { apiPort?: number | string; env?: Record<string, string | undefined> } = {}): string {
-  const env = opts.env ?? process.env;
-  const base = new URL((env.BLACKBOARD_API_URL || DEFAULT_API_URL).replace(/\/+$/, ""));
-  if (opts.apiPort !== undefined) {
-    const n = Number(opts.apiPort);
-    if (!Number.isInteger(n) || n < 1 || n > 65535) throw new ServerError(`--api-port must be a number from 1 to 65535, got "${opts.apiPort}"`);
-    base.protocol = "http:";
-    base.hostname = "127.0.0.1";
-    base.port = String(n);
-  }
-  return base.origin;
-}
-
-/** The port a URL names (80 / 443 when it names none). */
-export function portOf(url: string): number {
-  const u = new URL(url);
-  return Number(u.port || (u.protocol === "https:" ? 443 : 80));
-}
-
-/** Read the two-proc state file; a pre-B-round single-pid file reads as stale (null). */
-export function readState(home: string): ServerState | null {
-  try {
-    const v = JSON.parse(readFileSync(statePath(home), "utf8"));
-    const ok = (p: unknown): p is Proc => !!p && Number.isInteger((p as Proc).pid) && typeof (p as Proc).url === "string" && typeof (p as Proc).startedAt === "string";
-    return ok(v?.ui) && ok(v?.api) ? v : null;
-  } catch {
-    return null;
-  }
-}
-
-export function writeState(home: string, s: ServerState) {
-  writeFileSync(statePath(home), JSON.stringify(s, null, 2) + "\n");
-}
-
-export const clearState = (home: string) => rmSync(statePath(home), { force: true });
-
-export function pidAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    return (err as NodeJS.ErrnoException).code === "EPERM";
-  }
-}
-
-/**
- * True when something answers HTTP at `url`, whatever the status. The UI process proves it is alive by
- * answering at all: its pages return 500 when the API it fetches from is down, and that must still read
- * as "the UI is up" for `status`, or a dead API would hide a live UI.
- */
-export async function listening(url: string, timeoutMs = 1500): Promise<boolean> {
-  try {
-    await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** True when a Blackboard answers at `url` (its /api/health says so). */
 export async function probe(url: string, timeoutMs = 1500): Promise<boolean> {
   try {
     const res = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(timeoutMs) });
@@ -215,43 +127,6 @@ export function verifyRecord(home: string, expected: ServerState): void {
   );
 }
 
-/**
- * How long a pair gets to answer before it is called down. A cold start of the API (a large registry) or
- * the UI (its first compile) can take longer than one probe, so a single miss is not evidence of anything.
- */
-const ANSWER_WINDOW_MS = 2000;
-
-/** Poll `check` until it passes or the window closes. */
-async function answersWithin(check: () => Promise<boolean>, windowMs = ANSWER_WINDOW_MS): Promise<boolean> {
-  const until = Date.now() + windowMs;
-  for (;;) {
-    if (await check()) return true;
-    if (Date.now() >= until) return false;
-    await sleep(200);
-  }
-}
-
-export async function status(home: string, url = resolveUrl()): Promise<ServerStatus> {
-  const st = readState(home);
-  if (st) {
-    const uiPid = pidAlive(st.ui.pid);
-    const apiPid = pidAlive(st.api.pid);
-    // A record is cleared only when neither process exists. A live pid that does not answer yet is starting
-    // or slow, and the record is still the only proof that this home started it.
-    if (!uiPid && !apiPid) {
-      clearState(home);
-    } else {
-      const uiUp = uiPid && (await answersWithin(() => listening(st.ui.url)));
-      const apiUp = apiPid && (await answersWithin(() => probe(st.api.url)));
-      if (uiUp && apiUp) {
-        return { running: true, url: st.ui.url, managed: true, ui: { ...st.ui, log: uiLogPath(home) }, api: { ...st.api, log: apiLogPath(home) } };
-      }
-      return { running: false, url, partial: { ui: uiUp ? "up" : "down", api: apiUp ? "up" : "down", pids: { ui: st.ui.pid, api: st.api.pid } } };
-    }
-  }
-  return (await probe(url)) ? { running: true, url, managed: false } : { running: false, url };
-}
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function tail(file: string, lines = 8): string {
@@ -331,7 +206,7 @@ export async function start(home: string, opts: { port?: number | string; apiPor
   verifyRecord(home, record);
   // Report what this command started, from the record it just verified. A probe here could miss a pair
   // that is up, and then the output would call our own processes someone else's.
-  return { running: true, url, managed: true, ui: { ...record.ui, log: uiLogPath(home) }, api: { ...record.api, log: apiLogPath(home) }, started: true };
+  return { running: true, url, managed: true, degraded: [], ui: { ...record.ui, log: uiLogPath(home) }, api: { ...record.api, log: apiLogPath(home) }, started: true };
 }
 
 /** Run both processes in this terminal until they stop (Ctrl-C). For containers and service managers. */
@@ -399,5 +274,6 @@ export function formatStatus(s: ServerStatus): string {
   }
   if (!s.running) return `not running (${s.url})`;
   if (!s.managed) return `running at ${s.url} (not started by this command)`;
-  return [`running at ${s.url}  pid ${s.ui.pid}  since ${s.ui.startedAt}`, `api: running at ${s.api.url}  pid ${s.api.pid}  since ${s.api.startedAt}`, `log: ${s.ui.log}`, `log: ${s.api.log}`].join("\n");
+  const note = s.degraded.length === 0 ? [] : [`degraded: ${s.degraded.join(", ")} is up but slow to answer its health route (it may still be starting)`];
+  return [`running at ${s.url}  pid ${s.ui.pid}  since ${s.ui.startedAt}`, `api: running at ${s.api.url}  pid ${s.api.pid}  since ${s.api.startedAt}`, ...note, `log: ${s.ui.log}`, `log: ${s.api.log}`].join("\n");
 }

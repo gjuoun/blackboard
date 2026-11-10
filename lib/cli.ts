@@ -64,7 +64,7 @@ export function formatComments(list: DocComment[]): string {
 }
 
 /** One line per session: id, title, where it is, branch, open comments. */
-export function formatSessions(rows: SessionRow[]): string {
+export function formatSessions(rows: Omit<SessionRow, "srcMtime">[]): string {
   if (rows.length === 0) return "no sessions (register a file with: blackboard open <file>)";
   return rows
     .map((r) => `${r.id}  ${r.title}  ${r.location}  ${r.branch ?? "-"}  ${r.open} open${r.missing ? "  (missing)" : ""}`)
