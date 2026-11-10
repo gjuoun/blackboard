@@ -9,6 +9,7 @@ import { getHome } from "../../lib/home";
 import { workspaceDocs } from "../../lib/reading-workspace";
 import { docKey } from "../../lib/session-model";
 import { realDoc, SCRATCHPAD_ID, SessionsStore, toWire } from "../../lib/sessions";
+import { StreamsStore } from "../../lib/stream-store";
 import { respond } from "../respond";
 
 /**
@@ -55,7 +56,9 @@ doc.get("/session", (c) =>
       const file = yield* comments.read(home, session.id);
       const key = docKey(session);
       const body = yield* sessions.body(home, session.id);
-      return { session, row: toWire(row), body, comments: renderComments(file.docs[key] ?? []), reviews: (file.reviews ?? []).filter((r) => r.doc === key) };
+      // The timeline view renders the exchanges themselves; a file session has none to send.
+      const blocks = session.kind === "stream" ? yield* (yield* StreamsStore).blocks(home, session.id) : undefined;
+      return { session, row: toWire(row), body, blocks, comments: renderComments(file.docs[key] ?? []), reviews: (file.reviews ?? []).filter((r) => r.doc === key) };
     }),
   ),
 );

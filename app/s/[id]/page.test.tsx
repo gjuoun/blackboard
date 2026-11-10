@@ -27,7 +27,7 @@ mock.module("next/navigation", () => ({
   useRouter: () => ({ refresh() {}, push() {} }),
   usePathname: () => "/s/abc",
 }));
-let streamMode = false;
+let streamMode: false | "small" | "many" = false;
 mock.module("@/lib/session-view", () => ({
   loadSession: async () => ({
     session: streamMode
@@ -50,6 +50,14 @@ mock.module("@/lib/session-view", () => ({
       open: 0,
     },
     comments: { docs: {}, reviews: [] },
+    blocks: streamMode
+      ? streamMode === "many"
+        ? Array.from({ length: 321 }, (_, i) => ({ id: `b-m${i}`, n: i + 1, action: "append", author: "agent", body: `Exchange ${i + 1} body text.`, status: i === 320 ? "writing" : null, at: "2026-11-02T00:00:00.000Z" }))
+        : [
+            { id: "b-x1", n: 1, action: "answer", author: "agent", body: "First", status: null, at: "2026-11-02T00:00:00.000Z" },
+            { id: "b-x2", n: 2, action: "append", author: "jun", body: "more", status: "writing", at: "2026-11-02T00:01:00.000Z" },
+          ]
+      : undefined,
   }),
 }));
 
@@ -93,13 +101,28 @@ describe("the left column", () => {
 });
 
 describe("a streamed doc", () => {
-  test("renders the folded body instead of the not-found surface", async () => {
-    streamMode = true;
+  test("renders the exchanges as a timeline instead of the not-found surface", async () => {
+    streamMode = "small";
     const html = await render();
-    // The body the API folded from the block list renders like a file doc's would.
-    expect(html).toContain("First");
+    expect(html).toContain("stream-block");
+    expect(html).toContain('id="b-x1"');
+    expect(html).toContain('id="b-x2"');
+    expect(html).toContain("长答");
+    expect(html).toContain("追加");
+    expect(html).toContain('data-status="writing"');
     expect(html).toContain("stream · s-01K");
     expect(html).not.toContain("doc-missing");
+    // The rail lists exchanges, headed Timeline.
+    expect(leftColumn(html)).toContain("Timeline");
+    streamMode = false;
+  });
+
+  test("a long stream renders every exchange's section", async () => {
+    streamMode = "many";
+    const html = await render();
+    expect(html.match(/data-testid="stream-block-/g)).toHaveLength(321);
+    expect(html).toContain('id="b-m320"');
+    expect(html).toContain('data-status="writing"');
     streamMode = false;
   });
 });

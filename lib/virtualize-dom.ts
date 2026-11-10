@@ -9,7 +9,7 @@
  * sketch (`sketches/virtualized-doc/virtualizer.js`).
  */
 import type { TextMap } from "./text-map";
-import { anchorAdjust, bottomSpacerHeight, computeRange, landingOffset, rebuildOffsets, topSpacerHeight, wantedIndices, type VDelta, type VPlan } from "./virtualize";
+import { anchorAdjust, bottomSpacerHeight, computeRange, heightAt, landingOffset, pinnedIndices, rebuildOffsets, topSpacerHeight, wantedIndices, type VDelta, type VPlan } from "./virtualize";
 import { unchunkDocBody, type Chunked } from "./virtualize-chunk";
 
 export type VirtualDocOpts = {
@@ -18,6 +18,8 @@ export type VirtualDocOpts = {
   onMount?: (el: HTMLElement) => void;
   /** The mounted window changed (blocks entered or left it). */
   onWindowChange?: () => void;
+  /** Keep the last block mounted always — a streamed doc's tail is where new exchanges land. */
+  pinTail?: boolean;
 };
 
 export class VirtualDoc {
@@ -29,6 +31,7 @@ export class VirtualDoc {
   private readonly bottom: HTMLElement;
   private readonly opts: VirtualDocOpts;
   private readonly overscan: number;
+  private readonly pinTail: boolean;
   private readonly index = new Map<HTMLElement, number>();
   private heights: (number | null)[];
   private offsets: number[];
@@ -47,6 +50,7 @@ export class VirtualDoc {
     this.map = chunked.map;
     this.opts = opts;
     this.overscan = opts.overscan ?? 8;
+    this.pinTail = opts.pinTail ?? false;
     this.heights = new Array<number | null>(this.plan.blocks.length).fill(null);
     this.offsets = rebuildOffsets(this.heights, this.plan.blocks);
     for (let i = 0; i < this.blocks.length; i++) this.index.set(this.blocks[i], i);
@@ -217,7 +221,7 @@ export class VirtualDoc {
     // Block 0 stays mounted: it is the body's `:first-child`, whose margin-top the app CSS
     // zeroes — as the window slides, any other block becoming the DOM-first element would pick
     // up that rule and render off its modelled position.
-    wanted.add(0);
+    for (const i of pinnedIndices(n, this.pinTail)) wanted.add(i);
     if (this.jump) wanted.add(this.jump.i);
     let changed = force && this.mounted.size > 0;
     if (force) for (const el of [...this.mounted.values()]) this.unmount(el);
@@ -234,7 +238,9 @@ export class VirtualDoc {
   }
 
   /** Position the two spacers from the current offsets: the mounted window keeps its true place
-   *  in the document while everything around it stays unmounted. */
+   *  in the document while everything around it stays unmounted. When the tail is pinned outside
+   *  the window, the gap between window and tail has no spacer of its own — the top spacer grows
+   *  to cover it, so the tail sits at its true offset and the document keeps its real height. */
   private placeSpacers(): void {
     let first = Infinity;
     let last = -1;
@@ -242,7 +248,20 @@ export class VirtualDoc {
       if (i > 0 && i < first) first = i;
       if (i > last) last = i;
     }
-    const topH = last < 0 ? null : topSpacerHeight(this.offsets, this.plan.blocks, this.heights, first);
+    // The tail pinned past the window makes `last` the tail: the top spacer must cover the whole
+    // distance to it, not just to the window's first block — the gap has nowhere else to live.
+    const pinnedBeyondWindow = this.pinTail && last === this.plan.blocks.length - 1 && last > first + 1;
+    const topTarget = pinnedBeyondWindow ? last : first;
+    let topH = last < 0 ? null : topSpacerHeight(this.offsets, this.plan.blocks, this.heights, topTarget);
+    if (pinnedBeyondWindow && topH != null) {
+      // The window blocks between the spacer and the tail already occupy their own flow height;
+      // the spacer fills only what is missing.
+      let mountedFlow = 0;
+      for (const i of this.mounted.keys()) {
+        if (i > 0 && i < last) mountedFlow += heightAt(this.heights, this.plan.blocks, i) + this.plan.blocks[i].gapAfter;
+      }
+      topH = Math.max(0, topH - mountedFlow);
+    }
     if (topH == null || topH <= 0) {
       this.top.style.display = "none";
     } else {

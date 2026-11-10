@@ -27,6 +27,13 @@ type DocViewProps = {
   title: string;
   path: string;
   html: string;
+  /** A custom body (a streamed doc's timeline) rendered as DocBody's children instead of its
+   *  html. `html` then carries only the virtualization key: pass `bodyHtml` — a fingerprint of
+   *  the rendered nodes — so rechunking follows the stream. */
+  bodySlot?: ReactNode;
+  bodyHtml?: string;
+  /** Keep the tail block mounted — a stream's open exchange lives there. */
+  pinTail?: boolean;
   initialComments: RenderedComment[];
   header: ReactNode;
   toc: ReactNode;
@@ -36,7 +43,7 @@ type DocViewProps = {
  * The doc plus its comments. The anchoring and selection half lives in `useDocAnchors`; this
  * component owns the layout: the three columns on desktop, the bottom sheets on a phone.
  */
-export function DocView({ session, reviews = [], title, path, html, initialComments, header, toc }: DocViewProps) {
+export function DocView({ session, reviews = [], title, path, html, bodySlot, bodyHtml, pinTail, initialComments, header, toc }: DocViewProps) {
   const [author, setAuthor] = useState("jun");
   useEffect(() => {
     const saved = localStorage.getItem(AUTHOR_KEY);
@@ -52,7 +59,7 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
   // The rendered body lives here so both the virtualizer and the anchoring can watch it: the
   // virtualizer chunks it when the doc is long, the anchoring keeps working against its map.
   const bodyRef = useRef<HTMLElement>(null);
-  const virt = useVirtualDoc({ html, bodyRef });
+  const virt = useVirtualDoc({ html: bodyHtml ?? html, bodyRef, pinTail });
   const chrome = useChrome();
   const desktop = useIsDesktop();
   useLiveDoc(session, reload);
@@ -183,7 +190,13 @@ export function DocView({ session, reviews = [], title, path, html, initialComme
       <main className="relative min-w-0 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] max-md:pt-[calc(env(safe-area-inset-top)+1.25rem)] md:px-10 md:pt-10 md:pb-24" ref={mainRef}>
         <div className="mx-auto min-w-0 max-w-[760px]">
           {header}
-          <DocBody html={html} ref={bodyRef} onClick={onDocClick} onMouseMove={onDocMove} onMouseLeave={onDocLeave} />
+          {bodySlot ? (
+            <DocBody ref={bodyRef} onClick={onDocClick} onMouseMove={onDocMove} onMouseLeave={onDocLeave}>
+              {bodySlot}
+            </DocBody>
+          ) : (
+            <DocBody html={html} ref={bodyRef} onClick={onDocClick} onMouseMove={onDocMove} onMouseLeave={onDocLeave} />
+          )}
         </div>
         {draft ? (
           <Button

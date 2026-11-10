@@ -126,6 +126,14 @@ export function shouldVirtualize(blockCount: number, docHeight: number, viewport
   return blockCount >= 300 || docHeight >= viewportH * 10;
 }
 
+/** The indices mounted beyond the window's range: block 0 (it owns the body's `:first-child`
+ *  margin rule) and, for a pinned tail — a streamed doc's open exchange — the last block. */
+export function pinnedIndices(count: number, pinTail: boolean): number[] {
+  const out = [0];
+  if (pinTail && count > 1) out.push(count - 1);
+  return out;
+}
+
 export type VDelta = { i: number; from: number; to: number };
 
 /**

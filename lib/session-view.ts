@@ -2,6 +2,7 @@ import type { Comment, Review } from "./comments-file";
 import { apiGetJson } from "./api-fetch";
 import type { RenderedComment } from "./comment-markdown";
 import { docKey, type Session } from "./session-model";
+import type { StreamBlock } from "./stream-doc";
 import type { SessionRow } from "./sessions";
 
 /** One session as the doc page reads it: its row, and its comments and reviews rendered for the page. */
@@ -10,12 +11,14 @@ export type LoadedSession = {
   row: SessionRow;
   /** The markdown the index stored, or null when the file was missing when it was read. */
   body: string | null;
+  /** A streamed doc's exchanges, in order — the timeline renders these. Absent for file sessions. */
+  blocks?: StreamBlock[];
   comments: { docs: Record<string, RenderedComment[]>; reviews: Review[] };
 };
 
 /** The session from the API; null when the id names no session. */
 export async function loadSession(home: string, id: string): Promise<LoadedSession | null> {
-  const data = await apiGetJson<{ session: Session; row: SessionRow; body: string | null; comments: RenderedComment[]; reviews: Review[] }>(
+  const data = await apiGetJson<{ session: Session; row: SessionRow; body: string | null; blocks?: StreamBlock[]; comments: RenderedComment[]; reviews: Review[] }>(
     home,
     `/api/session?id=${encodeURIComponent(id)}`,
   ).catch(() => null);
@@ -24,6 +27,7 @@ export async function loadSession(home: string, id: string): Promise<LoadedSessi
     session: data.session,
     row: data.row,
     body: data.body,
+    blocks: data.blocks,
     comments: { docs: groupDocs(data.session, data.comments), reviews: data.reviews },
   };
 }

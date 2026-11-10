@@ -7,6 +7,7 @@ import {
   heightAt,
   indexAt,
   landingOffset,
+  pinnedIndices,
   planChunks,
   rebuildOffsets,
   shouldVirtualize,
@@ -54,6 +55,14 @@ describe("shouldVirtualize", () => {
     expect(shouldVirtualize(299, 1000, 800)).toBe(false);
     expect(shouldVirtualize(50, 7999, 800)).toBe(false);
     expect(shouldVirtualize(1000, 100000, 0)).toBe(false);
+  });
+});
+
+describe("pinned indices", () => {
+  test("block 0 is always pinned; the tail only when asked", () => {
+    expect(pinnedIndices(10, false)).toEqual([0]);
+    expect(pinnedIndices(10, true)).toEqual([0, 9]);
+    expect(pinnedIndices(1, true)).toEqual([0]);
   });
 });
 

@@ -185,9 +185,8 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
           return 0;
         }
         if (sub === "restart") {
-          yield* serverCall(() => server.stop(home));
           yield* migrateIfSources(home);
-          const r = yield* serverCall(() => server.start(home, { port: o.port, apiPort: o["api-port"] }));
+          const r = yield* serverCall(() => server.restart(home, { port: o.port, apiPort: o["api-port"] }));
           print(r, `restarted — ${server.formatStatus(r)}`);
           return 0;
         }

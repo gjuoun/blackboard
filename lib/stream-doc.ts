@@ -14,6 +14,8 @@ export const STREAM_ACTIONS = ["answer", "edit", "append"] as const;
 export type StreamAction = (typeof STREAM_ACTIONS)[number];
 
 /** One exchange, as the `blocks` table holds it (`n` is 1-based within its document). */
+import type { TocEntry } from "./markdown";
+
 export type StreamBlock = {
   id: string;
   n: number;
@@ -52,6 +54,13 @@ export function foldBlocks(blocks: readonly StreamBlock[]): string {
     }
   }
   return body;
+}
+
+/** The timeline rail's entries: one row per exchange, jumping to the section the body renders.
+ *  The anchor is the block's own id — the same fragment `blackboard block` prints in its url —
+ *  so a CLI link and a rail row land on the same section. */
+export function tocFromBlocks(blocks: readonly Pick<StreamBlock, "id" | "n" | "action" | "author">[]): TocEntry[] {
+  return blocks.map((b) => ({ depth: 1, id: b.id, text: `${b.n} · ${ACTION_LABEL[b.action]} · ${b.author}` }));
 }
 
 /**
