@@ -12,6 +12,7 @@ import { CommentArgs, decodeArgs, MigrateArgs, ReviewArgs } from "../lib/cli/arg
 import * as commentsCli from "../lib/cli/comments";
 import * as dbCli from "../lib/cli/db";
 import { layer as dbLayer } from "../lib/db/client";
+import { layer as lockLayer } from "../lib/lock";
 import * as sessionsCli from "../lib/cli/sessions";
 import type { AppServices } from "../lib/effect/layers";
 import { errorMessage } from "../lib/effect/errors";
@@ -55,6 +56,22 @@ Options:
 Exit codes: 0 ok, 1 command failed, 2 bad usage, 3 serve status: not running.`;
 
 
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+
+/** True when any JSON-era store still sits in `home` as a real file (not .migrated). */
+const jsonSourcesLeft = (home: string): boolean => {
+  const flat = ["sessions.json", "reading-state.json", "agents.json"].some((f) => existsSync(join(home, f)));
+  const comments = (() => { try { return readdirSync(join(home, "sessions")).some((d) => existsSync(join(home, "sessions", d, "comments.json"))); } catch { return false; } })();
+  return flat || comments;
+};
+
+/** Run the JSON → SQLite migration when sources remain; a no-op otherwise, safe under Node. */
+const migrateIfSources = (home: string): Effect.Effect<void, CliError> =>
+  jsonSourcesLeft(home)
+    ? dbCli.migrateCmd(home, false).pipe(Effect.provide(dbLayer), Effect.provide(lockLayer), Effect.asVoid)
+    : Effect.void;
+
 /** Best effort: a missing opener or no display must not fail the command. */
 const launch = (url: string): Effect.Effect<void> =>
   Effect.try(() => {
@@ -93,6 +110,7 @@ const OPTIONS = {
   "dry-run": { type: "boolean" },
   "no-server": { type: "boolean" },
   port: { type: "string" },
+  "api-port": { type: "string" },
   foreground: { type: "boolean" },
   version: { type: "boolean", short: "v" },
   help: { type: "boolean", short: "h" },
@@ -135,7 +153,11 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
         const sub = args[0] ?? "status";
         if (sub === "start") {
           if (o.foreground) return yield* serverCall(() => server.runForeground(home, { port: o.port }));
-          const r = yield* serverCall(() => server.start(home, { port: o.port }));
+          // Move any pre-SQLite JSON stores into blackboard.db before the API answers — once,
+          // idempotently. A failing migration must not leave a half-started pair behind. The cheap
+          // "any sources left" check keeps a Node CLI off the bun:sqlite path entirely.
+          yield* migrateIfSources(home);
+          const r = yield* serverCall(() => server.start(home, { port: o.port, apiPort: o["api-port"] }));
           print(r, r.started ? `started — ${server.formatStatus(r)}` : `already ${server.formatStatus(r)}`);
           return 0;
         }
@@ -146,7 +168,8 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
         }
         if (sub === "restart") {
           yield* serverCall(() => server.stop(home));
-          const r = yield* serverCall(() => server.start(home, { port: o.port }));
+          yield* migrateIfSources(home);
+          const r = yield* serverCall(() => server.start(home, { port: o.port, apiPort: o["api-port"] }));
           print(r, `restarted — ${server.formatStatus(r)}`);
           return 0;
         }

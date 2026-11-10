@@ -1,6 +1,7 @@
 import { Layer } from "effect";
 import { layer as fileSystemLayer } from "@effect/platform-node/NodeFileSystem";
 import { layer as agentsLayer } from "../agents-store";
+import { layer as busLayer } from "../change-bus";
 import { layer as commentsLayer } from "../comments-store";
 import { layer as dbLayer } from "../db/client";
 import { layer as agentsRepoLayer } from "../db/repos/agents";
@@ -22,12 +23,12 @@ const documents = documentsRepoLayer.pipe(Layer.provideMerge(db));
 const comments = commentsRepoLayer.pipe(Layer.provideMerge(db));
 const agents = agentsRepoLayer.pipe(Layer.provideMerge(db));
 const reading = readingRepoLayer.pipe(Layer.provideMerge(db));
-const commentsStore = commentsLayer.pipe(Layer.provideMerge(comments));
+const commentsStore = commentsLayer.pipe(Layer.provideMerge(Layer.mergeAll(comments, busLayer)));
 const sessions = sessionsLayer.pipe(Layer.provideMerge(Layer.mergeAll(documents, commentsStore)));
 const agentsStore = agentsLayer.pipe(Layer.provideMerge(agents));
 const readingStore = readingLayer.pipe(Layer.provideMerge(reading));
 
-export const AppLayer = Layer.mergeAll(lockLayer, db, documents, comments, agents, reading, commentsStore, sessions, agentsStore, readingStore, fileSystemLayer);
+export const AppLayer = Layer.mergeAll(lockLayer, db, busLayer, documents, comments, agents, reading, commentsStore, sessions, agentsStore, readingStore, fileSystemLayer);
 
 /** The services AppLayer provides; a program that needs them is runnable by the runtime below. */
 export type AppServices = Layer.Success<typeof AppLayer>;

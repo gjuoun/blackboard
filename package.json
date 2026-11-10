@@ -44,6 +44,7 @@
     "dev": "next dev -H 127.0.0.1 -p ${PORT:-38770}",
     "build": "next build",
     "build:cli": "bun scripts/build-cli.ts",
+    "build:api": "bun scripts/build-api.ts",
     "start": "bin/blackboard serve start --foreground",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",

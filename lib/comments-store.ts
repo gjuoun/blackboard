@@ -1,6 +1,7 @@
 import { Context, Effect, Layer } from "effect";
 import type { QuoteSelector } from "./anchor";
 import { commentId, replyId, reviewId, type Comment, type CommentFile, type Review } from "./comments-file";
+import { ChangeBus } from "./change-bus";
 import { CommentsRepo, type CommentRow, type ReviewRow } from "./db/repos/comments";
 import { IoFailure, type ApiFailure } from "./effect/errors";
 export type { Comment, CommentFile, Review, Reply } from "./comments-file";
@@ -73,6 +74,8 @@ export const layer = Layer.effect(
   CommentsStore,
   Effect.gen(function* () {
     const repo = yield* CommentsRepo;
+    const bus = yield* Effect.serviceOption(ChangeBus).pipe(Effect.map((o) => (o._tag === "Some" ? o.value : null)));
+    const mark = (row: { documentId: string }) => (bus ? bus.publish(row.documentId) : Effect.void);
 
     const getRow = (home: string, id: string, doc: string) =>
       repo.get(home, id).pipe(Effect.flatMap((row) => (row ? Effect.succeed(row) : Effect.fail(notFound(id, doc)))));
@@ -97,7 +100,7 @@ export const layer = Layer.effect(
       list: (home, sessionId) =>
         repo.list(home, sessionId).pipe(Effect.map((rows) => rows.map((r) => ({ ...toComment(r), doc: r.doc })))),
       add: (home, sessionId, doc, input) =>
-        repo.add(home, {
+        mark({ documentId: sessionId }).pipe(Effect.andThen(repo.add(home, {
           id: commentId(),
           documentId: sessionId,
           doc,
@@ -114,32 +117,38 @@ export const layer = Layer.effect(
           reopenedAt: null,
           reopenedBy: null,
           replies: [],
-        }).pipe(Effect.map(toComment)),
+        }))).pipe(Effect.map(toComment)),
       reply: (home, id, doc, input) =>
         Effect.gen(function* () {
           const row = yield* getRow(home, id, doc);
           if (input.joinReplyId !== undefined && !row.replies.some((r) => r.id === input.joinReplyId)) {
             return yield* Effect.fail(replyNotFound(input.joinReplyId, id));
           }
-          return toComment(yield* save(home, { ...row, replies: [...row.replies, { id: replyId(), body: input.body, author: input.author, createdAt: now() }] }));
+          const saved = yield* save(home, { ...row, replies: [...row.replies, { id: replyId(), body: input.body, author: input.author, createdAt: now() }] });
+          yield* mark(saved);
+          return toComment(saved);
         }),
-      edit: (home, id, doc, body) => repo.update(home, id, body).pipe(Effect.flatMap((r) => (r ? Effect.succeed(toComment(r)) : Effect.fail(notFound(id, doc))))),
-      remove: (home, id, doc) => repo.remove(home, id).pipe(Effect.flatMap((r) => (r ? Effect.succeed(toComment(r)) : Effect.fail(notFound(id, doc))))),
+      edit: (home, id, doc, body) => repo.update(home, id, body).pipe(Effect.flatMap((r) => (r ? mark(r).pipe(Effect.as(toComment(r))) : Effect.fail(notFound(id, doc))))),
+      remove: (home, id, doc) => repo.remove(home, id).pipe(Effect.flatMap((r) => (r ? mark(r).pipe(Effect.as(toComment(r))) : Effect.fail(notFound(id, doc))))),
       editReply: (home, id, rId, doc, body) =>
         Effect.gen(function* () {
           const row = yield* getRow(home, id, doc);
           if (!row.replies.some((r) => r.id === rId)) return yield* Effect.fail(replyNotFound(rId, id));
           const replies = row.replies.map((r) => (r.id === rId ? { ...r, body, editedAt: now() } : r));
-          return toComment(yield* save(home, { ...row, replies }));
+          const saved = yield* save(home, { ...row, replies });
+          yield* mark(saved);
+          return toComment(saved);
         }),
       deleteReply: (home, id, rId, doc) =>
         Effect.gen(function* () {
           const row = yield* getRow(home, id, doc);
           if (!row.replies.some((r) => r.id === rId)) return yield* Effect.fail(replyNotFound(rId, id));
-          return toComment(yield* save(home, { ...row, replies: row.replies.filter((r) => r.id !== rId) }));
+          const saved = yield* save(home, { ...row, replies: row.replies.filter((r) => r.id !== rId) });
+          yield* mark(saved);
+          return toComment(saved);
         }),
       setStatus: (home, id, doc, status, by) =>
-        repo.setStatus(home, id, status, by).pipe(Effect.flatMap((r) => (r ? Effect.succeed(toComment(r)) : Effect.fail(notFound(id, doc))))),
+        repo.setStatus(home, id, status, by).pipe(Effect.flatMap((r) => (r ? mark(r).pipe(Effect.as(toComment(r))) : Effect.fail(notFound(id, doc))))),
       review: (home, sessionId, doc, input) =>
         Effect.gen(function* () {
           if (!Number.isInteger(input.round) || input.round < 1) {
@@ -153,6 +162,7 @@ export const layer = Layer.effect(
             return yield* Effect.fail(new IoFailure({ message: `no reply from agent on ${pending.length} open comment(s), e.g. ${pending[0].id}`, status: 500 }));
           }
           const review: ReviewRow = { id: reviewId(), documentId: sessionId, doc, round: input.round, body: input.body, author: input.author, createdAt: now(), verdict: "commented" };
+          yield* mark({ documentId: sessionId });
           return toReview(yield* repo.addReview(home, review));
         }),
     });
