@@ -24,8 +24,7 @@ npm install -g @gjuoun/blackboard        # or: bun add -g @gjuoun/blackboard
 blackboard open docs/design.md           # starts the web app the first time, then opens the doc
 ```
 
-Runs on **Node 20.9+ or Bun 1.3+** (the `blackboard` command uses Node when it is on `PATH`, else
-Bun). macOS and Linux; browsers: Chrome/Edge and Safari 17.2+ (CSS Custom Highlight API). It is a
+Runs on **Bun 1.3+**. macOS and Linux; browsers: Chrome/Edge and Safari 17.2+ (CSS Custom Highlight API). It is a
 Next.js app, shipped as a pre-built standalone server: about 8 MB to download, 37 MB on disk, and
 no dependencies to install.
 

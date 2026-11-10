@@ -60,6 +60,10 @@ export const CommentArgs = Schema.Struct({
   );
 export type CommentArgs = typeof CommentArgs.Type;
 
+/** `db migrate --dry-run`: the flag as given. */
+export const MigrateArgs = Schema.Struct({ dry: Schema.optional(Schema.Boolean) });
+export type MigrateArgs = typeof MigrateArgs.Type;
+
 /** `review --round`: a round number starts at 1, and a missing or fractional one is the same refusal. */
 export const ReviewArgs = Schema.Struct({ round: Schema.optional(Schema.NumberFromString) }).pipe(
   Schema.refine((args): args is { readonly round: number } => args.round !== undefined && Number.isInteger(args.round) && args.round >= 1, {

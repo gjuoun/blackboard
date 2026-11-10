@@ -22,7 +22,7 @@ export type Binding = {
   lastSeenAt: string;
 };
 
-type AgentsFile = { version: 1; agents: Binding[] };
+export type AgentsFile = { version: 1; agents: Binding[] };
 /** A binding as it is posted: the stamps are the store's business. */
 export type BindInput = Omit<Binding, "boundAt" | "lastSeenAt">;
 
@@ -33,7 +33,7 @@ const failure = (error: unknown) => new IoFailure({ message: errorMessage(error)
 const agentsPath = (home: string) => join(home, "agents.json");
 
 /** The bindings as JSON; a file that does not parse is an error, never silently replaced. */
-function readAgents(home: string): AgentsFile {
+export function readAgents(home: string): AgentsFile {
   const p = agentsPath(home);
   if (!existsSync(p)) return { version: 1, agents: [] };
   const data = JSON.parse(readFileSync(p, "utf8"));
