@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { exportStream, foldBlocks, nextN, type StreamBlock } from "./stream-doc";
+import { exportStream, foldBlocks, nextN, tocFromBlocks, type StreamBlock } from "./stream-doc";
 
 /** A block literal with the fields a test does not care about filled in. */
 const block = (n: number, body: string, over: Partial<StreamBlock> = {}): StreamBlock => ({
@@ -10,6 +10,16 @@ const block = (n: number, body: string, over: Partial<StreamBlock> = {}): Stream
   body,
   at: "2026-11-10T10:00:00.000Z",
   ...over,
+});
+
+describe("tocFromBlocks", () => {
+  test("one rail entry per exchange, jumping to its section", () => {
+    const toc = tocFromBlocks([block(1, "a"), block(2, "b", { action: "append", author: "jun" })]);
+    expect(toc).toEqual([
+      { depth: 1, id: "b_1", text: "1 · 长答 · agent" },
+      { depth: 1, id: "b_2", text: "2 · 追加 · jun" },
+    ]);
+  });
 });
 
 describe("nextN", () => {

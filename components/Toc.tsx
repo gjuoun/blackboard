@@ -36,7 +36,7 @@ function currentIdVirtual(toc: TocEntry[], virt: VirtualDocHandle): string | nul
 }
 
 /** Section list for the left panel (and the phone's Contents sheet); highlights the section being read. */
-export function Toc({ toc }: { toc: TocEntry[] }) {
+export function Toc({ toc, label = "Contents" }: { toc: TocEntry[]; label?: string }) {
   const [active, setActive] = useState<string | null>(toc[0]?.id ?? null);
   const listRef = useRef<HTMLUListElement>(null);
   const virt = useVirtualDocContext();
@@ -84,7 +84,7 @@ export function Toc({ toc }: { toc: TocEntry[] }) {
 
   return (
     <nav data-testid="toc" aria-label="On this page" className="text-[13.5px]">
-      <h2 className="text-muted-foreground mb-2 px-2 text-xs font-semibold">Contents</h2>
+      <h2 className="text-muted-foreground mb-2 px-2 text-xs font-semibold">{label}</h2>
       <ul ref={listRef} className="m-0 list-none p-0" {...(list.enabled ? { "data-vlist": "on" } : {})}>
         {list.enabled && list.top > 0 ? <li aria-hidden data-vlist-spacer="top" style={{ height: `${list.top}px` }} /> : null}
         {rows.map(({ entry: t, index }) => {

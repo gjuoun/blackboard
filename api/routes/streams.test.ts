@@ -31,6 +31,7 @@ describe("POST /api/stream", () => {
     expect(session.kind).toBe("stream");
     const got = await app.request(`http://127.0.0.1/api/session?id=${session.id}`, { headers: HOST });
     expect(got.status).toBe(200);
+    expect((await got.json()).blocks).toEqual([]);
   });
 
   test("a missing title is refused", async () => {
@@ -54,6 +55,10 @@ describe("POST /api/block", () => {
     expect(edited.block.body).toBe("# Hi again");
     const got = await (await app.request(`http://127.0.0.1/api/session?id=${session.id}`, { headers: HOST })).json();
     expect(got.body).toBe("# Hi again\n\nmore\n");
+    // The timeline view reads the exchanges themselves — same response, alongside the folded body.
+    expect(got.blocks).toHaveLength(2);
+    expect(got.blocks[0]).toMatchObject({ n: 1, action: "answer", author: "agent", body: "# Hi again" });
+    expect(got.blocks[1]).toMatchObject({ n: 2, action: "append", author: "jun", status: "writing" });
   });
 
   test("an unknown session is refused", async () => {

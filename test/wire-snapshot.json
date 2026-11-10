@@ -490,7 +490,7 @@
     "headers": {
       "content-type": "application/json;charset=utf-8"
     },
-    "body": "{\"session\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\"},\"row\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\",\"title\":\"Log\",\"repo\":null,\"branch\":null,\"detached\":false,\"worktree\":null,\"project\":null,\"missing\":false,\"stats\":{\"sections\":0,\"diagrams\":0},\"location\":\"stream\",\"updatedAt\":\"<time>\",\"open\":0},\"body\":\"hello again\\n\\ndraft\\n\",\"comments\":[],\"reviews\":[]}"
+    "body": "{\"session\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\"},\"row\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\",\"title\":\"Log\",\"repo\":null,\"branch\":null,\"detached\":false,\"worktree\":null,\"project\":null,\"missing\":false,\"stats\":{\"sections\":0,\"diagrams\":0},\"location\":\"stream\",\"updatedAt\":\"<time>\",\"open\":0},\"body\":\"hello again\\n\\ndraft\\n\",\"blocks\":[{\"id\":\"<block>\",\"n\":1,\"action\":\"answer\",\"author\":\"agent\",\"body\":\"hello again\",\"status\":null,\"at\":\"<time>\"},{\"id\":\"b-<ulid>\",\"n\":2,\"action\":\"append\",\"author\":\"jun\",\"body\":\"draft\",\"status\":\"writing\",\"at\":\"<time>\"}],\"comments\":[],\"reviews\":[]}"
   },
   "watch.GET.unknown-session": {
     "status": 400,

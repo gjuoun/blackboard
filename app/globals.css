@@ -161,3 +161,11 @@ html[data-doc-wide] .doc-body, html[data-doc-wide] .doc-grid main > div { max-wi
 .comment-md table { margin: 0.5em 0; border-collapse: collapse; font-size: 0.95em; }
 .comment-md th, .comment-md td { border: 1px solid var(--border); padding: 3px 7px; }
 .comment-md .katex-display { margin: 0.45em 0; overflow-x: auto; }
+
+/* ---- streamed docs: one timeline node per exchange (sketch variant A — the quiet meta line) ---- */
+
+.stream-block { margin: 0 0 2.6em; scroll-margin-top: calc(var(--bar-h) + 12px); }
+.stream-block .stream-meta { margin: 0 0 0.5em; font-size: 0.78em; color: var(--muted-foreground); }
+.stream-block .stream-meta .stream-caret { margin-left: 0.5em; color: var(--primary); animation: bb-writing 1.4s ease-in-out infinite; }
+.stream-block .stream-tail { margin: 0; color: var(--primary); font-size: 0.9em; animation: bb-writing 1.4s ease-in-out infinite; }
+@keyframes bb-writing { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }

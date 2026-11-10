@@ -33,7 +33,7 @@ export const useVirtualDocContext = (): VirtualDocView => useContext(VirtualDocC
  * wrappers, no observers, no attributes. The `version` rises whenever the mounted window
  * changes, so comment anchoring and the TOC can redo their work against the new DOM.
  */
-export function useVirtualDoc({ html, bodyRef }: { html: string; bodyRef: RefObject<HTMLElement | null> }): VirtualDocView {
+export function useVirtualDoc({ html, bodyRef, pinTail }: { html: string; bodyRef: RefObject<HTMLElement | null>; pinTail?: boolean }): VirtualDocView {
   const ctrl = useRef<VirtualDoc | null>(null);
   const bumpRaf = useRef(0);
   const [version, setVersion] = useState(0);
@@ -46,6 +46,7 @@ export function useVirtualDoc({ html, bodyRef }: { html: string; bodyRef: RefObj
     const chunked = chunkDocBody(body);
     if (!chunked) return;
     const v = new VirtualDoc(body, chunked, {
+      pinTail,
       onMount: (el) => void renderMermaidIn(el),
       onWindowChange: () => {
         if (bumpRaf.current) return;
@@ -64,7 +65,7 @@ export function useVirtualDoc({ html, bodyRef }: { html: string; bodyRef: RefObj
       v.destroy();
       ctrl.current = null;
     };
-  }, [html, bodyRef]);
+  }, [html, bodyRef, pinTail]);
 
   const handle = useMemo<VirtualDocHandle>(
     () => ({

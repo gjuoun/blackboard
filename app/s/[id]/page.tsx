@@ -13,6 +13,9 @@ import { docType } from "@/lib/doc-type";
 import { getHome } from "@/lib/home";
 import { renderMarkdown } from "@/lib/markdown";
 import { docKey, servablePath, tildify } from "@/lib/session-model";
+import { tocFromBlocks } from "@/lib/stream-doc";
+import { StreamBody } from "@/components/StreamBody";
+import { relativeTime } from "@/lib/relative-time";
 import { loadSession as load } from "@/lib/session-view";
 
 /** The tab title is the doc's own title; the description names the file, never its folder. */
@@ -123,10 +126,46 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
       </>
     );
   }
+  const doc = docKey(session);
+  // A streamed doc renders its exchanges as a timeline: each block gets its own rendered section,
+  // its own meta line, and the rail becomes the exchange list instead of the heading outline.
+  if (stream) {
+    const blocks = found.blocks ?? [];
+    const nodes = await Promise.all(
+      blocks.map(async (b) => ({
+        id: b.id,
+        n: b.n,
+        action: b.action,
+        author: b.author,
+        when: relativeTime(b.at),
+        writing: b.status === "writing",
+        html: (await renderMarkdown(b.body, { assetBase: `/api/asset/${id}` })).html,
+      })),
+    );
+    const rail = tocFromBlocks(blocks);
+    return (
+      <>
+        <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={rail.length > 1} />
+        <DocView
+          key={session.id}
+          session={session.id}
+          title={row.title}
+          path={session.path}
+          html={found.body ?? ""}
+          bodySlot={<StreamBody nodes={nodes} />}
+          bodyHtml={nodes.map((n) => n.html).join("\n")}
+          pinTail
+          initialComments={found.comments.docs[doc] ?? []}
+          reviews={found.comments.reviews.filter((r) => r.doc === doc)}
+          header={header}
+          toc={rail.length > 1 ? <Toc toc={rail} label="Timeline" /> : null}
+        />
+      </>
+    );
+  }
   // The doc is read once: the same string feeds the markdown pass and the comments pane.
   const src = found.body ?? "";
   const { html, toc } = await renderMarkdown(src, { assetBase: `/api/asset/${id}` });
-  const doc = docKey(session);
   const renderedComments = found.comments.docs[doc] ?? [];
   const reviews = found.comments.reviews.filter((r) => r.doc === doc);
   return (
