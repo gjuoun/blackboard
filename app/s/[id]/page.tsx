@@ -1,4 +1,5 @@
 import { basename, dirname } from "node:path";
+import { cookies } from "next/headers";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
@@ -14,6 +15,7 @@ import { getHome } from "@/lib/home";
 import { renderMarkdown } from "@/lib/markdown";
 import { docKey, servablePath, tildify } from "@/lib/session-model";
 import { tocFromBlocks } from "@/lib/stream-doc";
+import { DEFAULT_VIEWPORT_H, PENDING_META_BAND, planStreamWindow } from "@/lib/stream-window";
 import { StreamBody } from "@/components/StreamBody";
 import { relativeTime } from "@/lib/relative-time";
 import { loadSession as load } from "@/lib/session-view";
@@ -32,9 +34,10 @@ export async function generateMetadata({ params }: PageProps<"/s/[id]">): Promis
 }
 
 /** One session: a registered markdown file, its comments, where it lives and which branch. */
-export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
+export default async function SessionPage({ params, searchParams }: PageProps<"/s/[id]">) {
   await connection();
   const { id } = await params;
+  const query = await searchParams;
   const found = await load(getHome(), id);
   if (!found) notFound();
   const { session, row } = found;
@@ -131,18 +134,43 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
   // its own meta line, and the rail becomes the exchange list instead of the heading outline.
   if (stream) {
     const blocks = found.blocks ?? [];
+    // The first screen ships only the window: the head the viewport can show plus the tail
+    // (the writing block). Every skipped exchange is a placeholder the client fills from
+    // /api/stream-blocks. The viewport hint comes from ?vh=, then the bbvh cookie the boot
+    // script writes, then 900.
+    const rawVh = typeof query.vh === "string" ? Number(query.vh) : NaN;
+    const cookieVh = Number((await cookies()).get("bbvh")?.value ?? NaN);
+    const viewportH = Number.isFinite(rawVh) && rawVh > 0 ? rawVh : Number.isFinite(cookieVh) && cookieVh > 0 ? cookieVh : DEFAULT_VIEWPORT_H;
+    const window = planStreamWindow(blocks, viewportH);
+    const rendered = new Set([...window.head, ...window.tail]);
     const nodes = await Promise.all(
-      blocks.map(async (b) => ({
+      blocks.map(async (b, i) => ({
         id: b.id,
         n: b.n,
         action: b.action,
         author: b.author,
         when: relativeTime(b.at),
         writing: b.status === "writing",
-        html: (await renderMarkdown(b.body, { assetBase: `/api/asset/${id}` })).html,
+        html: rendered.has(i) ? (await renderMarkdown(b.body, { assetBase: `/api/asset/${id}` })).html : null,
       })),
     );
+    const loaded = nodes.filter((n): n is typeof n & { html: string } => n.html !== null).map(({ html, ...n }) => ({ ...n, html }));
+    // A placeholder near the window keeps its meta line; the far ones ship only id + height.
+    // At a few hundred skipped exchanges the meta lines alone would cost more than the text.
+    const headLast = window.head.length ? window.head[window.head.length - 1] : -1;
+    const tailFirst = window.tail.length ? window.tail[0] : window.total;
+    const pending = blocks.map((b, i) => ({ b, i })).filter(({ i }) => !rendered.has(i)).map(({ b, i }) => ({
+      id: b.id,
+      n: b.n,
+      action: b.action,
+      author: b.author,
+      when: relativeTime(b.at),
+      writing: b.status === "writing",
+      est: window.estimates[i],
+      bare: i > headLast + PENDING_META_BAND && i < tailFirst - PENDING_META_BAND,
+    }));
     const rail = tocFromBlocks(blocks);
+    const stream = pending.length > 0 ? { id: session.id, total: window.total, epoch: window.epoch, vh: viewportH } : undefined;
     return (
       <>
         <RegisterTab id={session.id} title={row.title} path={session.path} readable hasToc={rail.length > 1} />
@@ -152,8 +180,9 @@ export default async function SessionPage({ params }: PageProps<"/s/[id]">) {
           title={row.title}
           path={session.path}
           html={found.body ?? ""}
-          bodySlot={<StreamBody nodes={nodes} />}
-          bodyHtml={nodes.map((n) => n.html).join("\n")}
+          bodySlot={<StreamBody nodes={loaded} pending={pending} />}
+          bodyHtml={window.epoch}
+          stream={stream}
           pinTail
           initialComments={found.comments.docs[doc] ?? []}
           reviews={found.comments.reviews.filter((r) => r.doc === doc)}

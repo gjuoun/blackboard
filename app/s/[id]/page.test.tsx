@@ -20,6 +20,7 @@ afterAll(() => {
 });
 
 mock.module("next/server", () => ({ connection: async () => {} }));
+mock.module("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 mock.module("next/navigation", () => ({
   notFound: () => {
     throw new Error("notFound");
@@ -66,7 +67,7 @@ import SessionPage from "./page";
 
 /** The page as markup, from the same props Next hands it. */
 async function render(): Promise<string> {
-  const props = { params: Promise.resolve({ id: "abc" }) } as unknown as Parameters<typeof SessionPage>[0];
+  const props = { params: Promise.resolve({ id: "abc" }), searchParams: Promise.resolve({}) } as unknown as Parameters<typeof SessionPage>[0];
   return renderToStaticMarkup(await SessionPage(props));
 }
 
@@ -117,12 +118,24 @@ describe("a streamed doc", () => {
     streamMode = false;
   });
 
-  test("a long stream renders every exchange's section", async () => {
+  test("a long stream renders its window plus placeholders for the rest", async () => {
     streamMode = "many";
     const html = await render();
-    expect(html.match(/data-testid="stream-block-/g)).toHaveLength(321);
+    // The first screen ships only the head window and the tail; the other exchanges arrive
+    // as pending placeholders the lazy loader fills from /api/stream-blocks.
+    const loaded = (html.match(/data-testid="stream-block-(?!pending)/g) ?? []).length;
+    const pending = (html.match(/data-pending=/g) ?? []).length;
+    expect(loaded).toBeLessThanOrEqual(49);
+    expect(loaded + pending).toBe(321);
     expect(html).toContain('id="b-m320"');
     expect(html).toContain('data-status="writing"');
+    streamMode = false;
+  });
+
+  test("a short stream ships every exchange, no placeholders", async () => {
+    streamMode = "small";
+    const html = await render();
+    expect(html.match(/data-pending=/g) ?? []).toHaveLength(0);
     streamMode = false;
   });
 });

@@ -490,7 +490,31 @@
     "headers": {
       "content-type": "application/json;charset=utf-8"
     },
-    "body": "{\"session\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\"},\"row\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\",\"title\":\"Log\",\"repo\":null,\"branch\":null,\"detached\":false,\"worktree\":null,\"project\":null,\"missing\":false,\"stats\":{\"sections\":0,\"diagrams\":0},\"location\":\"stream\",\"updatedAt\":\"<time>\",\"open\":0},\"body\":\"hello again\\n\\ndraft\\n\",\"blocks\":[{\"id\":\"<block>\",\"n\":1,\"action\":\"answer\",\"author\":\"agent\",\"body\":\"hello again\",\"status\":null,\"at\":\"<time>\"},{\"id\":\"b-<ulid>\",\"n\":2,\"action\":\"append\",\"author\":\"jun\",\"body\":\"draft\",\"status\":\"writing\",\"at\":\"<time>\"}],\"comments\":[],\"reviews\":[]}"
+    "body": "{\"session\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\"},\"row\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\",\"title\":\"Log\",\"repo\":null,\"branch\":null,\"detached\":false,\"worktree\":null,\"project\":null,\"missing\":false,\"stats\":{\"sections\":0,\"diagrams\":0},\"location\":\"stream\",\"updatedAt\":\"<time>\",\"open\":0},\"body\":\"hello again\\n\\ndraft\\n\",\"blocks\":[{\"id\":\"<block>\",\"n\":1,\"action\":\"answer\",\"author\":\"agent\",\"body\":\"hello again\",\"status\":null,\"at\":\"<time>\"},{\"id\":\"b-<ulid>\",\"n\":2,\"action\":\"append\",\"author\":\"jun\",\"body\":\"draft\",\"status\":\"writing\",\"at\":\"<time>\"}],\"stream\":{\"total\":2,\"epoch\":\"2:16\",\"vh\":900,\"estimates\":[72,72]},\"window\":{\"head\":[0,1],\"tail\":[]},\"comments\":[],\"reviews\":[]}"
+  },
+  "session.GET.stream-range": {
+    "status": 200,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"session\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\"},\"row\":{\"id\":\"<stream>\",\"path\":\"\",\"createdAt\":\"<time>\",\"openedAt\":\"<time>\",\"kind\":\"stream\",\"title\":\"Log\",\"repo\":null,\"branch\":null,\"detached\":false,\"worktree\":null,\"project\":null,\"missing\":false,\"stats\":{\"sections\":0,\"diagrams\":0},\"location\":\"stream\",\"updatedAt\":\"<time>\",\"open\":0},\"body\":\"hello again\\n\\ndraft\\n\",\"blocks\":[{\"id\":\"<block>\",\"n\":1,\"action\":\"answer\",\"author\":\"agent\",\"body\":\"hello again\",\"status\":null,\"at\":\"<time>\"}],\"stream\":{\"total\":2,\"epoch\":\"2:16\",\"vh\":900,\"estimates\":[72,72]},\"window\":{\"head\":[0,1],\"tail\":[]},\"comments\":[],\"reviews\":[]}"
+  },
+  "stream-blocks.GET.ok": {
+    "status": 200,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"blocks\":[{\"id\":\"<block>\",\"n\":1,\"html\":\"<p>hello again</p>\"},{\"id\":\"b-<ulid>\",\"n\":2,\"html\":\"<p>draft</p>\"}],\"total\":2,\"epoch\":\"2:16\"}"
+  },
+  "stream-blocks.GET.bad-range": {
+    "status": 400,
+    "contentType": "application/json;charset=utf-8",
+    "headers": {
+      "content-type": "application/json;charset=utf-8"
+    },
+    "body": "{\"error\":\"invalid range\"}"
   },
   "watch.GET.unknown-session": {
     "status": 400,

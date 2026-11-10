@@ -9,13 +9,13 @@
 
 /** One chunked block: its element's tag, its own margins (px), and the collapsed margin (px)
  *  between it and the next block. */
-export type VBlock = { kind: string; marginTop: number; marginBottom: number; gapAfter: number };
+export type VBlock = { kind: string; marginTop: number; marginBottom: number; gapAfter: number; /** Server-computed height for a block the payload did not ship. */ estimated?: number };
 
 /** An id (heading or top-level element) pointing into a block, `within` px from the block's top. */
 export type VAnchor = { id: string; within: number };
 
 /** What the chunker reads off one top-level element while it is still in normal flow. */
-export type ChunkInput = { kind: string; marginTop: number; marginBottom: number; anchors: VAnchor[] };
+export type ChunkInput = { kind: string; marginTop: number; marginBottom: number; anchors: VAnchor[]; estimated?: number };
 
 export type VPlan = {
   blocks: VBlock[];
@@ -46,7 +46,7 @@ export function planChunks(children: ChunkInput[]): VPlan {
   for (let i = 0; i < children.length; i++) {
     const c = children[i];
     const next = children[i + 1];
-    blocks.push({ kind: c.kind, marginTop: c.marginTop, marginBottom: c.marginBottom, gapAfter: next ? Math.max(c.marginBottom, next.marginTop) : 0 });
+    blocks.push({ kind: c.kind, marginTop: c.marginTop, marginBottom: c.marginBottom, gapAfter: next ? Math.max(c.marginBottom, next.marginTop) : 0, ...(c.estimated !== undefined ? { estimated: c.estimated } : {}) });
     for (const a of c.anchors) anchors.set(a.id, { i, within: a.within });
   }
   return { blocks, anchors };
@@ -55,7 +55,7 @@ export function planChunks(children: ChunkInput[]): VPlan {
 /** A block's measured height, or its kind's estimate while never mounted. The space it consumes
  *  in the model is that plus its collapsed gap to the next block. */
 export function heightAt(heights: ReadonlyArray<number | null>, blocks: readonly VBlock[], i: number): number {
-  return heights[i] ?? estimateFor(blocks[i].kind);
+  return heights[i] ?? blocks[i].estimated ?? estimateFor(blocks[i].kind);
 }
 
 /** Prefix sums of the space each block consumes: `offsets[i]` is block i's top (its border-box

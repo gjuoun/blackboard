@@ -14,6 +14,7 @@ import { CommentPanel } from "./CommentPanel";
 import { ComposerLine } from "./ComposerLine";
 import { DocBody } from "./DocBody";
 import { PassageComposer } from "./PassageComposer";
+import { useStreamDoc, type StreamDocInput } from "./useStreamDoc";
 import { interceptHashClick, useVirtualDoc, VirtualDocProvider } from "./useVirtualDoc";
 import { useComments } from "./useComments";
 import { useDocAnchors } from "./useDocAnchors";
@@ -34,6 +35,10 @@ type DocViewProps = {
   bodyHtml?: string;
   /** Keep the tail block mounted — a stream's open exchange lives there. */
   pinTail?: boolean;
+  /** A streamed doc whose first screen was windowed: its lazy-loading metadata. Exchanges the
+   *  server skipped are placeholders until they scroll in; a comment quoted inside one stays
+   *  orphaned in the panel until that exchange loads, which is the documented trade-off. */
+  stream?: StreamDocInput;
   initialComments: RenderedComment[];
   header: ReactNode;
   toc: ReactNode;
@@ -43,7 +48,7 @@ type DocViewProps = {
  * The doc plus its comments. The anchoring and selection half lives in `useDocAnchors`; this
  * component owns the layout: the three columns on desktop, the bottom sheets on a phone.
  */
-export function DocView({ session, reviews = [], title, path, html, bodySlot, bodyHtml, pinTail, initialComments, header, toc }: DocViewProps) {
+export function DocView({ session, reviews = [], title, path, html, bodySlot, bodyHtml, pinTail, stream, initialComments, header, toc }: DocViewProps) {
   const [author, setAuthor] = useState("jun");
   useEffect(() => {
     const saved = localStorage.getItem(AUTHOR_KEY);
@@ -59,7 +64,11 @@ export function DocView({ session, reviews = [], title, path, html, bodySlot, bo
   // The rendered body lives here so both the virtualizer and the anchoring can watch it: the
   // virtualizer chunks it when the doc is long, the anchoring keeps working against its map.
   const bodyRef = useRef<HTMLElement>(null);
-  const virt = useVirtualDoc({ html: bodyHtml ?? html, bodyRef, pinTail });
+  // The plain virtualizer always runs; on a stream page its body is the windowed timeline and
+    // the payload controller adopts it instead. Both hooks run unconditionally, one no-ops.
+    const virtDoc = useVirtualDoc({ html: bodyHtml ?? html, bodyRef, pinTail, disabled: !!stream });
+    const streamVirt = useStreamDoc({ stream, bodyRef });
+    const virt = stream ? streamVirt : virtDoc;
   const chrome = useChrome();
   const desktop = useIsDesktop();
   useLiveDoc(session, reload);

@@ -20,6 +20,11 @@ export type VirtualDocOpts = {
   onWindowChange?: () => void;
   /** Keep the last block mounted always — a streamed doc's tail is where new exchanges land. */
   pinTail?: boolean;
+  /** Blocks marked [data-pending] carry placeholder content: never observed or measured until
+   *  `load()` fills them. For a stream page whose first screen skipped exchanges. */
+  pending?: boolean;
+  /** The window asked for these block indices: the lazy loader uses it to fetch missing html. */
+  onWanted?: (indices: number[]) => void;
 };
 
 export class VirtualDoc {
@@ -32,6 +37,7 @@ export class VirtualDoc {
   private readonly opts: VirtualDocOpts;
   private readonly overscan: number;
   private readonly pinTail: boolean;
+  private readonly pending: boolean;
   private readonly index = new Map<HTMLElement, number>();
   private heights: (number | null)[];
   private offsets: number[];
@@ -51,6 +57,7 @@ export class VirtualDoc {
     this.opts = opts;
     this.overscan = opts.overscan ?? 8;
     this.pinTail = opts.pinTail ?? false;
+    this.pending = opts.pending ?? false;
     this.heights = new Array<number | null>(this.plan.blocks.length).fill(null);
     this.offsets = rebuildOffsets(this.heights, this.plan.blocks);
     for (let i = 0; i < this.blocks.length; i++) this.index.set(this.blocks[i], i);
@@ -93,6 +100,31 @@ export class VirtualDoc {
 
   mountedCount(): number {
     return this.mounted.size;
+  }
+
+  /* ---- lazy content ---- */
+
+  /** Fill a placeholder block with its real section HTML: swap the content, clear the inline
+   *  estimate and pending flag, then observe and measure so the offsets correct. */
+  load(el: HTMLElement, html: string): void {
+    const i = this.index.get(el);
+    if (i === undefined || !el.hasAttribute("data-pending")) return;
+    el.innerHTML = html;
+    el.removeAttribute("data-pending");
+    el.removeAttribute("data-est");
+    el.style.height = "";
+    if (this.mounted.has(i)) {
+      this.ro.observe(el);
+      const h = el.getBoundingClientRect().height;
+      this.heights[i] = h;
+      this.offsets = rebuildOffsets(this.heights, this.plan.blocks);
+      this.placeSpacers();
+      // The first real measurement is a height change the reader can see above the viewport;
+      // pay it back exactly like a late resize.
+      const adjust = this.suspendAnchor ? 0 : anchorAdjust(this.offsets, Math.max(0, this.viewTop()), [{ i, from: this.plan.blocks[i].estimated ?? 0, to: h }]);
+      if (adjust) scrollBy({ top: adjust, behavior: "instant" });
+    }
+    this.schedule();
   }
 
   /* ---- jumping ---- */
@@ -177,7 +209,13 @@ export class VirtualDoc {
     return scrollY - this.docTop();
   }
 
-  private onScroll = () => this.schedule();
+  private onScroll = () => {
+    // A jump pins the window to its target until settle() confirms the landing. Settle runs on
+    // rAF, so a frame loop that stalls would otherwise leave the window pinned for good; a
+    // scroll that moves away from the target is the reader taking over, so release it here.
+    if (this.jump && this.jump.lastY != null && Math.abs(scrollY - this.jump.lastY) > 4) this.cancelJump();
+    this.schedule();
+  };
 
   private onUserNav = () => this.cancelJump();
 
@@ -201,7 +239,9 @@ export class VirtualDoc {
       this.body.insertBefore(el, next ?? this.bottom);
     }
     this.mounted.set(i, el);
-    this.ro.observe(el);
+    // A pending block is a placeholder: its inline height is the estimate the model already
+    // uses, so measuring it would inject noise before its real content arrives.
+    if (!(this.pending && el.hasAttribute("data-pending"))) this.ro.observe(el);
     this.opts.onMount?.(el);
   }
 
@@ -234,6 +274,7 @@ export class VirtualDoc {
       changed = true;
     }
     this.placeSpacers();
+    this.opts.onWanted?.([...wanted]);
     if (changed) this.opts.onWindowChange?.();
   }
 

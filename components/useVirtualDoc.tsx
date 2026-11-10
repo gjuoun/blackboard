@@ -33,12 +33,13 @@ export const useVirtualDocContext = (): VirtualDocView => useContext(VirtualDocC
  * wrappers, no observers, no attributes. The `version` rises whenever the mounted window
  * changes, so comment anchoring and the TOC can redo their work against the new DOM.
  */
-export function useVirtualDoc({ html, bodyRef, pinTail }: { html: string; bodyRef: RefObject<HTMLElement | null>; pinTail?: boolean }): VirtualDocView {
+export function useVirtualDoc({ html, bodyRef, pinTail, disabled }: { html: string; bodyRef: RefObject<HTMLElement | null>; pinTail?: boolean; disabled?: boolean }): VirtualDocView {
   const ctrl = useRef<VirtualDoc | null>(null);
   const bumpRaf = useRef(0);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {
+    if (disabled) return;
     const body = bodyRef.current;
     if (!body || body.children.length === 0) return;
     // The body is still fully mounted in flow here, so its height is the real one.
@@ -65,7 +66,7 @@ export function useVirtualDoc({ html, bodyRef, pinTail }: { html: string; bodyRe
       v.destroy();
       ctrl.current = null;
     };
-  }, [html, bodyRef, pinTail]);
+  }, [html, bodyRef, pinTail, disabled]);
 
   const handle = useMemo<VirtualDocHandle>(
     () => ({
