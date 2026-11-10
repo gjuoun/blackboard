@@ -170,7 +170,7 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
       case "serve": {
         const sub = args[0] ?? "status";
         if (sub === "start") {
-          if (o.foreground) return yield* serverCall(() => server.runForeground(home, { port: o.port }));
+          if (o.foreground) return yield* serverCall(() => server.runForeground(home, { port: o.port, apiPort: o["api-port"] }));
           // Move any pre-SQLite JSON stores into blackboard.db before the API answers — once,
           // idempotently. A failing migration must not leave a half-started pair behind. The cheap
           // "any sources left" check keeps a Node CLI off the bun:sqlite path entirely.

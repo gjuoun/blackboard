@@ -214,6 +214,15 @@ export async function start(home: string, opts: { port?: number | string; apiPor
 export async function runForeground(home: string, opts: { port?: number | string; apiPort?: number | string } = {}): Promise<number> {
   const url = resolveUrl({ port: opts.port });
   const apiUrl = resolveApiUrl({ apiPort: opts.apiPort });
+  // Foreground has no probe-then-report path: it must refuse a busy port before any spawn,
+  // or a foreign process answers as "our api" and the pair silently takes over its port.
+  for (const [name, u] of [["app", url], ["api", apiUrl]] as const) {
+    const port = portOf(u);
+    if (await portListens(u, 400)) {
+      const pids = listenersOn(port);
+      throw new ServerError(`port ${port} is already in use${pids.length ? ` by pid ${pids.join(", ")}` : ""} (${name} would answer at ${u})`);
+    }
+  }
   const root = appRoot();
   const apiCmd = apiStartCommand(root);
   const uiCmd = uiStartCommand(root, home);
