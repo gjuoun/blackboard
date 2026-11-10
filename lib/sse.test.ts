@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Cause, Context, Effect, Queue, Stream, type FileSystem } from "effect";
-import { commentChanges, docChanges, watchEvents } from "./sse";
+import { HEARTBEAT_MS, commentChanges, docChanges, watchEvents } from "./sse";
 
 type WatchEvent = FileSystem.WatchEvent;
 
@@ -42,9 +42,18 @@ function fakeWatch() {
 const save = (path: string): WatchEvent => ({ _tag: "Update", path });
 
 /** The SSE body for a doc and its comments folder, with the same abort wiring the route uses. */
-function bodyFor(doc: ReturnType<typeof fakeWatch>, comments: ReturnType<typeof fakeWatch>, signal: AbortSignal) {
-  const events = watchEvents(docChanges(doc.stream, "design.md"), commentChanges(comments.stream));
+function bodyFor(doc: ReturnType<typeof fakeWatch>, comments: ReturnType<typeof fakeWatch>, signal: AbortSignal, heartbeatMs = HEARTBEAT_MS) {
+  const events = watchEvents(docChanges(doc.stream, "design.md"), commentChanges(comments.stream), heartbeatMs);
   return Stream.toReadableStreamWith(events, Context.empty(), { signal });
+}
+
+/** The next frame that is not a heartbeat: pings keep arriving, and none of them is the frame under test. */
+async function nextEvent(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<string> {
+  for (let i = 0; i < 50; i++) {
+    const frame = decoder.decode((await reader.read()).value);
+    if (!frame.startsWith(": ping")) return frame;
+  }
+  throw new Error("no event frame within 50 reads");
 }
 
 /**
@@ -111,6 +120,36 @@ describe("the watch event stream", () => {
 
     await comments.emit(save("comments.json"));
     expect(decoder.decode((await pending).value)).toBe('event: changed\ndata: {"doc":false,"comments":true}\n\n');
+
+    await reader.cancel();
+  });
+
+  test("an idle stream sends a ping comment every heartbeat", async () => {
+    const doc = fakeWatch();
+    const comments = fakeWatch();
+    const abort = new AbortController();
+    // The production interval is 15 s; the test runs it at 20 ms so the frame is the observable.
+    expect(HEARTBEAT_MS).toBe(15_000);
+    const reader = bodyFor(doc, comments, abort.signal, 20).getReader();
+    expect(decoder.decode((await reader.read()).value)).toBe(": connected\n\n");
+
+    const first = decoder.decode((await reader.read()).value);
+    const second = decoder.decode((await reader.read()).value);
+    expect(first).toBe(": ping\n\n");
+    expect(second).toBe(": ping\n\n");
+
+    await reader.cancel();
+  });
+
+  test("a save still arrives as the same changed frame while heartbeats are running", async () => {
+    const doc = fakeWatch();
+    const comments = fakeWatch();
+    const abort = new AbortController();
+    const reader = bodyFor(doc, comments, abort.signal, 20).getReader();
+    expect(decoder.decode((await reader.read()).value)).toBe(": connected\n\n");
+
+    await doc.emit(save("design.md"));
+    expect(await nextEvent(reader)).toBe('event: changed\ndata: {"doc":true,"comments":false}\n\n');
 
     await reader.cancel();
   });
