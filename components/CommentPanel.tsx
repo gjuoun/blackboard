@@ -191,6 +191,21 @@ export function CommentPanel(p: Props) {
               </blockquote>
             ) : null}
             {c.orphaned ? <p className="text-warn m-0 mb-1.5 text-xs">Passage no longer in the doc</p> : null}
+            {c.block && c.block.state !== "current" ? (
+              <details className="m-0 mb-1.5 text-xs" data-testid="block-state" data-state={c.block.state} onClick={(e) => e.stopPropagation()}>
+                <summary className="text-warn cursor-pointer">
+                  {c.block.state === "deleted" ? "Passage deleted since this comment" : "Passage rewritten since this comment"}
+                </summary>
+                <div className="mt-1 flex flex-col gap-1">
+                  {c.block.before !== undefined ? (
+                    <pre className="bg-background text-muted-foreground m-0 whitespace-pre-wrap rounded-md border border-dashed px-2 py-1.5 text-[12px]" data-testid="block-before">{c.block.before}</pre>
+                  ) : null}
+                  {c.block.state === "modified" && c.block.after !== undefined ? (
+                    <pre className="bg-background m-0 whitespace-pre-wrap rounded-md border px-2 py-1.5 text-[12px]" data-testid="block-after">{c.block.after}</pre>
+                  ) : null}
+                </div>
+              </details>
+            ) : null}
             <ol data-testid="thread" className="thread mt-2 flex list-none flex-col gap-3 p-0">
               <li data-testid="thread-entry" data-kind="comment" className={THREAD_ENTRY}>
                 <Body key={c.body} text={c.body} html={c.html} editing={editing === c.id} onSave={(v) => p.onEdit(c.id, v)} onCancel={() => setEditing(null)} />

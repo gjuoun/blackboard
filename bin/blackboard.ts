@@ -12,6 +12,7 @@ import { BlockArgs, CommentArgs, decodeArgs, HeaderArgs, MigrateArgs, ReviewArgs
 import * as commentsCli from "../lib/cli/comments";
 import * as dbCli from "../lib/cli/db";
 import * as streamsCli from "../lib/cli/streams";
+import * as blocksCli from "../lib/cli/blocks";
 import { layer as dbLayer } from "../lib/db/client";
 import { layer as lockLayer } from "../lib/lock";
 import * as sessionsCli from "../lib/cli/sessions";
@@ -132,6 +133,9 @@ const OPTIONS = {
   foreground: { type: "boolean" },
   version: { type: "boolean", short: "v" },
   help: { type: "boolean", short: "h" },
+  id: { type: "string" },
+  old: { type: "string" },
+  new: { type: "string" },
 } as const;
 
 /** One program per invocation: the binary folds it once, at the bottom of this file. */
@@ -284,6 +288,22 @@ ${b.url}`);
         const opts = yield* decodeArgs(HeaderArgs, { title: o.title, owner: o.owner });
         const h = yield* streamsCli.header(home, args[0], opts);
         print(h, streamsCli.formatHeader(h));
+        return 0;
+      }
+      case "blocks": {
+        yield* need(1, "blocks <session>");
+        const list = yield* blocksCli.blocks(home, args[0]);
+        print(list, list.length === 0 ? "no blocks" : list.map((b) => `${b.id}  #${b.n}  ${b.kind}  rev${b.rev}  ${b.text.replace(/\s+/g, " ").slice(0, 80)}`).join("\n"));
+        return 0;
+      }
+      case "patch": {
+        yield* need(1, "patch <session> --id <block> --new <text> [--old <old>]");
+        const id = o.id;
+        const next = o.new;
+        if (!id) return yield* new CliError({ message: "patch needs --id <block>", code: 2 });
+        if (!next) return yield* new CliError({ message: "patch needs --new <text>", code: 2 });
+        const r = yield* blocksCli.patch(home, args[0], { id, old: o.old, next, author });
+        print(r, `block ${r.blockId} → rev${r.rev}`);
         return 0;
       }
       case "export": {

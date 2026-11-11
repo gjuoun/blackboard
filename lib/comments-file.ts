@@ -27,6 +27,12 @@ export type Comment = {
   resolvedBy?: string;
   reopenedAt?: string;
   reopenedBy?: string;
+  /** The paragraph block this quote landed on (id + rev at write time), and what that block
+   *  looks like now. `modified` / `deleted` keep `before` — the text the comment was made
+   *  against — so a rewrite never strands the thread on an invisible anchor. `modified` also
+   *  carries `after`, the block's present text. Absent for general comments and for quotes
+   *  nothing holds. */
+  block?: { id: string; rev: number; state: "current" | "modified" | "deleted"; before?: string; after?: string };
   replies: Reply[];
 };
 /** One round's review: the agent has answered each open comment and closes the round. */

@@ -36,9 +36,9 @@ describe("Db", () => {
     expect(existsSync(join(home, "blackboard.db"))).toBe(true);
   });
 
-  test("creates all six tables and reopening is a no-op", async () => {
+  test("creates all eight tables and reopening is a no-op", async () => {
     const home = fresh();
-    const want = ["agents", "blocks", "comments", "documents", "reading_state", "reviews"];
+    const want = ["agents", "blocks", "comments", "content_block_revs", "content_blocks", "documents", "reading_state", "reviews"];
     expect(await tables(home)).toEqual(want);
     // second open of the same home: same handle, same tables
     expect(await tables(home)).toEqual(want);

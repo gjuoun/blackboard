@@ -38,6 +38,13 @@ export const DOC_COLUMNS: readonly [string, string][] = [
   ["src_mtime", "INTEGER"],
   ["src_size", "INTEGER"],
   ["indexed_at", "TEXT"],
+  ["body_rev", "INTEGER"],
+];
+
+/** Comment columns that tables created before them lack (same ALTER-when-missing rule). */
+export const COMMENT_COLUMNS: readonly [string, string][] = [
+  ["block_id", "TEXT"],
+  ["block_rev", "INTEGER"],
 ];
 
 /** bun:sqlite runs exactly one statement per call — complete statements, no semicolons. */
@@ -62,6 +69,29 @@ const DDL: string[] = [
     at TEXT NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS blocks_document_id ON blocks(document_id)`,
+  `CREATE TABLE IF NOT EXISTS content_blocks (
+    id TEXT PRIMARY KEY,
+    document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    n INTEGER NOT NULL,
+    grp INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    text TEXT NOT NULL,
+    plain TEXT NOT NULL,
+    hash TEXT NOT NULL,
+    rev INTEGER NOT NULL,
+    updated_rev INTEGER NOT NULL,
+    deleted_at TEXT,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS content_blocks_document_id ON content_blocks(document_id)`,
+  `CREATE TABLE IF NOT EXISTS content_block_revs (
+    block_id TEXT NOT NULL REFERENCES content_blocks(id) ON DELETE CASCADE,
+    rev INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    plain TEXT NOT NULL,
+    at TEXT NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS content_block_revs_block ON content_block_revs(block_id)`,
   `CREATE TABLE IF NOT EXISTS comments (
     id TEXT PRIMARY KEY,
     document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
@@ -143,6 +173,10 @@ const open = (home: string): Effect.Effect<Conn, DbFailure> =>
       for (const [name, type] of DOC_COLUMNS) {
         const has = raw.query("SELECT name FROM pragma_table_info('documents') WHERE name = ?").get(name) !== null;
         if (!has) raw.exec(`ALTER TABLE documents ADD COLUMN ${name} ${type}`);
+      }
+      for (const [name, type] of COMMENT_COLUMNS) {
+        const has = raw.query("SELECT name FROM pragma_table_info('comments') WHERE name = ?").get(name) !== null;
+        if (!has) raw.exec(`ALTER TABLE comments ADD COLUMN ${name} ${type}`);
       }
       return { orm: drizzle(raw), raw };
     },
