@@ -2,6 +2,7 @@ import { eq, max } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { Db } from "./db/client";
 import { blocks, documents } from "./db/schema";
+import { applyReconcile } from "./db/repos/content-blocks";
 import { DbFailure, InvalidInput, SessionNotFound } from "./effect/errors";
 import type { Session } from "./session-model";
 import { exportStream, foldBlocks, type StreamBlock, type StreamAction } from "./stream-doc";
@@ -90,6 +91,8 @@ export const layer = Layer.effect(
       const rows = d.select().from(blocks).where(eq(blocks.documentId, documentId)).orderBy(blocks.n).all();
       const body = foldBlocks(rows.map(toBlock));
       d.update(documents).set({ body, indexedAt: new Date().toISOString() }).where(eq(documents.id, documentId)).run();
+      // Content blocks fold in the same pass: ids survive the refold, comments keep their anchor.
+      applyReconcile(d, documentId, body);
       return body;
     };
 

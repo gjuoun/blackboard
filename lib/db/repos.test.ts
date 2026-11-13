@@ -65,7 +65,7 @@ describe("CommentsRepo", () => {
         return yield* r.add(home, {
           id: "c_1", documentId: "doc1", doc: "x.md", anchor: "quote", quote, body: "why?",
           author: "jun", createdAt: at, status: "open", images: null, editedAt: null,
-          resolvedAt: null, resolvedBy: null, reopenedAt: null, reopenedBy: null,
+          resolvedAt: null, resolvedBy: null, reopenedAt: null, reopenedBy: null, blockId: null, blockRev: null,
         });
       }),
     );

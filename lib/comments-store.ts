@@ -3,6 +3,7 @@ import type { QuoteSelector } from "./anchor";
 import { commentId, replyId, reviewId, type Comment, type CommentFile, type Review } from "./comments-file";
 import { ChangeBus } from "./change-bus";
 import { CommentsRepo, type CommentRow, type ReviewRow } from "./db/repos/comments";
+import { ContentBlocksRepo } from "./db/repos/content-blocks";
 import { IoFailure, type ApiFailure } from "./effect/errors";
 export type { Comment, CommentFile, Review, Reply } from "./comments-file";
 export { readComments } from "./comments-file";
@@ -74,6 +75,7 @@ export const layer = Layer.effect(
   CommentsStore,
   Effect.gen(function* () {
     const repo = yield* CommentsRepo;
+    const contentBlocks = yield* ContentBlocksRepo;
     const bus = yield* Effect.serviceOption(ChangeBus).pipe(Effect.map((o) => (o._tag === "Some" ? o.value : null)));
     const mark = (row: { documentId: string }) => (bus ? bus.publish(row.documentId) : Effect.void);
 
@@ -84,13 +86,35 @@ export const layer = Layer.effect(
     const save = (home: string, row: CommentRow) =>
       repo.updateRow(home, row).pipe(Effect.flatMap((saved) => (saved ? Effect.succeed(saved) : Effect.fail(notFound(row.id)))));
 
+    /** The comment as the wire carries it, with its block's present state folded in. `block` is
+     *  only attached when the block moved or died — a current anchor adds nothing but id churn. */
+    const withBlock = (home: string, row: CommentRow): Effect.Effect<Comment, ApiFailure> =>
+      Effect.gen(function* () {
+        const c = toComment(row);
+        if (!row.blockId || row.blockRev == null) return c;
+        const block = yield* contentBlocks.get(home, row.blockId);
+        if (!block) {
+          c.block = { id: row.blockId, rev: row.blockRev, state: "deleted" };
+          return c;
+        }
+        if (block.deletedAt) {
+          const before = yield* contentBlocks.revText(home, row.blockId, row.blockRev).pipe(Effect.orElseSucceed(() => null));
+          c.block = { id: row.blockId, rev: row.blockRev, state: "deleted", before: before ?? undefined };
+          return c;
+        }
+        if (block.rev === row.blockRev) return c;
+        const before = yield* contentBlocks.revText(home, row.blockId, row.blockRev).pipe(Effect.orElseSucceed(() => null));
+        c.block = { id: row.blockId, rev: row.blockRev, state: "modified", before: before ?? undefined, after: block.text };
+        return c;
+      });
+
     return CommentsStore.of({
       read: (home, sessionId) =>
         Effect.gen(function* () {
           const rows = yield* repo.list(home, sessionId);
           const revs = yield* repo.listReviews(home, sessionId);
           const docs: Record<string, Comment[]> = {};
-          for (const row of rows) (docs[row.doc] ??= []).push(toComment(row));
+          for (const row of rows) (docs[row.doc] ??= []).push(yield* withBlock(home, row));
           const file: CommentFile = { version: 1, docs };
           if (revs.length) file.reviews = revs.map(toReview);
           return file;
@@ -98,26 +122,35 @@ export const layer = Layer.effect(
       countOpen: (home, sessionId) =>
         repo.list(home, sessionId).pipe(Effect.map((rows) => rows.filter((r) => r.status === "open").length)),
       list: (home, sessionId) =>
-        repo.list(home, sessionId).pipe(Effect.map((rows) => rows.map((r) => ({ ...toComment(r), doc: r.doc })))),
+        repo.list(home, sessionId).pipe(Effect.flatMap((rows) => Effect.forEach(rows, (r) => Effect.map(withBlock(home, r), (c) => ({ ...c, doc: r.doc }))))),
       add: (home, sessionId, doc, input) =>
-        mark({ documentId: sessionId }).pipe(Effect.andThen(repo.add(home, {
-          id: commentId(),
-          documentId: sessionId,
-          doc,
-          anchor: "quote" in input ? "quote" : "general",
-          quote: "quote" in input ? input.quote : null,
-          body: input.body,
-          images: input.images ?? null,
-          author: input.author,
-          createdAt: now(),
-          editedAt: null,
-          status: "open",
-          resolvedAt: null,
-          resolvedBy: null,
-          reopenedAt: null,
-          reopenedBy: null,
-          replies: [],
-        }))).pipe(Effect.map(toComment)),
+        Effect.gen(function* () {
+          // The quote's semantic identity: the live block it landed on, and the block's rev
+          // right now. resolveQuote answers null for a quote nothing holds (stays an orphan).
+          const resolution = "quote" in input ? yield* contentBlocks.resolveQuote(home, sessionId, input.quote).pipe(Effect.orElseSucceed(() => null)) : null;
+          const saved = yield* repo.add(home, {
+            id: commentId(),
+            documentId: sessionId,
+            doc,
+            anchor: "quote" in input ? "quote" : "general",
+            quote: "quote" in input ? input.quote : null,
+            blockId: resolution?.blockId ?? null,
+            blockRev: resolution?.blockRev ?? null,
+            body: input.body,
+            images: input.images ?? null,
+            author: input.author,
+            createdAt: now(),
+            editedAt: null,
+            status: "open",
+            resolvedAt: null,
+            resolvedBy: null,
+            reopenedAt: null,
+            reopenedBy: null,
+            replies: [],
+          });
+          yield* mark({ documentId: sessionId });
+          return toComment(saved);
+        }),
       reply: (home, id, doc, input) =>
         Effect.gen(function* () {
           const row = yield* getRow(home, id, doc);

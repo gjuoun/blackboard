@@ -39,6 +39,9 @@ export const documents = sqliteTable("documents", (d) => ({
   srcMtime: d.integer("src_mtime"),
   srcSize: d.integer("src_size"),
   indexedAt: d.text("indexed_at"),
+  /** Bumped on every body change that went through the content-block reconciler: the version a
+   *  "what changed since" badge compares against. Null until the first reconcile. */
+  bodyRev: d.integer("body_rev"),
 }));
 
 /** One exchange of the reply-style stream: the unit the streamed doc UI appends. */
@@ -87,12 +90,67 @@ export const comments = sqliteTable(
     resolvedBy: d.text("resolved_by"),
     reopenedAt: d.text("reopened_at"),
     reopenedBy: d.text("reopened_by"),
+    /** The content block this comment was made against, and the block's rev at that moment. Null
+     *  for general comments and for quotes the reconciler could not place (legacy orphans stay
+     *  null on purpose — only quotes that still anchor get an id). */
+    blockId: d.text("block_id"),
+    blockRev: d.integer("block_rev"),
     replies: d
       .text("replies", { mode: "json" })
       .$type<{ id: string; body: string; author: string; createdAt: string; editedAt?: string }[]>()
       .notNull(),
   }),
   (t) => [index("comments_document_id_doc").on(t.documentId, t.doc), index("comments_status").on(t.status)],
+);
+
+/** One paragraph-level content block: the unit comments anchor to and diffs diff. Rows are
+ *  never mutated in place — a rewrite bumps `rev` and keeps the old text in content_block_revs,
+ *  a removed block gets `deleted_at` (its last text stays). `plain` is the rendered plain text
+ *  of the block, so a stored quote selector can be searched inside it. `grp` tells top-level
+ *  blocks of one list apart: list items each carry the parent's grp. */
+export const contentBlocks = sqliteTable(
+  "content_blocks",
+  (d) => ({
+    id: d.text("id").primaryKey(),
+    documentId: d
+      .text("document_id")
+      .notNull()
+      .references(() => documents.id, { onDelete: "cascade" }),
+    /** Position inside the document. */
+    n: d.integer("n").notNull(),
+    /** The top-level group the block belongs to (a list's items share the parent's grp). */
+    grp: d.integer("grp").notNull(),
+    kind: d.text("kind").notNull(),
+    /** Raw markdown slice. */
+    text: d.text("text").notNull(),
+    /** Rendered text (no markdown marks) — what quote selectors match against. */
+    plain: d.text("plain").notNull(),
+    /** sha of the normalised raw text. */
+    hash: d.text("hash").notNull(),
+    /** Content revision: 1 at first sight, +1 per rewrite that keeps the id. */
+    rev: d.integer("rev").notNull(),
+    /** documents.body_rev when this row last changed (insert or rewrite). */
+    updatedRev: d.integer("updated_rev").notNull(),
+    deletedAt: d.text("deleted_at"),
+    createdAt: d.text("created_at").notNull(),
+  }),
+  (t) => [index("content_blocks_document_id").on(t.documentId)],
+);
+
+/** The previous text of a modified block: (block_id, rev) → what it said at that rev. */
+export const contentBlockRevs = sqliteTable(
+  "content_block_revs",
+  (d) => ({
+    blockId: d
+      .text("block_id")
+      .notNull()
+      .references(() => contentBlocks.id, { onDelete: "cascade" }),
+    rev: d.integer("rev").notNull(),
+    text: d.text("text").notNull(),
+    plain: d.text("plain").notNull(),
+    at: d.text("at").notNull(),
+  }),
+  (t) => [index("content_block_revs_block").on(t.blockId)],
 );
 
 /** One closed review round for a doc. */

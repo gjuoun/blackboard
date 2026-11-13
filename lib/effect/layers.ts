@@ -6,6 +6,7 @@ import { layer as commentsLayer } from "../comments-store";
 import { layer as dbLayer } from "../db/client";
 import { layer as agentsRepoLayer } from "../db/repos/agents";
 import { layer as commentsRepoLayer } from "../db/repos/comments";
+import { layer as contentBlocksRepoLayer } from "../db/repos/content-blocks";
 import { layer as documentsRepoLayer } from "../db/repos/documents";
 import { layer as readingRepoLayer } from "../db/repos/reading-state";
 import { layer as readingLayer } from "../reading-state";
@@ -24,13 +25,14 @@ const documents = documentsRepoLayer.pipe(Layer.provideMerge(db));
 const comments = commentsRepoLayer.pipe(Layer.provideMerge(db));
 const agents = agentsRepoLayer.pipe(Layer.provideMerge(db));
 const reading = readingRepoLayer.pipe(Layer.provideMerge(db));
-const commentsStore = commentsLayer.pipe(Layer.provideMerge(Layer.mergeAll(comments, busLayer)));
+const contentBlocks = contentBlocksRepoLayer.pipe(Layer.provideMerge(db));
+const commentsStore = commentsLayer.pipe(Layer.provideMerge(Layer.mergeAll(comments, busLayer, contentBlocks)));
 const sessions = sessionsLayer.pipe(Layer.provideMerge(Layer.mergeAll(db, documents, commentsStore)));
 const agentsStore = agentsLayer.pipe(Layer.provideMerge(agents));
 const readingStore = readingLayer.pipe(Layer.provideMerge(reading));
 const streams = streamsLayer.pipe(Layer.provideMerge(db));
 
-export const AppLayer = Layer.mergeAll(lockLayer, db, busLayer, documents, comments, agents, reading, commentsStore, sessions, agentsStore, readingStore, fileSystemLayer, streams);
+export const AppLayer = Layer.mergeAll(lockLayer, db, busLayer, documents, comments, agents, reading, contentBlocks, commentsStore, sessions, agentsStore, readingStore, fileSystemLayer, streams);
 
 /** The services AppLayer provides; a program that needs them is runnable by the runtime below. */
 export type AppServices = Layer.Success<typeof AppLayer>;

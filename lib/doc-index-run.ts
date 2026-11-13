@@ -4,6 +4,7 @@ import { existsSync, statSync } from "node:fs";
 import { Db } from "./db/client";
 import { documents } from "./db/schema";
 import { factsOf, RepoMemo } from "./doc-index";
+import { applyReconcile } from "./db/repos/content-blocks";
 import { errorMessage, IoFailure, type DbFailure } from "./effect/errors";
 
 /** What one index run did. `updated` counts rows rewritten; a run over an unchanged database updates none. */
@@ -43,12 +44,18 @@ export function indexRow(
   force = false,
 ): Effect.Effect<RowOutcome, IoFailure | DbFailure> {
   return Effect.gen(function* () {
-    if (!row.path || (!force && !stale(row, row.path))) return "skipped" as const;
+    if (!row.path || (!force && !stale(row, row.path))) {
+      // The file is current, but a row that never went through the reconciler still needs its
+      // content blocks built once — a no-op on every later run.
+      if (row.bodyRev == null && row.body != null) yield* db.use(home, (d) => void applyReconcile(d, row.id, row.body));
+      return "skipped" as const;
+    }
     if (!existsSync(row.path)) {
       const now = new Date().toISOString();
-      yield* db.use(home, (d) =>
-        void d.update(documents).set({ body: null, title: row.title ?? null, srcMtime: null, srcSize: MISSING_SIZE, indexedAt: now }).where(eq(documents.id, row.id)).run(),
-      );
+      yield* db.use(home, (d) => {
+        void d.update(documents).set({ body: null, title: row.title ?? null, srcMtime: null, srcSize: MISSING_SIZE, indexedAt: now }).where(eq(documents.id, row.id)).run();
+        void applyReconcile(d, row.id, null);
+      });
       return "missing" as const;
     }
     const facts = yield* Effect.try({
@@ -56,7 +63,7 @@ export function indexRow(
       catch: (error) => new IoFailure({ message: errorMessage(error), status: 500 }),
     });
     const now = new Date().toISOString();
-    yield* db.use(home, (d) =>
+    yield* db.use(home, (d) => {
       void d.update(documents).set({
         body: facts.body,
         title: facts.title,
@@ -74,8 +81,9 @@ export function indexRow(
         srcMtime: facts.srcMtime,
         srcSize: facts.srcSize,
         indexedAt: now,
-      }).where(eq(documents.id, row.id)).run(),
-    );
+      }).where(eq(documents.id, row.id)).run();
+      void applyReconcile(d, row.id, facts.body);
+    });
     return "updated" as const;
   });
 }
