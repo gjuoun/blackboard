@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { utimesSync, writeFileSync } from "node:fs";
 import { Effect, FileSystem } from "effect";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -97,6 +98,20 @@ describe("GET /api/session?range= (stream)", () => {
     const data = (await res.json()) as { blocks: { n: number }[]; stream: { total: number } };
     expect(data.blocks).toHaveLength(4);
     expect(data.stream.total).toBe(4);
+  });
+});
+
+describe("a file session picks up later edits", () => {
+  test("GET /api/session serves the edited body on the next fetch", async () => {
+    const { home, docs } = await fixture("bb-doc-fresh-", { "design.md": "# Design\n\nFirst version.\n" });
+    const design = join(docs, "design.md");
+    const { id } = await register(home, design);
+    const fetchBody = async () =>
+      (await (await app.request(`http://127.0.0.1/api/session?id=${id}`, { headers: LOCAL })).json()) as { body: string | null };
+    expect((await fetchBody()).body).toContain("First version.");
+    writeFileSync(design, "# Design\n\nSecond version with more words.\n");
+    utimesSync(design, new Date(1_700_000_000_000), new Date(1_700_000_000_000));
+    expect((await fetchBody()).body).toContain("Second version with more words.");
   });
 });
 

@@ -1,8 +1,5 @@
 import { app } from "./app";
 import { apiServeOptions } from "./serve-options";
-import { runtime } from "../lib/effect/runtime";
-import { getHome } from "../lib/home";
-import { startDocWatch } from "../lib/doc-watch";
 
 /**
  * The API process entry point. Bun only — storage is bun:sqlite. `blackboard serve` spawns this
@@ -19,8 +16,6 @@ const port = (() => {
   return Number.isInteger(n) && n > 0 && n <= 65535 ? n : DEFAULT_PORT;
 })();
 
-// Keep the database current with the files it indexed, whether or not a page is open on them.
-const stopWatch = startDocWatch(getHome(), (effect) => runtime.runPromise(effect as never));
-process.on("exit", stopWatch);
-
+// No process-wide file watcher: every read through the session store stats its file and
+// re-indexes when it changed, and an open page's SSE connection watches its own doc.
 export default apiServeOptions(port, app.fetch);

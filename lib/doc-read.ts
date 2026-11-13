@@ -39,8 +39,9 @@ export function indexedBody(db: Service, home: string, id: string): Effect.Effec
 }
 
 /**
- * The row for a session, indexed first if it never was. The first call for an unindexed row reads its file and runs
- * git once; every later call reads the row only.
+ * The row for a session, brought up to date with its file on every read: one stat per call, and a
+ * re-read (plus git, plus the block reconcile) only when the file's mtime or size moved. The disk
+ * file is the source of truth; the row is the cache a read refreshes.
  */
 export function indexIfNeeded(db: Service, home: string, session: Session): Effect.Effect<IndexedRow, IoFailure | DbFailure> {
   return Effect.gen(function* () {
@@ -51,7 +52,6 @@ export function indexIfNeeded(db: Service, home: string, session: Session): Effe
       if (!first) return yield* Effect.die(new Error(`stream document ${session.id} has no row`));
       return first;
     }
-    if (first && first.indexedAt !== null) return first;
     yield* indexRow(db, home, first ?? (yield* insertStub(db, home, session)), new RepoMemo());
     const after = yield* readRow(db, home, session.id);
     if (!after) return yield* Effect.die(new Error(`document ${session.id} vanished during indexing`));
