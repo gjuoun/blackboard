@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
@@ -105,6 +105,23 @@ describe("openSession", () => {
     const s = await openSession(home, join(docs, "design.md"));
     expect(s.kind).toBeUndefined();
     expect((await getSession(home, s.id))?.kind).toBeUndefined();
+  });
+});
+
+describe("lazy freshness", () => {
+  test("a file edited after registration shows through on the next read", async () => {
+    const { home, docs } = fixture();
+    const file = join(docs, "design.md");
+    const s = await openSession(home, file);
+    expect(await withStore((store) => store.body(home, s.id))).toBe("# Design\n");
+    // Rewrite with different content and a forced, explicitly different mtime, so the change is
+    // visible whatever the filesystem's clock resolution.
+    writeFileSync(file, "# Design v2\n\n## Added section\n\nNew paragraph.\n");
+    utimesSync(file, new Date(1_700_000_000_000), new Date(1_700_000_000_000));
+    const row = await withStore((store) => store.row(home, s));
+    expect(await withStore((store) => store.body(home, s.id))).toBe("# Design v2\n\n## Added section\n\nNew paragraph.\n");
+    expect(row.title).toBe("Design v2");
+    expect(row.stats.sections).toBe(1);
   });
 });
 

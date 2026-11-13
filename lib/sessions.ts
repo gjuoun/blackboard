@@ -110,8 +110,8 @@ export const layer = Layer.effect(
 
     const row = (home: string, s: Session): Effect.Effect<SessionRow, IoFailure> =>
       Effect.gen(function* () {
-        // The metadata comes from the database row. A row never indexed is indexed here, once; after that this
-        // reads no file and runs no git. The open count is the comments table's.
+        // The metadata comes from the database row, refreshed from the file when it changed: one stat
+        // per read, a full re-index only on change. The open count is the comments table's.
         const open = yield* comments.countOpen(home, s.id).pipe(Effect.catch(() => Effect.succeed(0)));
         const indexed = yield* indexIfNeeded(db, home, s).pipe(Effect.mapError(toIo));
         const m = docMetaFromRow(indexed);
