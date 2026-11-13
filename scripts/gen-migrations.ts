@@ -12,7 +12,7 @@
  * ALTER pass backfills for databases created before drizzle was wired in.
  */
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const DIR = new URL("../lib/db/migrations", import.meta.url).pathname;
