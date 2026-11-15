@@ -19,6 +19,10 @@ A local web app for reviewing markdown documents, plus the `blackboard` CLI that
 app is Next 16 (App Router) shipped as a pre-built standalone server; the CLI runs on Node or Bun.
 Sessions live in `~/.blackboard`; documents stay wherever they are on disk.
 
+The repo is a bun workspace. The app and the CLI live in `apps/blackboard-web/` — **every layer path
+below (`app/`, `lib/`, `components/`, `bin/`, `scripts/`) is relative to that directory**. The root
+holds only the workspace manifest, the repo's own docs and the shared plan helpers.
+
 ## Gates — all three, unpiped, before every commit
 
 ```bash
