@@ -58,6 +58,8 @@ jobs:
       # `next build` traces the source tree into server/. A pack that jumps past the limit means
       # the copy is dragging sketches/, test/, docs/ and scripts/ in again (scripts/build-server.ts).
       - name: Packaging canary
+        # The published package is the app, not the workspace root.
+        working-directory: apps/blackboard-web
         run: |
           npm pack --dry-run --json --ignore-scripts > /tmp/pack.json
           node -e '

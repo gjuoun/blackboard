@@ -41,7 +41,7 @@ jobs:
       - name: Check tag matches package version
         run: |
           tag="${GITHUB_REF_NAME#v}"
-          version="$(node -p "require('./package.json').version")"
+          version="$(node -p "require('./apps/blackboard-web/package.json').version")"
           if [ "$tag" != "$version" ]; then
             echo "::error::tag $GITHUB_REF_NAME means version $tag but package.json says $version"
             exit 1
@@ -50,7 +50,7 @@ jobs:
       - name: Pick dist-tag
         id: dist_tag
         run: |
-          version="$(node -p "require('./package.json').version")"
+          version="$(node -p "require('./apps/blackboard-web/package.json').version")"
           case "$version" in
             *-*) tag=beta ;;
             *) tag=latest ;;
@@ -81,6 +81,8 @@ jobs:
         run: bun run build:cli
 
       - name: Publish to npm
+        # The published package is the app, not the workspace root.
+        working-directory: apps/blackboard-web
         run: npm publish --access public --provenance --ignore-scripts --tag ${{ steps.dist_tag.outputs.dist_tag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
