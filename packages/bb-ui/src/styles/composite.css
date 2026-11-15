@@ -1,0 +1,26 @@
+/*
+ * Blackboard's own tokens: the roles shadcn has no word for. They live in a separate file so
+ * styles.css can stay pure shadcn vocabulary and a stock theme can drop in untouched.
+ */
+@theme inline {
+  --color-primary-soft: var(--primary-soft);
+  --color-code: var(--code);
+  --color-warn: var(--warn);
+  --color-success: var(--success);
+}
+
+:root,
+[data-theme],
+[data-mode] {
+  --primary-soft: var(--theme-primary-soft);
+  --code: var(--theme-code);
+  --mark: var(--theme-mark);
+  --mark-line: var(--theme-mark-line);
+  --hl: var(--theme-hl);
+  --hl-hover: var(--theme-hl-hover);
+  --hl-active: var(--theme-hl-active);
+  --warn: var(--theme-warn);
+  --success: var(--theme-success);
+  --success-soft: var(--theme-success-soft);
+  --destructive-soft: var(--theme-destructive-soft);
+}

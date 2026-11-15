@@ -1,0 +1,9 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": { "config": "", "css": "src/styles/styles.css", "baseColor": "stone", "cssVariables": true, "prefix": "" },
+  "iconLibrary": "lucide",
+  "aliases": { "components": "@gjuoun/bb-ui/components", "utils": "@gjuoun/bb-ui/lib/utils", "ui": "@gjuoun/bb-ui/components/ui", "lib": "@gjuoun/bb-ui/lib", "hooks": "@gjuoun/bb-ui/hooks" }
+}
