@@ -6,6 +6,7 @@
   "exports": {
     "./styles.css": "./src/styles/styles.css",
     "./themes": "./src/themes/roles.ts",
+    "./themes/palette": "./src/themes/palette.ts",
     "./components/ui/*": "./src/components/ui/*.tsx",
     "./lib/utils": "./src/lib/utils.ts",
     "./hooks/use-theme": "./src/hooks/use-theme.ts"
