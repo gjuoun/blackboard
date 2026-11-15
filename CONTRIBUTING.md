@@ -75,8 +75,8 @@ and the performance red lines all live there.
 
 ## What not to commit
 
-- Build products: `server/`, `dist/`, `.next/`, `*.tsbuildinfo`. They are gitignored; CI builds
-  them.
+- Build products: `server/`, `dist/`, `.next/`, `*.tsbuildinfo` — all under `apps/blackboard-web/`.
+  They are gitignored; CI builds them.
 - No secrets, tokens, internal hostnames, tracker ids or personal absolute paths — this repo is
   public.
 - Screenshots and fixtures must come from a throwaway `BLACKBOARD_HOME`, never from your real

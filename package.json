@@ -1,114 +1,20 @@
 {
-  "name": "@gjuoun/blackboard",
-  "version": "0.3.0-beta.0",
-  "description": "Local web app for reading planning docs and commenting on the text, with a CLI so coding agents can join the review",
-  "keywords": [
-    "markdown",
-    "review",
-    "comments",
-    "mermaid",
-    "cli",
-    "coding-agent",
-    "planning"
-  ],
-  "license": "MIT",
-  "homepage": "https://github.com/gjuoun/blackboard#readme",
-  "bugs": {
-    "url": "https://github.com/gjuoun/blackboard/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/gjuoun/blackboard.git"
-  },
-  "author": "Jun Guo",
-  "bin": {
-    "blackboard": "bin/blackboard"
-  },
-  "files": [
-    "bin/blackboard",
-    "dist",
-    "server",
-    "!server/server",
-    "!server/**/*.tsbuildinfo",
-    "!server/sketches",
-    "!server/test",
-    "!server/docs",
-    "!server/scripts",
-    "LICENSE",
-    "README.md"
-  ],
-  "engines": {
-    "bun": ">=1.3.0"
-  },
-  "scripts": {
-    "dev": "next dev -H 127.0.0.1 -p ${PORT:-38770}",
-    "build": "next build",
-    "build:cli": "bun scripts/build-cli.ts",
-    "build:api": "bun scripts/build-api.ts",
-    "start": "bin/blackboard serve start --foreground",
-    "lint": "eslint",
-    "typecheck": "next typegen && tsc --noEmit",
-    "test": "bun test",
-    "prepublishOnly": "bun run typecheck && bun run lint && bun test",
-    "build:server": "bun scripts/build-server.ts",
-    "db:generate": "bunx drizzle-kit generate && bun scripts/gen-migrations.ts"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.3",
-    "@types/bun": "^1.4.3",
-    "@types/hast": "^3.0.5",
-    "@types/mdast": "^4.0.4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "@types/unist": "^3.0.3",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "drizzle-kit": "^0.31.11",
-    "eslint": "^9",
-    "eslint-config-next": "16.4.2",
-    "katex": "^0.16.47",
-    "lucide-react": "^1.61.0",
-    "mdast-util-to-string": "^4.0.0",
-    "mermaid": "^12.2.0",
-    "next": "16.4.2",
-    "postcss": "^8.5.31",
-    "radix-ui": "^1.8.1",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "rehype-katex": "^7.0.1",
-    "rehype-parse": "^9.0.1",
-    "rehype-slug": "^6.0.0",
-    "rehype-stringify": "^10.0.1",
-    "remark-frontmatter": "^5.0.0",
-    "remark-gfm": "^4.0.1",
-    "remark-math": "^6.0.0",
-    "remark-parse": "^11.0.0",
-    "remark-rehype": "^11.1.2",
-    "tailwind-merge": "^3.7.0",
-    "tailwindcss": "^4.3.3",
-    "typescript": "^5",
-    "unified": "^11.0.5",
-    "unist-util-visit": "^5.1.0",
-    "yaml": "^2.9.1"
-  },
+  "name": "blackboard-workspace",
+  "private": true,
   "packageManager": "bun@1.3.14",
-  "ignoreScripts": [
-    "sharp",
-    "unrs-resolver"
+  "workspaces": [
+    "apps/*",
+    "packages/*"
   ],
-  "trustedDependencies": [
-    "sharp",
-    "unrs-resolver"
-  ],
-  "dependencies": {
-    "@effect/platform-node": "4.1.2",
-    "drizzle-orm": "^0.45.4",
-    "effect": "4.1.2",
-    "hono": "^4.13.17",
-    "rehype-highlight": "^7.0.2"
+  "scripts": {
+    "dev": "bun run --cwd apps/blackboard-web dev",
+    "build": "bun run --cwd apps/blackboard-web build",
+    "build:server": "bun run --cwd apps/blackboard-web build:server",
+    "build:cli": "bun run --cwd apps/blackboard-web build:cli",
+    "build:api": "bun run --cwd apps/blackboard-web build:api",
+    "typecheck": "bun run --cwd apps/blackboard-web typecheck && bun run --cwd packages/bb-ui typecheck",
+    "lint": "bun run --cwd apps/blackboard-web lint",
+    "test": "bun test",
+    "db:generate": "bun run --cwd apps/blackboard-web db:generate"
   }
 }

@@ -1,12 +1,11 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules/
 /.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
-!.yarn/plugins
 !.yarn/releases
 !.yarn/versions
 
@@ -14,7 +13,7 @@
 /coverage
 
 # next.js
-/.next/
+apps/*/.next/
 /out/
 
 # production
@@ -41,5 +40,5 @@ yarn-error.log*
 next-env.d.ts
 
 # built command
-/dist/
-/server/
+apps/*/dist/
+apps/*/server/
