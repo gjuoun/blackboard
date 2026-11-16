@@ -1,0 +1,24 @@
+---
+import type { Dict } from "../i18n/types.ts";
+
+interface Props {
+  features: Dict["features"];
+}
+
+const { features } = Astro.props;
+---
+
+<section class="features">
+  <div class="wrap">
+    <h2 class="sec">{features.heading}</h2>
+    <ul class="feat">
+      {
+        features.items.map((item) => (
+          <li>
+            <strong>{item.title}</strong> — {item.text}
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</section>

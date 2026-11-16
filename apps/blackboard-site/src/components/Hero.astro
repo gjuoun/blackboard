@@ -1,0 +1,31 @@
+---
+import type { Dict } from "../i18n/types.ts";
+import Install from "./Install.astro";
+import Shot from "./Shot.astro";
+
+interface Props {
+  dict: Dict;
+}
+
+const { dict } = Astro.props;
+---
+
+<header class="hero wrap">
+  <h1>Blackboard</h1>
+  <p class="tagline">{dict.hero.tagline}</p>
+  <p class="who muted">{dict.hero.who}</p>
+  <div class="hero-actions">
+    <a class="btn primary" href="#install">{dict.hero.cta}</a>
+    <a class="btn" href="https://github.com/gjuoun/blackboard">{dict.hero.github}</a>
+    <a
+      class="lang"
+      href={dict.switcher.href}
+      lang={dict.switcher.lang}
+      hreflang={dict.switcher.lang}
+    >
+      {dict.switcher.label}
+    </a>
+  </div>
+  <Install install={dict.install} />
+  <Shot shot={dict.hero.shot} />
+</header>

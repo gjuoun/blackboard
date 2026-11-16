@@ -1,0 +1,66 @@
+/* The landing page, extracted from the hand-written index.html it replaces. Tokens are the
+   app’s own globals.css values; the font faces live in fonts-<locale>.css. */
+/* QuBlack Sans / Mono (SIL OFL 1.1) — subsets covering this page's characters only.
+   Full family: github.com/gjuoun/qublack — license: fonts/OFL.txt */
+
+/* Tokens + component styles lifted from the app's globals.css */
+:root {
+  --fg: #1f2328; --muted: #59636e; --border: #d1d9e0;
+  --bg: #ffffff; --bg-subtle: #f6f8fa; --accent: #0969da;
+  --font-mono: "QuBlack Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--font-body); color: var(--fg); background: var(--bg); line-height: 1.5; font-size: 16px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre { font-family: var(--font-mono); font-size: 85%; }
+.muted { color: var(--muted); }
+button { font: inherit; font-size: 13px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+.wrap { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+/* Hero */
+.hero { padding: 64px 24px 40px; text-align: center; }
+.hero h1 { margin: 0 0 8px; font-size: 44px; font-weight: 700; letter-spacing: -0.01em; }
+.hero p { max-width: 620px; margin: 0 auto; font-size: 18px; color: var(--muted); text-wrap: balance; }
+.hero .who { margin-top: 4px; }
+.hero p.tagline { font-size: 28px; font-weight: 700; color: var(--fg); margin-top: 16px; }
+a.btn { display: inline-flex; align-items: center; font-size: 15px; padding: 8px 18px; border: 1px solid var(--border); border-radius: 6px; color: var(--fg); }
+a.btn:hover { border-color: var(--accent); text-decoration: none; }
+a.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+a.btn.primary:hover { opacity: 0.9; }
+.hero-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; margin-top: 24px; }
+.hero-actions a.lang { font-size: 14px; color: var(--muted); padding: 0 4px; }
+
+/* Install block */
+.install { max-width: 480px; margin: 28px auto 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; text-align: left; }
+.install .row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.install .row + .row { border-top: 1px solid var(--border); }
+.install code { flex: 1; font-size: 14px; }
+.install .row span.prompt { color: var(--muted); font-family: var(--font-mono); }
+.copy-btn { flex: none; font-size: 12px; padding: 2px 8px; }
+
+/* Screenshots */
+.shot { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08); }
+.shot img { display: block; width: 100%; height: auto; }
+.cap { margin: 16px auto 0; max-width: 640px; text-align: center; font-size: 14px; color: var(--muted); text-wrap: pretty; }
+.hero .shot { max-width: 100%; margin: 40px auto 0; }
+.hero p.cap { font-size: 14px; max-width: 640px; }
+
+/* Sections */
+section { padding: 40px 0; }
+section.features { background: var(--bg-subtle); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+h2.sec { margin: 0 0 20px; font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+ul.feat { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px 28px; padding: 0; margin: 0; list-style: none; }
+ul.feat li { padding-left: 22px; position: relative; text-wrap: pretty; }
+ul.feat li::before { content: "—"; position: absolute; left: 0; color: #9a6700; }
+ul.feat strong { font-weight: 700; }
+
+/* CLI block */
+section.cli { padding-top: 64px; }
+pre.cli { border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; overflow-x: auto; background: var(--bg-subtle); font-size: 13px; line-height: 1.7; }
+pre.cli .c { color: var(--muted); }
+pre.cli .b { font-weight: 700; }
+
+footer { padding: 32px 0 48px; color: var(--muted); font-size: 13px; }
+footer .cols { display: flex; flex-wrap: wrap; gap: 24px 48px; justify-content: space-between; }

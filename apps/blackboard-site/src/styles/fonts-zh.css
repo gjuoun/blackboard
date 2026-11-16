@@ -1,0 +1,10 @@
+/* QuBlack Sans / Mono (SIL OFL 1.1) — subsets covering the Chinese page’s characters only.
+   Full family: github.com/gjuoun/qublack — license: fonts/OFL.txt */
+@font-face { font-family: "QuBlack Sans"; src: url(/fonts/qb-sans-zh.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "QuBlack Sans"; src: url(/fonts/qb-sans-bold-zh.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "QuBlack Mono"; src: url(/fonts/qb-mono-zh.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "QuBlack Mono"; src: url(/fonts/qb-mono-bold-zh.woff2) format("woff2"); font-weight: 700; font-display: swap; }
+
+:root {
+  --font-body: "QuBlack Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, "PingFang SC", sans-serif;
+}

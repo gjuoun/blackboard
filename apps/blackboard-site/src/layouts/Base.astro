@@ -1,0 +1,37 @@
+---
+import "../styles/base.css";
+import type { Dict } from "../i18n/types.ts";
+
+interface Props {
+  dict: Dict;
+}
+
+const { dict } = Astro.props;
+---
+
+<!doctype html>
+<html lang={dict.lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{dict.title}</title>
+    <meta name="description" content={dict.description} />
+  </head>
+  <body>
+    <slot />
+    <script is:inline>
+      document.querySelectorAll(".copy-btn").forEach(function (button) {
+        button.addEventListener("click", function () {
+          var label = button.dataset.copyLabel || "Copy";
+          var done = button.dataset.copiedLabel || "Copied";
+          navigator.clipboard.writeText(button.dataset.copy || "").then(function () {
+            button.textContent = done;
+            setTimeout(function () {
+              button.textContent = label;
+            }, 1200);
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

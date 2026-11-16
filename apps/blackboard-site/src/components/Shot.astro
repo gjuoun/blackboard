@@ -1,0 +1,20 @@
+---
+import type { Shot } from "../i18n/types.ts";
+
+interface Props {
+  shot: Shot;
+}
+
+const { shot } = Astro.props;
+---
+
+<div class="shot">
+  <img
+    src={shot.src}
+    alt={shot.alt}
+    width={shot.width}
+    height={shot.height}
+    loading={shot.loading ?? undefined}
+  />
+</div>
+<p class="cap">{shot.caption}</p>
