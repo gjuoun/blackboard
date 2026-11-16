@@ -1,0 +1,18 @@
+/* App-wide Tailwind + bb-ui layer. base.css (imported after this in Base.astro) carries the
+   landing's hand-rolled component styles; this file carries the tokens and utilities the
+   bb-ui components and the phone demo rely on. */
+@import "tailwindcss";
+@import "@gjuoun/bb-ui/styles.css";
+@import "./fonts-en.css";
+
+/* The stock components live in the theme package; Tailwind does not scan node_modules on its own. */
+@source "../../../../packages/bb-ui/src";
+
+/* Map Tailwind's font utilities onto the site's QuBlack stacks. The page-level fonts-<locale>.css
+   still sets --font-body for base.css's `body` rule; these only affect classed elements. */
+@theme inline {
+  --font-sans: "QuBlack Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, "PingFang SC", sans-serif;
+  --font-mono: "QuBlack Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-mark: var(--mark);
+  --color-mark-line: var(--mark-line);
+}

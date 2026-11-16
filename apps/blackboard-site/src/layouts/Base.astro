@@ -1,4 +1,5 @@
 ---
+import "../styles/app.css";
 import "../styles/base.css";
 import type { Dict } from "../i18n/types.ts";
 
@@ -10,7 +11,7 @@ const { dict } = Astro.props;
 ---
 
 <!doctype html>
-<html lang={dict.lang}>
+<html lang={dict.lang} data-theme="warm" data-mode="light">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

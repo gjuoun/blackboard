@@ -22,8 +22,8 @@ describe("routes and languages", () => {
   });
 
   test("each page declares its own lang", () => {
-    expect(page("")).toContain('<html lang="en">');
-    expect(page("zh")).toContain('<html lang="zh-CN">');
+    expect(page("")).toContain('lang="en"');
+    expect(page("zh")).toContain('lang="zh-CN"');
   });
 
   test("the two pages carry their own title, description and hero copy", () => {
@@ -79,8 +79,9 @@ describe("per-locale assets", () => {
         if (/^\/(?:_astro|assets|fonts)\//.test(ref)) refs.add(ref);
       }
     }
-    // Eight font subsets and four screenshots, all distinct across the two pages.
-    expect(refs.size).toBe(12);
+    // Eight font subsets, four screenshots and the bundled stylesheet,
+    // all distinct across the two pages.
+    expect(refs.size).toBe(13);
     const missing = [...refs].filter((ref) => !existsSync(join(dist, ref)));
     expect(missing).toEqual([]);
   });
@@ -101,6 +102,6 @@ describe("the deployed shape", () => {
 
   test("the build ships nothing but the pages and their assets", () => {
     const top = readdirSync(dist).sort();
-    expect(top).toEqual(["_redirects", "assets", "fonts", "index.html", "zh"]);
+    expect(top).toEqual(["_astro", "_redirects", "assets", "fonts", "index.html", "zh"]);
   });
 });
