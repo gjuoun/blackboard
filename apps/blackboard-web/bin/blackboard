@@ -11,6 +11,15 @@ done
 here=$(cd "$(dirname "$self")" && pwd)
 built="$here/../dist/blackboard.mjs"
 
+# In a clone the source sits beside this launcher and can be newer than the bundle — running the
+# bundle then tests code nobody wrote. Prefer the source and say so once, on stderr. A published
+# install ships no .ts beside the launcher, so this branch never runs there.
+if [ -f "$built" ] && [ -f "$here/blackboard.ts" ] &&
+  [ -n "$(find "$here/blackboard.ts" "$here/../lib" -name '*.ts' -newer "$built" 2>/dev/null | head -n 1)" ]; then
+  echo "blackboard: the source is newer than dist/ — running bin/blackboard.ts (bun run build:cli refreshes the bundle)" >&2
+  exec bun "$here/blackboard.ts" "$@"
+fi
+
 if [ -f "$built" ]; then
   # Bun first: the CLI's local store imports `bun:sqlite`, so the bundle cannot run on plain Node.
   # Node stays as a fallback for an older bundle built before the SQLite migration.
