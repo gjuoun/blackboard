@@ -279,6 +279,30 @@ describe("a pre-split single-pid record", () => {
     expect(r.started).toBe(true);
     expect(readState(home)).toBeNull();
   }, 20_000);
+
+  test("restart without --port restarts on the port the record names", async () => {
+    // A user who started on 38790 and runs a bare `serve restart` means "same port". The default
+    // port answers nothing here (BLACKBOARD_URL points at a quiet one), so a restart that resolves
+    // the default instead of the record is visible as the wrong port, not as a busy-port accident.
+    const saved = process.env.BLACKBOARD_URL;
+    process.env.BLACKBOARD_URL = "http://127.0.0.1:4101";
+    try {
+      const home = tmp();
+      const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:4100", startedAt: "2026-01-01T00:00:00.000Z" };
+      writeState(home, { ui: dead });
+      let asked: { port?: number | string } | undefined;
+      await restart(home, {}, {
+        start: async (_home, opts) => {
+          asked = opts;
+          return { running: true, url: dead.url, managed: true, degraded: [], ui: { ...dead, pid: process.pid, log: "/x/server.log" }, started: true };
+        },
+      });
+      expect(asked?.port).toBe(4100);
+    } finally {
+      if (saved === undefined) delete process.env.BLACKBOARD_URL;
+      else process.env.BLACKBOARD_URL = saved;
+    }
+  }, 20_000);
 });
 
 describe("serve start --foreground", () => {
