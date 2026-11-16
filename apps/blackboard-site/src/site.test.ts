@@ -66,6 +66,13 @@ describe("per-locale assets", () => {
     }
   });
 
+  test("the ui-mock page ships but stays unlisted", () => {
+    expect(existsSync(join(dist, "ui-mock", "index.html"))).toBe(true);
+    expect(readFileSync(join(dist, "ui-mock", "index.html"), "utf8")).toContain("noindex");
+    expect(page("")).not.toContain("ui-mock");
+    expect(page("zh")).not.toContain("ui-mock");
+  });
+
   test("every root-absolute asset reference resolves inside dist", () => {
     const refs = new Set<string>();
     for (const html of [page(""), page("zh")]) {
@@ -102,6 +109,6 @@ describe("the deployed shape", () => {
 
   test("the build ships nothing but the pages and their assets", () => {
     const top = readdirSync(dist).sort();
-    expect(top).toEqual(["_astro", "_redirects", "assets", "fonts", "index.html", "zh"]);
+    expect(top).toEqual(["_astro", "_redirects", "assets", "fonts", "index.html", "ui-mock", "zh"]);
   });
 });
