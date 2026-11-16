@@ -66,6 +66,16 @@ describe("per-locale assets", () => {
     }
   });
 
+  test("the phone demo mounts in each locale with its own copy", () => {
+    expect(page("")).toContain('data-slot="demo-root"');
+    expect(page("zh")).toContain('data-slot="demo-root"');
+    expect(page("")).toContain("Try it on the phone");
+    expect(page("zh")).toContain("手机上试一试");
+    // the island ships its dict as props — English rows must not leak into the zh page
+    expect(page("")).toContain("Q1 launch plan");
+    expect(page("zh")).toContain("Q1 发布计划");
+  });
+
   test("the ui-mock page ships but stays unlisted", () => {
     expect(existsSync(join(dist, "ui-mock", "index.html"))).toBe(true);
     expect(readFileSync(join(dist, "ui-mock", "index.html"), "utf8")).toContain("noindex");

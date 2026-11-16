@@ -56,6 +56,37 @@ export interface Dict {
     bunCommand: string;
   };
   inbox: { heading: string; shot: Shot };
+  demo: {
+    heading: string;
+    caption: string;
+    inboxTitle: string;
+    openLabel: string;
+    tabs: { inbox: string; unread: string; settings: string };
+    sheetToc: string;
+    sheetComments: string;
+    commentsHeading: string;
+    replyPlaceholder: string;
+    replySend: string;
+    backToInbox: string;
+    rows: {
+      id: string;
+      title: string;
+      path: string;
+      branch: string;
+      unread: boolean;
+      comments: number;
+      updated: string;
+    }[];
+    doc: {
+      id: string;
+      title: string;
+      path: string;
+      branch: string;
+      toc: string[];
+      blocks: { kind: "h2" | "p" | "code" | "quote"; text: string }[];
+      comments: { author: string; time: string; body: string; resolved?: boolean }[];
+    };
+  };
   features: { heading: string; items: Feature[] };
   cli: {
     heading: string;
