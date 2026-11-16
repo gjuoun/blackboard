@@ -4,9 +4,9 @@ import { forward } from "~/lib/forward";
 /**
  * Every `/api/*` request the UI answers. Two shapes:
  *
- * - **Dev** (`vite dev`): `BLACKBOARD_API_URL` is set by `dev:start`/`serve start`, so the
- *   splat forwards to the API process — Vite's SSR runner cannot load `bun:sqlite`, so the Hono
- *   app cannot mount here.
+ * - **Dev** (`vite dev`): `BLACKBOARD_API_URL` names the API process run beside it (see README),
+ *   so the splat forwards there — Vite's SSR runner cannot load `bun:sqlite`, so the Hono app
+ *   cannot mount here.
  * - **Prod** (`bun .output/server/index.mjs`): no API URL — the artifact is one process, so the
  *   splat mounts the Hono app directly and the API answers in-process.
  */

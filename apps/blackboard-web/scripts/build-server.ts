@@ -13,7 +13,7 @@ const src = ".output";
 const entry = join(src, "server", "index.mjs");
 
 if (!existsSync(entry)) {
-  console.error(`no ${entry}: run \`bun run build:start\` first`);
+  console.error(`no ${entry}: run \`bun run build\` first`);
   process.exit(1);
 }
 

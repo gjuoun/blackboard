@@ -8,8 +8,6 @@
   ],
   "scripts": {
     "dev": "bun run --cwd apps/blackboard-web dev",
-    "dev:start": "bun run --cwd apps/blackboard-web dev:start",
-    "build:start": "bun run --cwd apps/blackboard-web build:start",
     "build": "bun run --cwd apps/blackboard-web build",
     "build:server": "bun run --cwd apps/blackboard-web build:server",
     "build:cli": "bun run --cwd apps/blackboard-web build:cli",
