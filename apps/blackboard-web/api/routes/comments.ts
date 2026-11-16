@@ -27,8 +27,7 @@ function target(session: string): Effect.Effect<Target | null, ApiFailure, Sessi
     const sessions = yield* SessionsStore;
     const home = getHome();
     const found = yield* sessions.get(home, session);
-    // A streamed doc has no file: it is commentable while it exists — its anchor is the session itself.
-    if (!found || (found.kind !== "stream" && !servablePath(found))) return null;
+    if (!found || !servablePath(found)) return null;
     return { home, session: found, doc: docKey(found) };
   });
 }
@@ -183,26 +182,3 @@ comments.patch("/", (c) =>
   ),
 );
 
-/** POST /api/review {session, doc, round, body, author} — close a round; refused while an open comment has no agent reply. */
-export const review = new Hono();
-review.post("/", (c) =>
-  respond(
-    Effect.gen(function* () {
-      const store = yield* CommentsStore;
-      const raw = yield* jsonBody(c.req.raw);
-      const b = (raw ?? {}) as Record<string, unknown>;
-      const session = typeof b.session === "string" ? b.session : "";
-      const doc = typeof b.doc === "string" ? b.doc : "";
-      const body = typeof b.body === "string" ? b.body : "";
-      const round = typeof b.round === "number" ? b.round : Number(b.round);
-      const author = typeof b.author === "string" && b.author.trim() ? b.author.trim() : "agent";
-      const found = yield* target(session);
-      if (!found || !doc) return yield* Effect.fail(sessionNotFound(400));
-      const review = yield* store.review(found.home, found.session.id, doc, { round, body: body.trim(), author }).pipe(
-        Effect.mapError((error) => (error instanceof InvalidInput ? error : new InvalidInput({ message: error.message, status: 400 }))),
-      );
-      return { review };
-    }),
-    201,
-  ),
-);

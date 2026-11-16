@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useNav } from "./nav";
 import { ChevronDown, Search, Settings } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@gjuoun/bb-ui/components/ui/popover";
 import { useWorkspaceBar } from "./workspace-bar";
@@ -8,7 +8,7 @@ import { useWorkspaceBar } from "./workspace-bar";
 const FILTERS = [
   { key: "all", label: "All documents" },
   { key: "unread", label: "Unread" },
-  { key: "reading", label: "Reading" },
+
 ] as const;
 
 /**
@@ -19,6 +19,7 @@ const FILTERS = [
  * its bar props, so the settings page and SSR see no leftovers.
  */
 export function WorkspaceBarControls() {
+  const { Link } = useNav();
   const bar = useWorkspaceBar();
   if (!bar) return null;
 
@@ -80,7 +81,7 @@ export function WorkspaceBarControls() {
 
       {/* Counts drop below lg, after the breadcrumb. */}
       <span data-testid="rw-count-line" className="text-muted-foreground hidden shrink-0 font-mono text-[11.5px] whitespace-nowrap lg:block">
-        {bar.counts.unread} unread · {bar.counts.reading} reading
+        {bar.counts.unread} unread
       </span>
 
       <span className="min-w-0 flex-1" />

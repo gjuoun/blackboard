@@ -2,14 +2,13 @@ import { statSync } from "node:fs";
 
 import { Effect } from "effect";
 import { CommentsStore } from "./comments-store";
-import { errorMessage, InvalidInput, IoFailure, sessionNotFound, type ApiFailure } from "./effect/errors";
+import { errorMessage, IoFailure, sessionNotFound, type ApiFailure } from "./effect/errors";
 import { renderMarkdown } from "./markdown";
 import {
   countStatuses,
   effectiveEntry,
   markRead,
   markUnread,
-  withProgress,
   type PreviewData,
   type PreviewReply,
   type ReadingAction,
@@ -21,12 +20,6 @@ import { ReadingStateStore } from "./reading-state";
 import { relativeTime } from "./relative-time";
 import { docKey } from "./session-model";
 import { servablePath, SessionsStore } from "./sessions";
-
-/** The doc file's own mtime, or 0 when it cannot be read: the reading state uses it to spot edits. */
-const mtimeOf = (path: string): Effect.Effect<number> =>
-  Effect.try({ try: () => statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? 0, catch: () => "unreadable" as const }).pipe(
-    Effect.catch(() => Effect.succeed(0)),
-  );
 
 /**
  * The inbox: every registered session with its reading state, sorted by last update. One `stat`
@@ -83,8 +76,7 @@ export const previewDoc = (
     const comments = yield* CommentsStore;
     const session = yield* sessions.get(home, id);
     if (!session) return null;
-    // A streamed doc's markdown lives in its row — there is no file to serve, so the check is skipped.
-    const file = session.kind === "stream" ? true : servablePath(session);
+    const file = servablePath(session);
     if (!file) return null;
     const row = yield* sessions.row(home, session);
     // The markdown comes from the row the index stored. A row not yet indexed has no body to render, and `row()`
@@ -115,14 +107,18 @@ export const previewDoc = (
     };
   });
 
-/** What a workspace write names: one session, or every session for `read-all`. */
-export type ReadingInput = { session?: string; action: ReadingAction; progress?: unknown };
+/** The doc file's own mtime, or 0 when it cannot be read: the reading state uses it to spot edits. */
+const mtimeOf = (path: string): Effect.Effect<number> =>
+  Effect.try({ try: () => statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? 0, catch: () => "unreadable" as const }).pipe(
+    Effect.catch(() => Effect.succeed(0)),
+  );
 
-const badProgress = () => new InvalidInput({ message: "progress must be a number from 0 to 1", status: 400, field: "progress" });
+/** What a workspace write names: one session's read or unread mark. */
+export type ReadingInput = { session?: string; action: ReadingAction };
 
 /**
- * Writes the reading state: mark one document read or unread, record its scroll position, or mark
- * everything read. Every write stamps the document's current mtime, so a later edit invalidates it.
+ * Writes the reading state: mark one document read or unread — two states, the mail model's whole
+ * vocabulary. Every write stamps the document's current mtime, so a later edit invalidates it.
  */
 export const applyReading = (
   home: string,
@@ -132,38 +128,13 @@ export const applyReading = (
     const sessions = yield* SessionsStore;
     const state = yield* ReadingStateStore;
     const at = new Date().toISOString();
-    const changed: ReadingResult["docs"] = {};
-
-    if (input.action === "read-all") {
-      const all = yield* sessions.list(home);
-      const file = yield* state.read(home);
-      const entries = yield* Effect.forEach(all, (session) =>
-        Effect.map(mtimeOf(session.path), (mtime) => {
-          // Each document keeps the position its current record holds (0 when there is none or it
-          // is stale): read-all never moves a document, so reopening lands where it was left.
-          const prev = effectiveEntry(file.docs[session.id], mtime, at);
-          return [session.id, markRead(at, mtime, prev.progress)] as const;
-        }),
-      );
-      yield* Effect.forEach(entries, ([id, entry]) => state.set(home, id, entry));
-      for (const [id, entry] of entries) changed[id] = { status: entry.status, progress: entry.progress };
-      return { docs: changed };
-    }
 
     if (!input.session) return yield* Effect.fail(sessionNotFound(400));
     const session = yield* sessions.get(home, input.session);
     if (!session) return yield* Effect.fail(sessionNotFound(400));
-    if (input.action === "progress" && (typeof input.progress !== "number" || !Number.isFinite(input.progress))) {
-      return yield* Effect.fail(badProgress());
-    }
     const mtime = yield* mtimeOf(session.path);
     const prevEntry = effectiveEntry((yield* state.read(home)).docs[session.id], mtime, at);
-    const entry =
-      input.action === "read"
-        ? markRead(at, mtime, prevEntry.progress)
-        : input.action === "unread"
-          ? markUnread(at, mtime)
-          : withProgress(input.progress, at, mtime, prevEntry.status);
+    const entry = input.action === "read" ? markRead(at, mtime, prevEntry.progress) : markUnread(at, mtime);
     yield* state.set(home, session.id, entry);
     return { docs: { [session.id]: { status: entry.status, progress: entry.progress } } };
   });

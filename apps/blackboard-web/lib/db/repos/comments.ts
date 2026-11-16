@@ -1,17 +1,15 @@
 import { Context, Effect, Layer } from "effect";
 import { asc, eq } from "drizzle-orm";
 import { Db } from "../client";
-import { comments, reviews } from "../schema";
+import { comments } from "../schema";
 import type { DbFailure } from "../../effect/errors";
 
 /** A comment row; `replies` is its flat thread, stored as JSON and always read/written whole. */
 export type CommentRow = typeof comments.$inferSelect;
 export type CommentInput = Omit<CommentRow, "replies"> & { replies?: CommentRow["replies"] };
-export type ReviewRow = typeof reviews.$inferSelect;
-
 const now = () => new Date().toISOString();
 
-/** The comments and reviews tables: one doc's review surface. */
+/** The comments table: one doc's review surface. */
 export class CommentsRepo extends Context.Service<
   CommentsRepo,
   {
@@ -24,8 +22,6 @@ export class CommentsRepo extends Context.Service<
     /** Whole-row rewrite for changes that are not a body edit: replies, status fields. */
     updateRow(home: string, row: CommentRow): Effect.Effect<CommentRow | null, DbFailure>;
     remove(home: string, id: string): Effect.Effect<CommentRow | null, DbFailure>;
-    addReview(home: string, review: ReviewRow): Effect.Effect<ReviewRow, DbFailure>;
-    listReviews(home: string, documentId: string): Effect.Effect<ReviewRow[], DbFailure>;
   }
 >()("blackboard/CommentsRepo") {}
 
@@ -83,13 +79,6 @@ export const layer = Layer.effect(
           if (c) d.delete(comments).where(eq(comments.id, id)).run();
           return c;
         }),
-      addReview: (home, review) =>
-        db.use(home, (d) => {
-          d.insert(reviews).values(review).run();
-          return review;
-        }),
-      listReviews: (home, documentId) =>
-        db.use(home, (d) => d.select().from(reviews).where(eq(reviews.documentId, documentId)).orderBy(asc(reviews.createdAt)).all()),
     });
   }),
 );

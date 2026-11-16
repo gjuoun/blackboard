@@ -7,7 +7,6 @@ import {
   markRead,
   markUnread,
   unreadEntry,
-  withProgress,
   type ReadingEntry,
   type WorkspaceDoc,
 } from "./reading-model";
@@ -30,27 +29,13 @@ const doc = (id: string, status: ReadingEntry["status"], over: Partial<Workspace
   ...over,
 });
 
-describe("progress", () => {
+describe("scroll position", () => {
   test("clamps to 0..1 with three decimals", () => {
     expect(clampProgress(0.4267)).toBe(0.427);
     expect(clampProgress(-1)).toBe(0);
     expect(clampProgress(2)).toBe(1);
     expect(clampProgress("0.5")).toBe(0);
     expect(clampProgress(Number.NaN)).toBe(0);
-  });
-
-  test("any position is reading — the bottom never marks a document read", () => {
-    expect(withProgress(0.15, at, 1)).toEqual({ status: "reading", progress: 0.15, readAt: at, sourceMtime: 1 });
-    expect(withProgress(0.5, at, 1).status).toBe("reading");
-    expect(withProgress(0.9, at, 1).status).toBe("reading");
-    expect(withProgress(0.98, at, 1)).toEqual({ status: "reading", progress: 0.98, readAt: at, sourceMtime: 1 });
-    expect(withProgress(1, at, 1).status).toBe("reading");
-  });
-
-  test("a document already read stays read when it is scrolled", () => {
-    expect(withProgress(0.2, at, 1, "read")).toEqual({ status: "read", progress: 0.2, readAt: at, sourceMtime: 1 });
-    expect(withProgress(0.2, at, 1, "reading").status).toBe("reading");
-    expect(withProgress(0.2, at, 1, "unread").status).toBe("reading");
   });
 
   test("mark read keeps the stored position, mark unread clears it", () => {
@@ -66,27 +51,31 @@ describe("effective entry", () => {
   });
 
   test("a record written for the same mtime still applies", () => {
-    expect(effectiveEntry(entry("reading", 0.4, 42), 42, at)).toMatchObject({ status: "reading", progress: 0.4 });
+    expect(effectiveEntry(entry("read", 0.4, 42), 42, at)).toMatchObject({ status: "read", progress: 0.4 });
+  });
+
+  test("a record written before the third state retired reads as read", () => {
+    const legacy = { ...entry("read", 0.4, 42), status: "reading" as unknown as ReadingEntry["status"] };
+    expect(effectiveEntry(legacy, 42, at)).toMatchObject({ status: "read", progress: 0.4 });
   });
 
   test("an edited document goes back to unread with no progress", () => {
-    expect(effectiveEntry(entry("reading", 0.4, 41), 42, at)).toMatchObject({ status: "unread", progress: 0, sourceMtime: 42 });
+    expect(effectiveEntry(entry("read", 0.4, 41), 42, at)).toMatchObject({ status: "unread", progress: 0, sourceMtime: 42 });
     expect(effectiveEntry(entry("read", 1, 41), 42, at).status).toBe("unread");
   });
 });
 
 describe("counts and filters", () => {
-  const docs = [doc("a", "unread"), doc("b", "reading", { progress: 0.4 }), doc("c", "read"), doc("d", "unread", { repo: null, branch: null, location: "/notes/d.md" })];
+  const docs = [doc("a", "unread"), doc("b", "read", { progress: 0.4 }), doc("c", "read"), doc("d", "unread", { repo: null, branch: null, location: "/notes/d.md" })];
 
-  test("counts every state and the total", () => {
-    expect(countStatuses(docs)).toEqual({ total: 4, unread: 2, reading: 1, read: 1 });
-    expect(countStatuses([])).toEqual({ total: 0, unread: 0, reading: 0, read: 0 });
+  test("counts two states and the total", () => {
+    expect(countStatuses(docs)).toEqual({ total: 4, unread: 2, read: 2 });
+    expect(countStatuses([])).toEqual({ total: 0, unread: 0, read: 0 });
   });
 
   test("the status filter is exclusive; all keeps every state", () => {
     expect(filterDocs(docs, "all").map((d) => d.id)).toEqual(["a", "b", "c", "d"]);
     expect(filterDocs(docs, "unread").map((d) => d.id)).toEqual(["a", "d"]);
-    expect(filterDocs(docs, "reading").map((d) => d.id)).toEqual(["b"]);
   });
 
   test("query and repo narrow the view together", () => {

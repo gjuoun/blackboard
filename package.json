@@ -8,10 +8,11 @@
   ],
   "scripts": {
     "dev": "bun run --cwd apps/blackboard-web dev",
+    "dev:start": "bun run --cwd apps/blackboard-web dev:start",
+    "build:start": "bun run --cwd apps/blackboard-web build:start",
     "build": "bun run --cwd apps/blackboard-web build",
     "build:server": "bun run --cwd apps/blackboard-web build:server",
     "build:cli": "bun run --cwd apps/blackboard-web build:cli",
-    "build:api": "bun run --cwd apps/blackboard-web build:api",
     "typecheck": "bun run --cwd apps/blackboard-web typecheck && bun run --cwd packages/bb-ui typecheck",
     "lint": "bun run --cwd apps/blackboard-web lint",
     "test": "bun test",

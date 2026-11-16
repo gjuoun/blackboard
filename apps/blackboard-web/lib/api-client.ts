@@ -20,8 +20,9 @@ export function apiUrl(home: string): string | null {
   const env = process.env.BLACKBOARD_API_URL;
   if (env) return env.replace(/\/+$/, "");
   const st = readState(home);
-  // A pre-split single-pid record names no API — no URL beats guessing another home's port.
-  return st && "api" in st ? st.api.url.replace(/\/+$/, "") : null;
+  // One process: the API shares the app's port. A two-process record names its own API URL; a
+  // pre-split record names none — no URL beats guessing another home's port.
+  return st && "api" in st ? st.api.url.replace(/\/+$/, "") : st && "ui" in st ? st.ui.url.replace(/\/+$/, "") : null;
 }
 
 const messageOf = (data: unknown, fallback: string): string => {
@@ -60,3 +61,16 @@ export function apiRequest(home: string, method: "GET" | "POST" | "PATCH" | "DEL
 export const apiGet = (home: string, path: string) => apiRequest(home, "GET", path);
 export const apiPost = (home: string, path: string, body: unknown) => apiRequest(home, "POST", path, body);
 export const apiPatch = (home: string, path: string, body: unknown) => apiRequest(home, "PATCH", path, body);
+
+/** The API origin a server component talks to: the home's recorded server, else the app's own port. */
+const apiOrigin = (home: string): string => apiUrl(home) ?? (process.env.BLACKBOARD_URL ?? "http://127.0.0.1:38770").replace(/\/+$/, "");
+
+/** A GET from the API for a server component. A failed call throws, so the page shows its error boundary. */
+export async function apiGetJson<T>(home: string, path: string): Promise<T> {
+  const res = await fetch(`${apiOrigin(home)}${path}`, { cache: "no-store" });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? `API ${path} answered ${res.status}`);
+  }
+  return (await res.json()) as T;
+}

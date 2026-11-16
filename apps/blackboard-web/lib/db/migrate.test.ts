@@ -36,7 +36,6 @@ const seed = (home: string) => {
           { id: "c_2", general: true, body: "g", author: "jun", createdAt: "2026-11-02T02:00:00Z", status: "resolved", resolvedAt: "2026-11-02T03:00:00Z", resolvedBy: "jun", replies: [] },
         ],
       },
-      reviews: [{ id: "v_1", doc: "a.md", round: 1, body: "done", author: "agent", createdAt: "2026-11-02T04:00:00Z", verdict: "commented" }],
     }),
   );
   // a closed session: comments survive without a registry row
@@ -69,7 +68,6 @@ describe("migrate", () => {
     expect(r.dry).toBe(true);
     expect(r.documents).toBe(3); // two registry rows + one closed-session stub
     expect(r.comments).toBe(3);
-    expect(r.reviews).toBe(1);
     expect(r.readingState).toBe(1);
     expect(r.agents).toBe(1);
     expect(r.renamed).toEqual([]);
@@ -90,10 +88,8 @@ describe("migrate", () => {
     const st = await run(stats(home));
     expect(st.tables.documents).toBe(3);
     expect(st.tables.comments).toBe(3);
-    expect(st.tables.reviews).toBe(1);
     expect(st.tables.reading_state).toBe(1);
     expect(st.tables.agents).toBe(1);
-    expect(st.tables.blocks).toBe(0);
     expect(st.bytes).toBeGreaterThan(0);
 
     // row content survived: replies JSON, quote anchor, closed-session stub

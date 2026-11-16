@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Context, Effect, Layer } from "effect";
 import { CommentsStore } from "./comments-store";
@@ -8,9 +8,9 @@ import type { DocMeta } from "./doc-meta";
 import { errorMessage, IoFailure, type DbFailure, type LockTimeout } from "./effect/errors";
 import { Db } from "./db/client";
 import { docMetaFromRow, indexIfNeeded, indexedBody, latestOf } from "./doc-read";
-import { checkDoc, realDoc, SCRATCHPAD_ID, SessionError, tildify, type Session } from "./session-model";
+import { checkDoc, realDoc, SessionError, tildify, type Session } from "./session-model";
 
-export { realDoc, SCRATCHPAD_ID, servablePath, SessionError, tildify, type Session } from "./session-model";
+export { realDoc, servablePath, SessionError, tildify, type Session } from "./session-model";
 
 /**
  * The session registry, backed by the documents table. The file rules a session must pass live in
@@ -70,7 +70,6 @@ const toSession = (row: DocRow): Session => ({
   path: row.path ?? "",
   createdAt: row.createdAt,
   openedAt: row.openedAt,
-  ...(row.kind ? { kind: row.kind } : {}),
 });
 
 /** The session registry, backed by the documents table. */
@@ -82,7 +81,6 @@ export class SessionsStore extends Context.Service<
     open(home: string, file: string, cwd?: string): Effect.Effect<Session, IoFailure | LockTimeout>;
     close(home: string, id: string): Effect.Effect<Session, IoFailure | LockTimeout>;
     resolve(home: string, idOrPath: string, cwd?: string): Effect.Effect<Session | null, IoFailure | LockTimeout>;
-    scratchpad(home: string): Effect.Effect<Session, IoFailure | LockTimeout>;
     row(home: string, session: Session): Effect.Effect<SessionRow, IoFailure>;
     rows(home: string): Effect.Effect<SessionRow[], IoFailure | LockTimeout>;
     /** The markdown a document was indexed from, or null when there is none to read (missing file, or never indexed). */
@@ -125,7 +123,7 @@ export const layer = Layer.effect(
           project: m.project,
           missing: m.missing,
           stats: m.stats,
-          location: s.kind === "stream" ? "stream" : m.repo ? `${m.repo.name}/${m.repo.relPath}` : tildify(s.path),
+          location: m.repo ? `${m.repo.name}/${m.repo.relPath}` : tildify(s.path),
           updatedAt: latestOf(m.updatedAt, indexed.latestCommentAt) ?? s.openedAt,
           open,
           srcMtime: indexed.srcSize === -1 ? null : indexed.srcMtime,
@@ -167,22 +165,6 @@ export const layer = Layer.effect(
           const checked = checkDoc(idOrPath, cwd);
           if (!checked.ok) return null;
           return yield* get(home, sessionId(checked.path));
-        }),
-      scratchpad: (home) =>
-        Effect.gen(function* () {
-          const file = join(home, "scratchpad.md");
-          yield* Effect.sync(() => mkdirSync(home, { recursive: true }));
-          const created = Effect.try({
-            try: () => writeFileSync(file, "# Scratchpad\n", { flag: "wx" }),
-            catch: (error) => error as NodeJS.ErrnoException,
-          });
-          yield* created.pipe(
-            Effect.catchIf((error) => error.code === "EEXIST", () => Effect.void),
-            Effect.catch((error) => Effect.fail(failure(error))),
-          );
-          const existing = yield* get(home, SCRATCHPAD_ID);
-          if (existing) return existing;
-          return yield* docs.upsert(home, { id: SCRATCHPAD_ID, path: realpathSync(file) }).pipe(Effect.map(toSession), Effect.mapError(failure));
         }),
       rows: (home) =>
         Effect.gen(function* () {

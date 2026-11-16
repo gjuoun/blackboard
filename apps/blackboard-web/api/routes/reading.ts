@@ -8,7 +8,7 @@ import { respond } from "../respond";
 
 export const reading = new Hono();
 
-/** POST /api/reading {session, action, progress?} — one document's state change, or read-all. */
+/** POST /api/reading {session, action} — one document's read or unread mark. */
 reading.post("/", (c) =>
   respond(
     Effect.gen(function* () {
@@ -16,7 +16,7 @@ reading.post("/", (c) =>
       if (raw === null) return yield* Effect.fail(sessionNotFound(400));
       const body = yield* decodeBody(ReadingPostBody, raw, readingReject);
       if (!body.action) return yield* Effect.fail(new InvalidInput({ message: "unknown action", status: 400, field: "action" }));
-      return yield* applyReading(getHome(), { session: body.session, action: body.action, progress: body.progress });
+      return yield* applyReading(getHome(), { session: body.session, action: body.action });
     }),
   ),
 );

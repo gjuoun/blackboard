@@ -1,11 +1,11 @@
 import { Context, Effect, Layer } from "effect";
 import type { QuoteSelector } from "./anchor";
-import { commentId, replyId, reviewId, type Comment, type CommentFile, type Review } from "./comments-file";
+import { commentId, replyId, type Comment, type CommentFile } from "./comments-file";
 import { ChangeBus } from "./change-bus";
-import { CommentsRepo, type CommentRow, type ReviewRow } from "./db/repos/comments";
+import { CommentsRepo, type CommentRow } from "./db/repos/comments";
 import { ContentBlocksRepo } from "./db/repos/content-blocks";
 import { IoFailure, type ApiFailure } from "./effect/errors";
-export type { Comment, CommentFile, Review, Reply } from "./comments-file";
+export type { Comment, CommentFile, Reply } from "./comments-file";
 export { readComments } from "./comments-file";
 
 /**
@@ -35,22 +35,12 @@ const toComment = (row: CommentRow): Comment => {
   return c;
 };
 
-const toReview = (row: ReviewRow): Review => ({
-  id: row.id,
-  doc: row.doc,
-  round: row.round,
-  body: row.body,
-  author: row.author,
-  createdAt: row.createdAt,
-  verdict: "commented",
-});
-
 type Anchor = { quote: QuoteSelector } | { general: true };
 
 export class CommentsStore extends Context.Service<
   CommentsStore,
   {
-    /** The session's comments and reviews as a CommentFile: `docs` keyed by doc basename. */
+    /** The session's comments as a CommentFile: `docs` keyed by doc basename. */
     read(home: string, sessionId: string): Effect.Effect<CommentFile, ApiFailure>;
     /** Open comments across the session — the session row's count. */
     countOpen(home: string, sessionId: string): Effect.Effect<number, ApiFailure>;
@@ -63,8 +53,6 @@ export class CommentsStore extends Context.Service<
     editReply(home: string, id: string, rId: string, doc: string, body: string): Effect.Effect<Comment, ApiFailure>;
     deleteReply(home: string, id: string, rId: string, doc: string): Effect.Effect<Comment, ApiFailure>;
     setStatus(home: string, id: string, doc: string, status: "open" | "resolved", by: string): Effect.Effect<Comment, ApiFailure>;
-    /** Close a round for one doc; refused while an open comment created after the last review has no agent reply. */
-    review(home: string, sessionId: string, doc: string, input: { round: number; body: string; author: string }): Effect.Effect<Review, ApiFailure>;
   }
 >()("blackboard/CommentsStore") {}
 
@@ -112,12 +100,9 @@ export const layer = Layer.effect(
       read: (home, sessionId) =>
         Effect.gen(function* () {
           const rows = yield* repo.list(home, sessionId);
-          const revs = yield* repo.listReviews(home, sessionId);
           const docs: Record<string, Comment[]> = {};
           for (const row of rows) (docs[row.doc] ??= []).push(yield* withBlock(home, row));
-          const file: CommentFile = { version: 1, docs };
-          if (revs.length) file.reviews = revs.map(toReview);
-          return file;
+          return { version: 1, docs };
         }),
       countOpen: (home, sessionId) =>
         repo.list(home, sessionId).pipe(Effect.map((rows) => rows.filter((r) => r.status === "open").length)),
@@ -182,22 +167,6 @@ export const layer = Layer.effect(
         }),
       setStatus: (home, id, doc, status, by) =>
         repo.setStatus(home, id, status, by).pipe(Effect.flatMap((r) => (r ? mark(r).pipe(Effect.as(toComment(r))) : Effect.fail(notFound(id, doc))))),
-      review: (home, sessionId, doc, input) =>
-        Effect.gen(function* () {
-          if (!Number.isInteger(input.round) || input.round < 1) {
-            return yield* Effect.fail(new IoFailure({ message: "round must be a whole number from 1", status: 500 }));
-          }
-          const rows = yield* repo.list(home, sessionId);
-          const revs = yield* repo.listReviews(home, sessionId);
-          const last = revs.filter((r) => r.doc === doc).reduce((m, r) => Math.max(m, Date.parse(r.createdAt)), 0);
-          const pending = rows.filter((r) => r.doc === doc && r.status === "open" && Date.parse(r.createdAt) > last && !r.replies.some((x) => x.author === "agent"));
-          if (pending.length > 0) {
-            return yield* Effect.fail(new IoFailure({ message: `no reply from agent on ${pending.length} open comment(s), e.g. ${pending[0].id}`, status: 500 }));
-          }
-          const review: ReviewRow = { id: reviewId(), documentId: sessionId, doc, round: input.round, body: input.body, author: input.author, createdAt: now(), verdict: "commented" };
-          yield* mark({ documentId: sessionId });
-          return toReview(yield* repo.addReview(home, review));
-        }),
     });
   }),
 );

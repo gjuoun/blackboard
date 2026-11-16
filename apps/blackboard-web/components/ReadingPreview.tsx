@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useNav } from "./nav";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@gjuoun/bb-ui/lib/utils";
 import type { PreviewData, WorkspaceDoc } from "@/lib/reading-model";
@@ -25,11 +25,11 @@ export type ReadingPreviewProps = {
   resume: boolean;
   onClose: () => void;
   onMark: (id: string, action: "read" | "unread") => void;
-  onProgress: (progress: number) => void;
   onReply: (text: string) => Promise<boolean>;
 };
 
-export function ReadingPreview({ doc, preview, loading, error, resume, onClose, onMark, onProgress, onReply }: ReadingPreviewProps) {
+export function ReadingPreview({ doc, preview, loading, error, resume, onClose, onMark, onReply }: ReadingPreviewProps) {
+  const { Link } = useNav();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -138,11 +138,6 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
       <div
         ref={bodyRef}
         data-testid="rw-preview-body"
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          const max = el.scrollHeight - el.clientHeight;
-          onProgress(max > 4 ? el.scrollTop / max : 1);
-        }}
         className="min-h-0 flex-1 overflow-auto px-[18px] pb-2.5"
         onClick={() => menuOpen && setMenuOpen(false)}
       >

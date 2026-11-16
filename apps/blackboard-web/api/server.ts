@@ -2,8 +2,9 @@ import { app } from "./app";
 import { apiServeOptions } from "./serve-options";
 
 /**
- * The API process entry point. Bun only — storage is bun:sqlite. `blackboard serve` spawns this
- * file (or the bundled dist/api.mjs); dev can run `bun api/server.ts` directly.
+ * The API process entry point, dev only. Bun only — storage is bun:sqlite. The production app mounts
+ * the same `app` in-process (`bun .output/server/index.mjs`); this file is what `vite dev` runs
+ * alongside so `BLACKBOARD_API_URL` has somewhere to forward.
  */
 
 const DEFAULT_PORT = 38771;

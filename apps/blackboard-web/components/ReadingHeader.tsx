@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { WorkspaceCounts } from "@/lib/reading-model";
 import { VIEW_FILTERS, type WorkspaceView } from "./WorkspaceTabBar";
 
-const VIEW_TITLES: Record<WorkspaceView, string> = { all: "Inbox", unread: "Inbox", reading: "Inbox", new: "New", settings: "Settings" };
+const VIEW_TITLES: Record<WorkspaceView, string> = { all: "Inbox", unread: "Inbox", settings: "Settings" };
 
 /**
  * The workspace header on a phone: the view's brand, the live counts and a search icon that
@@ -47,7 +47,7 @@ export function ReadingHeader({
         </span>
         <span className="flex-1" />
         <span data-testid="rw-count-line-mobile" className="text-muted-foreground font-mono text-[10.5px] whitespace-nowrap">
-          {view === "settings" ? "Global" : `${counts.unread} unread · ${counts.reading} reading`}
+          {view === "settings" ? "Global" : `${counts.unread} unread`}
         </span>
         {VIEW_FILTERS[view] !== undefined ? (
         <button

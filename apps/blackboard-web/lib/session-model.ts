@@ -1,6 +1,5 @@
 import { existsSync, lstatSync, realpathSync, statSync } from "node:fs";
 import { basename, resolve } from "node:path";
-import { CODE_EXTENSIONS, CODE_MAX_BYTES, extOf, servableExtension } from "./doc-type";
 import { expandHome } from "./home";
 
 /**
@@ -8,9 +7,7 @@ import { expandHome } from "./home";
  * them. The UI imports this module, so it must not reach `blackboard.db`; the store lives in
  * `sessions.ts`.
  */
-export type Session = { id: string; path: string; createdAt: string; openedAt: string; kind?: string };
-
-export const SCRATCHPAD_ID = "scratchpad";
+export type Session = { id: string; path: string; createdAt: string; openedAt: string };
 
 export class SessionError extends Error {}
 
@@ -32,10 +29,7 @@ export function checkDoc(file: string, cwd: string): Checked {
   }
   const real = realpathSync(/*turbopackIgnore: true*/ abs);
   const entryReal = statSync(real, { throwIfNoEntry: false });
-  if (!entryReal || !entryReal.isFile() || !servableExtension(real)) return { ok: false, error: new SessionError(`not a markdown file: ${abs}`) };
-  // The 1 MB cap is for source files; a markdown doc is not capped.
-  const isCode = (CODE_EXTENSIONS as readonly string[]).includes(extOf(real));
-  if (isCode && entryReal.size > CODE_MAX_BYTES) return { ok: false, error: new SessionError(`over 1 MB: ${abs}`) };
+  if (!entryReal || !entryReal.isFile() || !real.toLowerCase().endsWith(".md")) return { ok: false, error: new SessionError(`not a markdown file: ${abs}`) };
   return { ok: true, path: real };
 }
 
@@ -46,20 +40,17 @@ export function realDoc(file: string, cwd = process.cwd()): string {
 }
 
 /**
- * The key a session's comments are filed under: the file's basename for a file session, the
- * session id for a streamed doc (it has no file). One rule for every face that files comments.
+ * The key a session's comments are filed under: the file's basename.
  */
 export function docKey(s: Session): string {
-  return s.kind === "stream" ? s.id : basename(s.path);
+  return basename(s.path);
 }
 
 /**
  * The session file if it can still be served: it exists, is markdown, and still realpaths to
- * itself (a file swapped for a symlink to somewhere else is refused). Null otherwise — and always
- * null for a streamed doc, whose markdown lives in the database, not on disk.
+ * itself (a file swapped for a symlink to somewhere else is refused). Null otherwise.
  */
 export function servablePath(s: Session): string | null {
-  if (s.kind === "stream") return null;
   const checked = checkDoc(s.path, process.cwd());
   return checked.ok && checked.path === s.path ? s.path : null;
 }

@@ -165,29 +165,6 @@ describe("the wire the api answers today", () => {
     await record("comment-images.GET.not-stored", await image("0".repeat(64) + ".png"));
     await record("comment-images.GET.ok", await image(imageId));
 
-    // streamed documents: create one, write an exchange, read it back, export the wire shape
-    const postStream = (payload: unknown) => api("/api/stream", json(payload));
-    const postBlock = (payload: unknown) => api("/api/block", json(payload));
-    await record("stream.POST.no-title", await postStream({}));
-    const made = await postStream({ title: "Log" });
-    const { session: streamSession } = (await made.clone().json()) as { session: { id: string } };
-    literals.push([streamSession.id, "<stream>"]);
-    await record("stream.POST.ok", made);
-    await record("block.POST.unknown-session", await postBlock({ session: "nosuchid", action: "answer", body: "x", author: "a" }));
-    await record("block.POST.no-body", await postBlock({ session: streamSession.id, action: "answer", body: " ", author: "a" }));
-    await record("block.POST.bad-action", await postBlock({ session: streamSession.id, action: "nope", body: "x", author: "a" }));
-    await record("block.POST.not-a-stream", await postBlock({ session: fx.session, action: "answer", body: "x", author: "a" }));
-    const firstBlock = await postBlock({ session: streamSession.id, action: "answer", body: "hello", author: "agent" });
-    const { block } = (await firstBlock.clone().json()) as { block: { id: string } };
-    literals.push([block.id, "<block>"]);
-    await record("block.POST.ok", firstBlock);
-    await record("block.POST.edit", await postBlock({ session: streamSession.id, edit: block.id, body: "hello again", author: "agent" }));
-    await record("block.POST.writing", await postBlock({ session: streamSession.id, action: "append", body: "draft", author: "jun", status: "writing" }));
-    await record("session.GET.stream", await api(`/api/session?id=${streamSession.id}`));
-    await record("session.GET.stream-range", await api(`/api/session?id=${streamSession.id}&range=0:0`));
-    await record("stream-blocks.GET.ok", await api(`/api/stream-blocks?id=${streamSession.id}&from=0&to=1&vh=900`));
-    await record("stream-blocks.GET.bad-range", await api(`/api/stream-blocks?id=${streamSession.id}&from=2&to=1`));
-
     await record("watch.GET.unknown-session", await api("/api/watch?session=nosuchid"));
     const abort = new AbortController();
     const stream = await api(`/api/watch?session=${fx.session}`, { signal: abort.signal });

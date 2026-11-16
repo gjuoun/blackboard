@@ -1,7 +1,7 @@
 import { CJK_IDS, LATIN_IDS, MONO_IDS, type CjkId, type LatinId, type MonoId } from "./prefs";
 
 /**
- * The pickers' vocabulary. Stacks live in `styles/fonts.css` (one `[data-font-*="id"]` rule per entry)
+ * The pickers' vocabulary. Stacks live in `src/styles/fonts.css` (one `[data-font-*="id"]` rule per entry)
  * so the boot script and the panel only ever write an attribute; `postscript` is what the
  * "installed?" hint probes with a local() FontFace, and an entry without one simply shows no hint.
  *

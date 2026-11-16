@@ -1,12 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { run } from "../test/app";
 import { CommentsStore } from "./comments-store";
-import { realDoc, SCRATCHPAD_ID, servablePath, sessionCommentsPath, SessionsStore, type Session } from "./sessions";
-import { StreamsStore } from "./stream-store";
+import { realDoc, servablePath, sessionCommentsPath, SessionsStore, type Session } from "./sessions";
 
 /** The registry operations as the app runs them. Every test here is single process. */
 const withStore = <A>(work: (store: SessionsStore["Service"]) => Effect.Effect<A, { message: string }>): Promise<A> =>
@@ -21,7 +20,6 @@ const closeSession = (home: string, id: string): Promise<Session> => withStore((
 const listSessions = (home: string): Promise<Session[]> => withStore((s) => s.list(home));
 const getSession = (home: string, id: string): Promise<Session | null> => withStore((s) => s.get(home, id));
 const resolveSession = (home: string, ref: string, cwd = process.cwd()): Promise<Session | null> => withStore((s) => s.resolve(home, ref, cwd));
-const scratchpadSession = (home: string): Promise<Session> => withStore((s) => s.scratchpad(home));
 
 /** A temp home plus a few docs: one in a nested folder, a non-markdown file, a symlink to a doc. */
 function fixture() {
@@ -50,18 +48,12 @@ describe("realDoc", () => {
     expect(() => realDoc(join(docs, "sneaky.md"))).toThrow(/not a markdown file/);
   });
 
-  test("realDoc: jsonl is refused, code is servable", () => {
+  test("realDoc: non-markdown files are refused — code too", () => {
     const { docs } = fixture();
     writeFileSync(join(docs, "log.jsonl"), "{}\n");
     writeFileSync(join(docs, "app.tsx"), "export {};\n");
     expect(() => realDoc(join(docs, "log.jsonl"))).toThrow(/not a markdown file/);
-    expect(realDoc(join(docs, "app.tsx"))).toBe(join(docs, "app.tsx"));
-  });
-
-  test("realDoc: source over 1 MB refused", () => {
-    const { docs } = fixture();
-    writeFileSync(join(docs, "big.ts"), "x".repeat(1024 * 1024 + 1));
-    expect(() => realDoc(join(docs, "big.ts"))).toThrow(/over 1 MB/);
+    expect(() => realDoc(join(docs, "app.tsx"))).toThrow(/not a markdown file/);
   });
 });
 
@@ -100,12 +92,7 @@ describe("openSession", () => {
     expect((await openSession(home, join(docs, "alias.md"))).id).toBe((await openSession(home, join(docs, "design.md"))).id);
   });
 
-  test("a new session records no kind", async () => {
-    const { home, docs } = fixture();
-    const s = await openSession(home, join(docs, "design.md"));
-    expect(s.kind).toBeUndefined();
-    expect((await getSession(home, s.id))?.kind).toBeUndefined();
-  });
+
 });
 
 describe("lazy freshness", () => {
@@ -189,54 +176,4 @@ describe("sessionCommentsPath", () => {
   });
 });
 
-describe("scratchpadSession", () => {
-  test("scratchpad is created once", async () => {
-    const { home } = fixture();
-    const a = await scratchpadSession(home);
-    expect(a.id).toBe(SCRATCHPAD_ID);
-    expect(readFileSync(join(home, "scratchpad.md"), "utf8")).toBe("# Scratchpad\n");
-    writeFileSync(join(home, "scratchpad.md"), "# Scratchpad\n\nmy notes\n");
-    const b = await scratchpadSession(home);
-    expect(b.createdAt).toBe(a.createdAt);
-    expect(readFileSync(join(home, "scratchpad.md"), "utf8")).toContain("my notes");
-    expect((await listSessions(home)).filter((s) => s.id === SCRATCHPAD_ID)).toHaveLength(1);
-  });
-});
 
-describe("stream sessions", () => {
-  const openStream = (home: string, title = "Log") =>
-    run(
-      Effect.gen(function* () {
-        const streams = yield* StreamsStore;
-        return yield* streams.create(home, title);
-      }),
-    );
-
-  test("a stream session lists, resolves by id, and its row is never missing", async () => {
-    const { home } = fixture();
-    const s = await openStream(home, "Log");
-    expect(s.path).toBe("");
-    expect((await resolveSession(home, s.id))?.kind).toBe("stream");
-    const row = await withStore((store) => store.row(home, s));
-    expect(row.missing).toBe(false);
-    expect(row.title).toBe("Log");
-    expect(row.location).toBe("stream");
-    expect(row.repo).toBeNull();
-    const rows = await withStore((store) => store.rows(home));
-    expect(rows.map((r) => r.id)).toContain(s.id);
-  });
-
-  test("a stream row's updatedAt follows its newest block", async () => {
-    const { home } = fixture();
-    const s = await openStream(home);
-    const before = (await withStore((store) => store.row(home, s))).updatedAt;
-    await run(
-      Effect.gen(function* () {
-        const streams = yield* StreamsStore;
-        yield* streams.append(home, s.id, { action: "answer", body: "hi", author: "agent" });
-      }),
-    );
-    const after = (await withStore((store) => store.row(home, s))).updatedAt;
-    expect(Date.parse(after)).toBeGreaterThanOrEqual(Date.parse(before));
-  });
-});

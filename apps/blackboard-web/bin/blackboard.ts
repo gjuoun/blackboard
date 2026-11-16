@@ -7,11 +7,10 @@
 import { spawn } from "node:child_process";
 import { parseArgs } from "node:util";
 import { Cause, Effect, Exit, Result } from "effect";
-import { CliError, cliFailure, formatComments, formatSessions } from "../lib/cli";
-import { BlockArgs, CommentArgs, decodeArgs, HeaderArgs, MigrateArgs, ReviewArgs } from "../lib/cli/args";
+import { CliError, formatComments, formatSessions } from "../lib/cli";
+import { CommentArgs, decodeArgs, MigrateArgs } from "../lib/cli/args";
 import * as commentsCli from "../lib/cli/comments";
 import * as dbCli from "../lib/cli/db";
-import * as streamsCli from "../lib/cli/streams";
 import * as blocksCli from "../lib/cli/blocks";
 import { layer as dbLayer } from "../lib/db/client";
 import { layer as lockLayer } from "../lib/lock";
@@ -37,12 +36,8 @@ Usage:
   blackboard reopen   <session> <comment-id>
   blackboard comment  <session> --quote <passage> [--occurrence <n>] <note>
   blackboard comment  <session> --general <note>
-  blackboard review   <session> --round <n> <body>
-  blackboard stream   <title>                        create a streamed document, print "<id>  <url>"
-  blackboard block    <session> --action answer|edit|append [--status writing] [--images a,b] <text|->
-                                                 write an exchange; --edit <block-id> <text|-> rewrites a block
-  blackboard header   <session> [--title <t>]        show a stream's header; --title renames it
-  blackboard export   <session>                      print the stream as markdown, one section per exchange
+  blackboard blocks   <session>                      list a document's content blocks
+  blackboard patch    <session> --id <block> --new <text> [--old <old>]   splice one block's text
   blackboard db       migrate [--dry-run] | stats | reindex [--force]   move the JSON stores into blackboard.db / show its contents / index the documents
 
 <session> is a session id or a path to the registered file.
@@ -52,16 +47,15 @@ Options:
   --home <dir>     Blackboard's folder (default: $BLACKBOARD_HOME or ~/.blackboard)
   --author <name>  name on what you write (default: $BLACKBOARD_AUTHOR or "agent")
   --json           machine-readable output
-  --round <n>      review: the round this verdict reports on
-  --action <a>     block: answer (default), edit or append; edit carries the corrected whole document
-  --status writing block: mark the exchange still open (closed by the next block)
-  --edit <id>      block: rewrite an existing block's body instead of appending
-  --images <list>  block: comma-separated image ids
-  --title <t>      stream/header: the document title
+  --id <id>        patch: the content block to rewrite
+  --new <text>     patch: the block's new text
+  --old <text>     patch: the text it must still contain (refuses a stale edit)
+  --title <t>      open: the document title
   --no-browser     open: do not launch the browser (or set BLACKBOARD_NO_BROWSER=1)
   --dry-run        db migrate: count what would move, touch nothing
   --no-server      open: do not start the web app (or set BLACKBOARD_NO_SERVER=1)
   --port <n>       serve start / restart: port to listen on (default: from $BLACKBOARD_URL, else 38770)
+                 (the API shares it — there is no second port)
   --foreground     serve start: run in this terminal until Ctrl-C
   --version        print the version
 
@@ -129,7 +123,6 @@ const OPTIONS = {
   force: { type: "boolean" },
   "no-server": { type: "boolean" },
   port: { type: "string" },
-  "api-port": { type: "string" },
   foreground: { type: "boolean" },
   version: { type: "boolean", short: "v" },
   help: { type: "boolean", short: "h" },
@@ -174,12 +167,12 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
       case "serve": {
         const sub = args[0] ?? "status";
         if (sub === "start") {
-          if (o.foreground) return yield* serverCall(() => server.runForeground(home, { port: o.port, apiPort: o["api-port"] }));
+          if (o.foreground) return yield* serverCall(() => server.runForeground(home, { port: o.port }));
           // Move any pre-SQLite JSON stores into blackboard.db before the API answers — once,
           // idempotently. A failing migration must not leave a half-started pair behind. The cheap
           // "any sources left" check keeps a Node CLI off the bun:sqlite path entirely.
           yield* migrateIfSources(home);
-          const r = yield* serverCall(() => server.start(home, { port: o.port, apiPort: o["api-port"] }));
+          const r = yield* serverCall(() => server.start(home, { port: o.port }));
           print(r, r.started ? `started — ${server.formatStatus(r)}` : `already ${server.formatStatus(r)}`);
           return 0;
         }
@@ -190,7 +183,7 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
         }
         if (sub === "restart") {
           yield* migrateIfSources(home);
-          const r = yield* serverCall(() => server.restart(home, { port: o.port, apiPort: o["api-port"] }));
+          const r = yield* serverCall(() => server.restart(home, { port: o.port }));
           print(r, `restarted — ${server.formatStatus(r)}`);
           return 0;
         }
@@ -254,42 +247,6 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
         }
         return yield* dbCli.dbUsage();
       }
-      case "stream": {
-        yield* need(1, "stream <title>");
-        const created = yield* streamsCli.stream(home, args.join(" "));
-        print({ ...created.session, url: created.url }, `${created.session.id}  ${created.url}`);
-        return 0;
-      }
-      case "block": {
-        // Text is the rest of the argv, or stdin when the text is "-".
-        yield* need(1, "block <session> --action answer|edit|append [--status writing] [--images a,b] <text|->");
-        const opts = yield* decodeArgs(BlockArgs, { action: o.action, status: o.status, edit: o.edit, images: o.images });
-        const raw = args.slice(1).join(" ");
-        const text = raw === "-" ? yield* Effect.tryPromise({
-          try: () => new Response(Bun.stdin.stream()).text(),
-          catch: (error) => cliFailure({ message: errorMessage(error) }),
-        }) : raw;
-        const images = opts.images ? opts.images.split(",").map((s) => s.trim()).filter(Boolean) : undefined;
-        if (opts.edit !== undefined) {
-          const e = yield* streamsCli.editBlock(home, args[0], opts.edit, text, opts.status);
-          print(e, `block ${e.id} rewritten in ${e.session}
-${e.url}`);
-          return 0;
-        }
-        const b = yield* streamsCli.appendBlock(home, args[0], {
-          action: opts.action ?? "answer", text, author, images, status: opts.status,
-        });
-        print(b, `block ${b.n} (${b.id}) appended to ${b.session}
-${b.url}`);
-        return 0;
-      }
-      case "header": {
-        yield* need(1, "header <session> [--title <t>]");
-        const opts = yield* decodeArgs(HeaderArgs, { title: o.title, owner: o.owner });
-        const h = yield* streamsCli.header(home, args[0], opts);
-        print(h, streamsCli.formatHeader(h));
-        return 0;
-      }
       case "blocks": {
         yield* need(1, "blocks <session>");
         const list = yield* blocksCli.blocks(home, args[0]);
@@ -304,20 +261,6 @@ ${b.url}`);
         if (!next) return yield* new CliError({ message: "patch needs --new <text>", code: 2 });
         const r = yield* blocksCli.patch(home, args[0], { id, old: o.old, next, author });
         print(r, `block ${r.blockId} → rev${r.rev}`);
-        return 0;
-      }
-      case "export": {
-        yield* need(1, "export <session>");
-        const md = yield* streamsCli.exportBlocks(home, args[0]);
-        if (o.json) console.log(JSON.stringify({ markdown: md }));
-        else process.stdout.write(md);
-        return 0;
-      }
-      case "review": {
-        yield* need(1, "review <session> --round <n> <body>");
-        const opts = yield* decodeArgs(ReviewArgs, { round: o.round });
-        const r = yield* commentsCli.review(home, args[0], opts.round, args.slice(1).join(" "), author);
-        print(r, `review ${r.id} for round ${r.round} on ${r.doc}: ${r.verdict}`);
         return 0;
       }
       case "comment": {

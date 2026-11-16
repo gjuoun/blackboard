@@ -3,6 +3,10 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { formatStatus, probe, readState, status, writeState } from "../lib/server-ctl";
+
+/** A two-process-era record, written as the raw file — writeState only produces the current shape. */
+const writePair = (home: string, ui: { pid: number; url: string; startedAt: string }, api: { pid: number; url: string; startedAt: string }) =>
+  writeFileSync(join(home, "server.json"), JSON.stringify({ ui, api }) + "\n");
 import { bigHome, slowServer, tmp } from "../test/serve-fixture";
 
 describe("status with a live server", () => {
@@ -14,7 +18,7 @@ describe("status with a live server", () => {
       expect(await probe(url)).toBe(true);
       expect(await status(home, url)).toEqual({ running: true, url, managed: false });
       const dead = { pid: 2 ** 22 + 12345, url, startedAt: "2026-01-01T00:00:00.000Z" };
-      writeState(home, { ui: dead, api: dead });
+      writeState(home, { ui: dead });
       expect(await status(home, url)).toEqual({ running: true, url, managed: false });
       expect(readState(home)).toBeNull();
     } finally {
@@ -29,18 +33,34 @@ describe("status with a live server", () => {
       server.stop(true);
     }
   });
-  test("a pair with one process gone reads as partial and keeps its record, so stop can still reach the survivor", async () => {
+  test("a recorded process whose pid is gone reads as not running and keeps its record", async () => {
+    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => Response.json({ app: "blackboard", version: "x" }) });
+    const url = `http://127.0.0.1:${server.port}`;
+    try {
+      const home = tmp();
+      const dead = { pid: 2 ** 22 + 12345, url, startedAt: "2026-01-01T00:00:00.000Z" };
+      writeState(home, { ui: dead });
+      const s = await status(home, "http://127.0.0.1:1");
+      expect(s.running).toBe(false);
+      expect(formatStatus(s)).toContain("not running");
+      expect(readState(home)).toBeNull();
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("a two-process record with a live UI reads as running, both pids named", async () => {
     const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => Response.json({ app: "blackboard", version: "x" }) });
     const url = `http://127.0.0.1:${server.port}`;
     try {
       const home = tmp();
       const alive = { pid: process.pid, url, startedAt: "2026-01-01T00:00:00.000Z" };
       const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
-      writeState(home, { ui: alive, api: dead });
+      writePair(home, alive, dead);
       const s = await status(home, "http://127.0.0.1:1");
-      expect(s.running).toBe(false);
-      expect(formatStatus(s)).toContain("one of the pair has stopped");
-      expect(formatStatus(s)).toContain("api: down");
+      expect(s.running).toBe(true);
+      expect(formatStatus(s)).toContain("two-process record");
+      expect(formatStatus(s)).toContain(`api: down (pid ${dead.pid})`);
       expect(readState(home)).not.toBeNull();
     } finally {
       server.stop(true);
@@ -101,22 +121,19 @@ describe("status with a pre-split single-pid record", () => {
   }, 20_000);
 });
 
-describe("a large home: a slow pair keeps its record", () => {
-  test("a slow pair keeps its record in a home with many sessions", async () => {
+describe("a large home: a slow server keeps its record", () => {
+  test("a slow server keeps its record in a home with many sessions", async () => {
     const home = bigHome();
-    const api = slowServer(2600);
     const ui = slowServer(2600);
     try {
-      const apiUrl = `http://127.0.0.1:${api.port}`;
       const uiUrl = `http://127.0.0.1:${ui.port}`;
       const now = new Date().toISOString();
-      writeState(home, { ui: { pid: process.pid, url: uiUrl, startedAt: now }, api: { pid: process.pid, url: apiUrl, startedAt: now } });
+      writeState(home, { ui: { pid: process.pid, url: uiUrl, startedAt: now } });
       const s = await status(home, uiUrl);
-      // Answering in 2.6 s is inside the 5 s health budget: the pair is running, and the record is kept.
+      // Answering in 2.6 s is inside the 5 s health budget: the server is running, and the record is kept.
       expect(readState(home)).not.toBeNull();
       expect(s).toMatchObject({ running: true, managed: true, degraded: [] });
     } finally {
-      api.stop(true);
       ui.stop(true);
     }
   }, 20_000);
@@ -126,40 +143,31 @@ describe("status states: running, degraded, down", () => {
   test("a process that listens but answers after the 5 s budget is degraded, not down", async () => {
     const home = tmp();
     const ui = slowServer(6500);
-    const api = slowServer(6500);
     try {
       const now = new Date().toISOString();
       writeState(home, {
         ui: { pid: process.pid, url: `http://127.0.0.1:${ui.port}`, startedAt: now },
-        api: { pid: process.pid, url: `http://127.0.0.1:${api.port}`, startedAt: now },
       });
       const s = await status(home, "http://127.0.0.1:1");
-      // Both pids are alive and both ports listen; the health route is what is slow. That is degraded, and
-      // the pair is still ours and still reported as running, with the slow processes named.
+      // The pid is alive and the port listens; the health route is what is slow. That is degraded, and
+      // the server is still ours and still reported as running.
       expect(readState(home)).not.toBeNull();
-      expect(s).toMatchObject({ running: true, managed: true, degraded: ["ui", "api"] });
+      expect(s).toMatchObject({ running: true, managed: true, degraded: ["ui"] });
     } finally {
       ui.stop(true);
-      api.stop(true);
     }
   }, 30_000);
 
-  test("a process whose pid is gone is down, and the pair is not running", async () => {
+  test("a process whose pid is gone is down, and the server is not running", async () => {
     const home = tmp();
-    const api = slowServer(0);
-    try {
-      const now = new Date().toISOString();
-      const gone = 2 ** 22 + 12345;
-      writeState(home, {
-        ui: { pid: gone, url: `http://127.0.0.1:${api.port}`, startedAt: now },
-        api: { pid: process.pid, url: `http://127.0.0.1:${api.port}`, startedAt: now },
-      });
-      const s = await status(home, "http://127.0.0.1:1");
-      expect(s).toMatchObject({ running: false, partial: { ui: "down", api: "running" } });
-    } finally {
-      api.stop(true);
-    }
-  }, 30_000);
+    const gone = 2 ** 22 + 12345;
+    const now = new Date().toISOString();
+    writeState(home, {
+      ui: { pid: gone, url: "http://127.0.0.1:1", startedAt: now },
+    });
+    const s = await status(home, "http://127.0.0.1:1");
+    expect(s).toMatchObject({ running: false });
+  });
 
   test("a live pid whose port accepts no connection is down", async () => {
     const home = tmp();
@@ -170,39 +178,36 @@ describe("status states: running, degraded, down", () => {
     const now = new Date().toISOString();
     writeState(home, {
       ui: { pid: process.pid, url: `http://127.0.0.1:${port}`, startedAt: now },
-      api: { pid: process.pid, url: `http://127.0.0.1:${port}`, startedAt: now },
     });
     const s = await status(home, "http://127.0.0.1:1");
-    expect(s).toMatchObject({ running: false, partial: { ui: "down", api: "down" } });
+    expect(s).toMatchObject({ running: false, partial: { ui: "down", pid: process.pid } });
   }, 30_000);
 });
 
 describe("formatStatus names a slow process without calling it down", () => {
-  test("a managed pair with a degraded process says which one is slow, and still reads as running", () => {
+  test("a managed server that is degraded says it is slow, and still reads as running", () => {
     const proc = { pid: 1, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z", log: "/x/server.log" };
-    const text = formatStatus({ running: true, url: "http://127.0.0.1:1", managed: true, degraded: ["api"], ui: proc, api: { ...proc, log: "/x/api.log" } });
+    const text = formatStatus({ running: true, url: "http://127.0.0.1:1", managed: true, degraded: ["ui"], ui: proc });
     expect(text.startsWith("running at ")).toBe(true);
-    expect(text).toContain("degraded: api is up but slow");
+    expect(text).toContain("degraded: ui is up but slow");
     expect(text).not.toContain("down");
   });
 
-  test("a managed pair with nothing degraded prints no degraded line", () => {
+  test("a managed server with nothing degraded prints no degraded line", () => {
     const proc = { pid: 1, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z", log: "/x/server.log" };
-    const text = formatStatus({ running: true, url: "http://127.0.0.1:1", managed: true, degraded: [], ui: proc, api: { ...proc, log: "/x/api.log" } });
+    const text = formatStatus({ running: true, url: "http://127.0.0.1:1", managed: true, degraded: [], ui: proc });
     expect(text).not.toContain("degraded");
   });
 });
 
-describe("a slow pair is managed, not down", () => {
-  test("UI and API that answer after 3 s are reported as managed by this home", async () => {
+describe("a slow server is managed, not down", () => {
+  test("a server that answers after 3 s is reported as managed by this home", async () => {
     const home = tmp();
     const ui = slowServer(3000);
-    const api = slowServer(3000);
     try {
       const now = new Date().toISOString();
       writeState(home, {
         ui: { pid: process.pid, url: `http://127.0.0.1:${ui.port}`, startedAt: now },
-        api: { pid: process.pid, url: `http://127.0.0.1:${api.port}`, startedAt: now },
       });
       const s = await status(home, "http://127.0.0.1:1");
       expect(s.running).toBe(true);
@@ -210,7 +215,6 @@ describe("a slow pair is managed, not down", () => {
       expect(readState(home)).not.toBeNull();
     } finally {
       ui.stop(true);
-      api.stop(true);
     }
   }, 30_000);
 });

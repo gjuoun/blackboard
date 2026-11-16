@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
+import { useNav } from "./nav";
 import { cn } from "@gjuoun/bb-ui/lib/utils";
 import type { WorkspaceDoc } from "@/lib/reading-model";
 
-/** The 9px state dot: solid for unread, hollow for reading, invisible when read. */
+/** The 9px state dot: solid for unread, invisible once read — two states, the mail model's whole vocabulary. */
 function StateDot({ status }: { status: WorkspaceDoc["status"] }) {
   return (
     <span
@@ -13,7 +13,6 @@ function StateDot({ status }: { status: WorkspaceDoc["status"] }) {
       className={cn(
         "size-[9px] rounded-full",
         status === "unread" && "bg-primary ring-primary-soft ring-[3px]",
-        status === "reading" && "ring-primary ring-[1.5px] ring-inset",
       )}
     />
   );
@@ -22,10 +21,10 @@ function StateDot({ status }: { status: WorkspaceDoc["status"] }) {
 /**
  * One email-style row: the state dot, the title line, the mono sub line (path, branch) and the
  * meta column the hover actions replace. Selection is a tinted background only. No progress is
- * shown anywhere: a document left mid-way is just "reading" (the hollow dot), and the position it
- * was left at is only used to resume.
+ * shown anywhere; the stored position is only used to resume.
  */
 function Row({ doc, selected, onSelect, onMark }: { doc: WorkspaceDoc; selected: boolean; onSelect: (id: string) => void; onMark: (id: string, action: "read" | "unread") => void }) {
+  const { Link } = useNav();
   const unread = doc.status === "unread";
   const act = "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary rounded-[7px] border text-[11.5px] whitespace-nowrap";
   return (
@@ -60,7 +59,7 @@ function Row({ doc, selected, onSelect, onMark }: { doc: WorkspaceDoc; selected:
         </div>
       </div>
       <div className="text-muted-foreground min-w-[84px] text-right text-[11.5px] leading-[1.4] transition-opacity group-hover:opacity-0 group-data-[selected=true]:opacity-0">
-        <b className="text-foreground block text-[11.5px] font-medium">{doc.status === "reading" ? "Reading" : doc.updated}</b>
+        <b className="text-foreground block text-[11.5px] font-medium">{doc.updated}</b>
         {doc.status === "unread" ? "not opened" : null}
       </div>
       {/* Row actions are a desktop affordance: on a phone the whole row is the tap target, and the

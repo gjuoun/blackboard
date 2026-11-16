@@ -13,6 +13,12 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@gjuoun/bb-ui/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@gjuoun/bb-ui/components/ui/sheet";
 import { useState } from "react";
+import { ComposerLine } from "@/components/ComposerLine";
+import { CommentPanel } from "@/components/CommentPanel";
+import { CopyButton } from "@/components/CopyButton";
+import { DocChip } from "@/components/DocChip";
+import { PassageComposer } from "@/components/PassageComposer";
+import { PreviewReplyBar } from "@/components/PreviewReplyBar";
 import { CATEGORIES } from "./catalog-data";
 
 /** One heading style for every group inside a card, so the five cards read the same way. */
@@ -107,6 +113,104 @@ export function ComponentsSection() {
                 </span>
               </Group>
             </Card>
+          )}
+
+          {category.id === "app" && (
+            <>
+              <Card id="doc-chip" title="Doc chip" source="components/DocChip.tsx">
+                <Group label="Tones">
+                  <DocChip testid="cat-chip" title="default" tone="default">
+                    repo/design.md
+                  </DocChip>
+                  <DocChip testid="cat-chip-muted" title="muted" tone="muted">
+                    muted
+                  </DocChip>
+                  <DocChip testid="cat-chip-accent" title="accent" tone="accent">
+                    accent
+                  </DocChip>
+                </Group>
+                <Group label="With copy">
+                  <DocChip testid="cat-chip-copy" title="with copy" copy={{ value: "docs/design.md", label: "Copy path" }}>
+                    docs/design.md
+                  </DocChip>
+                </Group>
+              </Card>
+
+              <Card id="copy-button" title="Copy button" source="components/CopyButton.tsx">
+                <Group label="Live">
+                  <CopyButton value="docs/design.md" label="Copy path" />
+                  <span className="text-muted-foreground text-xs">click to copy</span>
+                </Group>
+              </Card>
+
+              <Card id="composer-line" title="Composer line" source="components/ComposerLine.tsx">
+                <Group label="Live">
+                  <div className="w-full max-w-sm">
+                    <ComposerLine onSend={async (text) => { void text; }} />
+                  </div>
+                </Group>
+              </Card>
+
+              <Card id="passage-composer" title="Passage composer" source="components/PassageComposer.tsx">
+                <Group label="Live">
+                  <div className="w-full max-w-sm">
+                    <PassageComposer
+                      composing={{ exact: "the rendered markdown body", prefix: "…", suffix: "…" }}
+                      note=""
+                      onNote={() => {}}
+                      onCancel={() => {}}
+                      onSave={() => {}}
+                    />
+                  </div>
+                </Group>
+              </Card>
+
+              <Card id="comment-panel" title="Comment panel" source="components/CommentPanel.tsx">
+                <Group label="Live">
+                  <div className="w-full max-w-sm">
+                    <CommentPanel
+                      title="design.md"
+                      path="docs/design.md"
+                      comments={[
+                        {
+                          id: "c1",
+                          body: "Is this the right shape for the reply thread?",
+                          html: "<p>Is this the right shape for the reply thread?</p>",
+                          author: "reader",
+                          createdAt: "2026-11-10T14:00:00.000Z",
+                          status: "open",
+                          replies: [],
+                          orphaned: false,
+                        },
+                      ]}
+                      activeId={null}
+                      flashId={null}
+                      showResolved={false}
+                      onActivate={() => {}}
+                      onReply={async () => {}}
+                      onResolve={async () => {}}
+                      onEdit={async () => {}}
+                      onDelete={async () => {}}
+                      onEditReply={async () => {}}
+                      onDeleteReply={async () => {}}
+                      onShowResolved={() => {}}
+                      author="agent"
+                      onAuthor={() => {}}
+                      composer={<ComposerLine onSend={async () => {}} />}
+                      error={null}
+                    />
+                  </div>
+                </Group>
+              </Card>
+
+              <Card id="preview-reply-bar" title="Preview reply bar" source="components/PreviewReplyBar.tsx">
+                <Group label="Live (renders at phone widths; hidden at md+)">
+                  <div className="w-full max-w-sm">
+                    <PreviewReplyBar onReply={async () => true} />
+                  </div>
+                </Group>
+              </Card>
+            </>
           )}
 
           {category.id === "overlays" && (

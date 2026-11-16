@@ -22,9 +22,12 @@ const isTime = (v: unknown): v is string => typeof v === "string" && Number.isFi
 function entryOf(v: unknown): ReadingEntry | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
-  if (!isReadingStatus(o.status)) return null;
+  // A record written before the third state retired still says "reading": migrate it as read,
+  // never drop it, or a reader loses every document they had started.
+  const status = o.status === "reading" ? "read" : o.status;
+  if (!isReadingStatus(status)) return null;
   return {
-    status: o.status,
+    status,
     progress: clampProgress(o.progress),
     readAt: isTime(o.readAt) ? o.readAt : new Date(0).toISOString(),
     sourceMtime: typeof o.sourceMtime === "number" && Number.isFinite(o.sourceMtime) ? o.sourceMtime : 0,
@@ -53,7 +56,8 @@ const toRow = (documentId: string, e: ReadingEntry): ReadingStateRow => ({
 });
 
 const toEntry = (r: ReadingStateRow): ReadingEntry => ({
-  status: r.status,
+  // A row written before the third state retired says "reading"; it reads as read.
+  status: ((r.status as string) === "reading" ? "read" : r.status) as ReadingEntry["status"],
   progress: r.progress,
   readAt: r.readAt,
   sourceMtime: r.sourceMtime,

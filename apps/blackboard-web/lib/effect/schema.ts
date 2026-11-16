@@ -39,8 +39,8 @@ export const CommentPatchBody = Schema.Struct({
 });
 export type CommentPatchBody = typeof CommentPatchBody.Type;
 
-/** POST /api/reading: one document's state change, or `read-all` for every document. */
-export const READING_ACTIONS = ["read", "unread", "progress", "read-all"] as const;
+/** POST /api/reading: one document's state change. There is no `read-all` — it had no caller. */
+export const READING_ACTIONS = ["read", "unread"] as const;
 export const ReadingPostBody = Schema.Struct({
   session: Schema.optional(Schema.String),
   action: Schema.optional(Schema.Literals(READING_ACTIONS)),

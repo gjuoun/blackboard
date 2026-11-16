@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { clearState, DEFAULT_API_URL, DEFAULT_URL, pidAlive, portOf, prepareServer, readState, resolveApiUrl, resolveUrl, restart, runForeground, runtimeFor, ServerError, stop, unrecordedNote, verifyRecord, writeState } from "./server-ctl";
+import { clearState, DEFAULT_URL, pidAlive, portOf, prepareServer, readState, resolveUrl, restart, runForeground, runtimeFor, ServerError, stop, unrecordedNote, verifyRecord, writeState } from "./server-ctl";
 import { bigHome, slowServer, tmp } from "../test/serve-fixture";
 
 describe("resolveUrl", () => {
@@ -24,27 +24,29 @@ describe("resolveUrl", () => {
 });
 
 describe("runtimeFor", () => {
-  const exists = (p: string) => p === "/opt/node/bin/node";
-  test("a Node process runs the app with itself", () => {
-    expect(runtimeFor({ execPath: "/usr/bin/node", pathDirs: [], exists })).toEqual({ cmd: "/usr/bin/node", args: [] });
+  const exists = (p: string) => p === "/opt/bun/bin/bun";
+  test("a Bun process runs the app with itself", () => {
+    expect(runtimeFor({ execPath: "/home/u/.bun/bin/bun", pathDirs: [], exists })).toEqual({ cmd: "/home/u/.bun/bin/bun", args: [] });
   });
-  test("Bun uses a Node on PATH when there is one", () => {
-    expect(runtimeFor({ execPath: "/home/u/.bun/bin/bun", pathDirs: ["/usr/bin", "/opt/node/bin"], exists })).toEqual({ cmd: "/opt/node/bin/node", args: [] });
+  test("a Node process uses a Bun on PATH when there is one", () => {
+    expect(runtimeFor({ execPath: "/usr/bin/node", pathDirs: ["/usr/bin", "/opt/bun/bin"], exists })).toEqual({ cmd: "/opt/bun/bin/bun", args: [] });
   });
-  test("Bun without Node runs the app itself in Node-compat mode", () => {
-    expect(runtimeFor({ execPath: "/home/u/.bun/bin/bun", pathDirs: ["/usr/bin"], exists })).toEqual({ cmd: "/home/u/.bun/bin/bun", args: ["--bun"] });
+  test("with no Bun on PATH the execPath is the fallback", () => {
+    expect(runtimeFor({ execPath: "/usr/bin/node", pathDirs: ["/usr/bin"], exists })).toEqual({ cmd: "/usr/bin/node", args: [] });
   });
 });
 
 describe("server state", () => {
-  test("round-trips a two-proc record, junk reads as none, and the old single-pid shape reads as legacy", () => {
+  test("round-trips a one-proc record; a two-proc file and the old single-pid shape read back marked", () => {
     const home = tmp();
     expect(readState(home)).toBeNull();
     const proc = { pid: 123, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
-    writeState(home, { ui: proc, api: { ...proc, pid: 124, url: "http://127.0.0.1:2" } });
+    writeState(home, { ui: proc });
     const st = readState(home);
-    expect(st && "ui" in st && st.ui.pid).toBe(123);
-    expect(st && "api" in st && st.api.pid).toBe(124);
+    expect(st).toEqual({ ui: proc });
+    // the two-process era's file: both pids are still ours to stop, named under the pair shape
+    writeFileSync(join(home, "server.json"), JSON.stringify({ ui: proc, api: { ...proc, pid: 124, url: "http://127.0.0.1:2" } }));
+    expect(readState(home)).toEqual({ ui: proc, api: { ...proc, pid: 124, url: "http://127.0.0.1:2" } });
     // the pre-split single-pid file is a marked legacy record: the pid it names is ours to stop
     writeFileSync(join(home, "server.json"), JSON.stringify({ pid: 123, url: "http://127.0.0.1:1", startedAt: "x" }));
     const legacy = readState(home);
@@ -61,15 +63,15 @@ describe("server state", () => {
 });
 
 describe("prepareServer", () => {
-  const app = (server: string) => join(server, "apps", "blackboard-web");
+  const app = (server: string) => join(server, "server");
   const fixture = () => {
     const root = tmp();
     const server = join(root, "server");
-    // The tree a workspace-rooted standalone build produces: dependencies at both levels, and the
-    // app's entry under apps/blackboard-web/.
+    // The tree build:server produces from Nitro's node-server output: dependencies at both levels,
+    // and the entry under server/.
     mkdirSync(join(server, "modules", "next"), { recursive: true });
     mkdirSync(join(app(server), "modules", "next"), { recursive: true });
-    writeFileSync(join(app(server), "server.js"), "// app");
+    writeFileSync(join(app(server), "index.mjs"), "// app");
     writeFileSync(join(server, "modules", "next", "index.js"), "// next");
     writeFileSync(join(app(server), "modules", "next", "index.js"), "// app next");
     return { server, home: join(root, "home") };
@@ -98,12 +100,21 @@ describe("prepareServer", () => {
 });
 
 describe("a large home: stop clears a dead record", () => {
-  test("a stop with both recorded pids gone clears the record, and does not call the port a stranger's", async () => {
+  test("a stop with the recorded pid gone clears the record, and does not call the port a stranger's", async () => {
     const home = bigHome();
     const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
-    writeState(home, { ui: dead, api: dead });
+    writeState(home, { ui: dead });
     const r = await stop(home);
     // The record existed, so stop cleared it; it never reaches the "not started by this command" note.
+    expect(r).toEqual({ stopped: true });
+    expect(readState(home)).toBeNull();
+  }, 20_000);
+
+  test("a two-process record with both pids gone also clears", async () => {
+    const home = bigHome();
+    const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
+    writeFileSync(join(home, "server.json"), JSON.stringify({ ui: dead, api: { ...dead, pid: dead.pid + 1, url: "http://127.0.0.1:2" } }));
+    const r = await stop(home);
     expect(r).toEqual({ stopped: true });
     expect(readState(home)).toBeNull();
   }, 20_000);
@@ -117,9 +128,9 @@ describe("serve restart: the stopped pair must really be gone", () => {
     const url = `http://127.0.0.1:${server.port}`;
     try {
       const home = tmp();
-      // No server.json (a stale single-pid record reads as none); the pair is still up.
+      // No server.json (a stale single-pid record reads as none); the server is still up.
       await expect(
-        restart(home, { port: server.port, apiPort: 1 }, {
+        restart(home, { port: server.port }, {
           start: async () => ({ running: true, url, managed: false, started: false }),
         }),
       ).rejects.toThrow(/not stopped|already|not started by this command/);
@@ -134,10 +145,10 @@ describe("serve restart: the stopped pair must really be gone", () => {
     try {
       const home = tmp();
       const dead = { pid: 2 ** 22 + 12345, url, startedAt: "2026-01-01T00:00:00.000Z" };
-      writeState(home, { ui: dead, api: { ...dead, pid: dead.pid + 1, url: "http://127.0.0.1:1" } });
+      writeState(home, { ui: dead });
       const r = await stop(home);
-      // The recorded pids are gone, but the ui port still answers: someone else holds it, and a
-      // "stopped" here is exactly how restart used to lose the old pair.
+      // The recorded pid is gone, but the port still answers: someone else holds it, and a
+      // "stopped" here is exactly how restart used to lose the old server.
       expect(r.stopped).toBe(false);
     } finally {
       foreign.stop(true);
@@ -147,10 +158,10 @@ describe("serve restart: the stopped pair must really be gone", () => {
   test("restart refuses when start finds the port already taken", async () => {
     const home = tmp();
     const url = "http://127.0.0.1:1";
-    // The recorded pair stopped cleanly; a different process then grabbed the port, so start
-    // reports an unmanaged running pair instead of starting ours. That is not a restart.
+    // The recorded server stopped cleanly; a different process then grabbed the port, so start
+    // reports an unmanaged server instead of starting ours. That is not a restart.
     await expect(
-      restart(home, { port: 1, apiPort: 1 }, {
+      restart(home, { port: 1 }, {
         start: async () => ({ running: true, url, managed: false, started: false }),
       }),
     ).rejects.toThrow(ServerError);
@@ -160,23 +171,23 @@ describe("start verifies the record it wrote", () => {
   test("a record that reads back as written passes", () => {
     const home = tmp();
     const proc = { pid: process.pid, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
-    const rec = { ui: proc, api: { ...proc, url: "http://127.0.0.1:2" } };
+    const rec = { ui: proc };
     writeState(home, rec);
     expect(() => verifyRecord(home, rec)).not.toThrow();
   });
 
-  test("a record that is missing after the write fails, naming the pids to stop by hand", () => {
+  test("a record that is missing after the write fails, naming the pid to stop by hand", () => {
     const home = tmp();
     const proc = { pid: 4242, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
-    const rec = { ui: proc, api: { ...proc, pid: 4343, url: "http://127.0.0.1:2" } };
-    expect(() => verifyRecord(home, rec)).toThrow(/did not read back.*kill 4242 4343/);
+    const rec = { ui: proc };
+    expect(() => verifyRecord(home, rec)).toThrow(/did not read back.*kill 4242/);
   });
 
   test("a record that reads back with another pid fails", () => {
     const home = tmp();
     const proc = { pid: 4242, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
-    writeState(home, { ui: { ...proc, pid: 9999 }, api: { ...proc, url: "http://127.0.0.1:2" } });
-    expect(() => verifyRecord(home, { ui: proc, api: { ...proc, url: "http://127.0.0.1:2" } })).toThrow(ServerError);
+    writeState(home, { ui: { ...proc, pid: 9999 } });
+    expect(() => verifyRecord(home, { ui: proc })).toThrow(ServerError);
   });
 });
 
@@ -253,15 +264,15 @@ describe("a pre-split single-pid record", () => {
     }
   }, 20_000);
 
-  test("restart stops the legacy process and starts a fresh pair", async () => {
+  test("restart stops the legacy process and starts a fresh server", async () => {
     const home = tmp();
     writeLegacy(home, { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" });
     let started = false;
     const proc = { pid: process.pid, url: "http://127.0.0.1:1", startedAt: "x", log: "/x/server.log" };
-    const r = await restart(home, { port: 1, apiPort: 1 }, {
+    const r = await restart(home, { port: 1 }, {
       start: async () => {
         started = true;
-        return { running: true, url: proc.url, managed: true, degraded: [], ui: proc, api: { ...proc, url: "http://127.0.0.1:2", log: "/x/api.log" }, started: true };
+        return { running: true, url: proc.url, managed: true, degraded: [], ui: proc, started: true };
       },
     });
     expect(started).toBe(true);
@@ -271,25 +282,10 @@ describe("a pre-split single-pid record", () => {
 });
 
 describe("serve start --foreground", () => {
-  test("resolveApiUrl honours --api-port, BLACKBOARD_API_URL, and the default", () => {
-    expect(resolveApiUrl({ env: {} })).toBe(DEFAULT_API_URL);
-    expect(resolveApiUrl({ env: { BLACKBOARD_API_URL: "http://127.0.0.1:4500/" } })).toBe("http://127.0.0.1:4500");
-    expect(resolveApiUrl({ apiPort: 4501, env: { BLACKBOARD_API_URL: "http://127.0.0.1:4500" } })).toBe("http://127.0.0.1:4501");
-  });
-
-  test("foreground refuses when the api port is already listening, naming the port", async () => {
+  test("foreground refuses when the port is already listening, naming the port", async () => {
     const busy = slowServer(0);
     try {
-      await expect(runForeground(tmp(), { port: 1, apiPort: busy.port })).rejects.toThrow(/already in use|listening|occupied/);
-    } finally {
-      busy.stop(true);
-    }
-  });
-
-  test("foreground refuses when the ui port is already listening", async () => {
-    const busy = slowServer(0);
-    try {
-      await expect(runForeground(tmp(), { port: busy.port, apiPort: 1 })).rejects.toThrow(/already in use|listening|occupied/);
+      await expect(runForeground(tmp(), { port: busy.port })).rejects.toThrow(/already in use|listening|occupied/);
     } finally {
       busy.stop(true);
     }

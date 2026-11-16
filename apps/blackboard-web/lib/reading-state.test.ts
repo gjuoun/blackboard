@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { markRead, markUnread, withProgress, type ReadingEntry } from "./reading-model";
+import { markRead, markUnread, type ReadingEntry } from "./reading-model";
 import { ReadingStateStore, type ReadingFile } from "./reading-state";
 import { DocumentsRepo } from "./db/repos/documents";
 import { run } from "../test/app";
@@ -40,11 +40,11 @@ describe("reading state", () => {
   test("round-trips entries through the store", async () => {
     const home = await fresh("a", "b", "c");
     await set(home, "a", entry("unread", 0));
-    await set(home, "b", withProgress(0.42, at, 200));
+    await set(home, "b", { status: "read", progress: 0.42, readAt: at, sourceMtime: 200 });
     await set(home, "c", markRead(at, 300, 0.87));
     const back = await read(home);
     expect(back.docs.a.status).toBe("unread");
-    expect(back.docs.b).toEqual({ status: "reading", progress: 0.42, readAt: at, sourceMtime: 200 });
+    expect(back.docs.b).toEqual({ status: "read", progress: 0.42, readAt: at, sourceMtime: 200 });
     expect(back.docs.c).toMatchObject({ status: "read", progress: 0.87 });
   });
 

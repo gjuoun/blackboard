@@ -3,7 +3,7 @@ import { ByteSize, Effect, FileSystem } from "effect";
 import { Hono } from "hono";
 import { errorMessage, IoFailure, SessionNotFound, type ApiFailure } from "../../lib/effect/errors";
 import { getHome } from "../../lib/home";
-import { SCRATCHPAD_ID, servablePath, SessionsStore } from "../../lib/sessions";
+import { servablePath, SessionsStore } from "../../lib/sessions";
 import { respondRaw } from "../respond";
 
 /**
@@ -40,7 +40,6 @@ asset.get("/:id", (c) =>
       const sessions = yield* SessionsStore;
       const fs = yield* FileSystem.FileSystem;
       const home = yield* Effect.sync(() => getHome());
-      if (id === SCRATCHPAD_ID) yield* sessions.scratchpad(home);
       const session = yield* sessions.get(home, id);
       const doc = session === null ? null : yield* Effect.sync(() => servablePath(session));
       if (!doc) return yield* Effect.fail(new SessionNotFound({ message: "no such session", status: 404 }));

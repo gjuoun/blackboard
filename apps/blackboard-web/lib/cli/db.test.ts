@@ -50,7 +50,7 @@ describe("blackboard db", () => {
 
     const real = runCli(home, ["db", "migrate"]);
     expect(real.code).toBe(0);
-    expect(real.out).toContain("migrated: 1 documents, 1 comments, 0 reviews, 1 reading_state, 0 agents");
+    expect(real.out).toContain("migrated: 1 documents, 1 comments, 1 reading_state, 0 agents");
     expect(existsSync(join(home, "sessions.json.migrated"))).toBe(true);
     expect(existsSync(join(home, "blackboard.db"))).toBe(true);
 

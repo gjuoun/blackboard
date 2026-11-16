@@ -3,16 +3,17 @@
 import type { ReadingFilter } from "@/lib/reading-model";
 
 /**
- * The workspace's five views, as the mobile tab bar names them. The first three are the same
- * status filters the rail switches; `new` and `settings` are screens, not filters.
+ * The workspace's three views, as the mobile tab bar names them. The first two are the status
+ * filters the rail switches; settings is a screen, not a filter. There is no New: the mailbox is
+ * one-way — the agent sends, the reader reads and comments. There is no Reading: open is read.
  */
-export const WORKSPACE_VIEWS = ["all", "unread", "reading", "new", "settings"] as const;
+export const WORKSPACE_VIEWS = ["all", "unread", "settings"] as const;
 export type WorkspaceView = (typeof WORKSPACE_VIEWS)[number];
 
 export const isWorkspaceView = (v: string | null): v is WorkspaceView => WORKSPACE_VIEWS.includes(v as WorkspaceView);
 
 /** Which views filter the list, and to what. */
-export const VIEW_FILTERS: Partial<Record<WorkspaceView, ReadingFilter>> = { all: "all", unread: "unread", reading: "reading" };
+export const VIEW_FILTERS: Partial<Record<WorkspaceView, ReadingFilter>> = { all: "all", unread: "unread" };
 
 const ICONS: Record<WorkspaceView, React.ReactNode> = {
   all: (
@@ -27,17 +28,6 @@ const ICONS: Record<WorkspaceView, React.ReactNode> = {
       <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
     </svg>
   ),
-  reading: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M5 4h8a5 5 0 0 1 5 5v11H9a4 4 0 0 1-4-4z" />
-      <path d="M9 8h5" />
-    </svg>
-  ),
-  new: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden>
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  ),
   settings: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden>
       <path d="M5 8h10M5 16h3" />
@@ -47,10 +37,10 @@ const ICONS: Record<WorkspaceView, React.ReactNode> = {
   ),
 };
 
-const LABELS: Record<WorkspaceView, string> = { all: "Inbox", unread: "Unread", reading: "Reading", new: "New", settings: "Settings" };
+const LABELS: Record<WorkspaceView, string> = { all: "Inbox", unread: "Unread", settings: "Settings" };
 
 /**
- * The phone's bottom tab bar: five equal cells, icon over a 9.5px label, active cell in the
+ * The phone's bottom tab bar: four equal cells, icon over a 9.5px label, active cell in the
  * accent colour. 56px tall over the safe area, and only ever rendered below 768px — the desktop
  * uses the rail and the toolbar instead.
  */

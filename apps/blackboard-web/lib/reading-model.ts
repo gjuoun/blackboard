@@ -1,14 +1,15 @@
 /**
- * The reading workspace's plain model: the three states a document can be in, the record kept per
- * document, and the pure reducers and filters the server and the client share. No imports, no IO:
- * the disk format lives in `reading-state.ts`, the server assembly in `reading-workspace.ts`.
+ * The reading workspace's plain model: the two states a document can be in — unread or read, the
+ * mail model's own pair — the record kept per document, and the pure reducers and filters the server
+ * and the client share. No imports, no IO: the disk format lives in `reading-state.ts`, the server
+ * assembly in `reading-workspace.ts`.
  */
 
-export const READING_STATUSES = ["unread", "reading", "read"] as const;
+export const READING_STATUSES = ["unread", "read"] as const;
 export type ReadingStatus = (typeof READING_STATUSES)[number];
 
 /** The rail's filters. "all" is the unfiltered inbox. */
-export const READING_FILTERS = ["all", "unread", "reading"] as const;
+export const READING_FILTERS = ["all", "unread"] as const;
 export type ReadingFilter = (typeof READING_FILTERS)[number];
 
 /**
@@ -44,7 +45,7 @@ export type WorkspaceDoc = {
   progress: number;
 };
 
-export type WorkspaceCounts = { total: number; unread: number; reading: number; read: number };
+export type WorkspaceCounts = { total: number; unread: number; read: number };
 
 /** Everything the workspace page renders on first paint. */
 export type WorkspaceData = {
@@ -71,7 +72,8 @@ export type PreviewData = {
   replies: PreviewReply[];
 };
 
-export type ReadingAction = "read" | "unread" | "progress" | "read-all";
+/** Two verbs: flag it read, or back to unread. Scroll position is recorded, never a state of its own. */
+export type ReadingAction = "read" | "unread";
 export type ReadingPatch = { session?: string; action: ReadingAction; progress?: number };
 /** What a write answers: the entries that changed, keyed by session id. */
 export type ReadingResult = { docs: Record<string, { status: ReadingStatus; progress: number }> };
@@ -104,27 +106,19 @@ export function markUnread(at: string, sourceMtime: number): ReadingEntry {
 }
 
 /**
- * Scrolling records the position: the status becomes `reading` and `progress` is where the reader
- * left off, so the next open can resume there. Reaching the bottom never marks a document read —
- * read is an explicit act (`markRead`). A document already marked read stays read when it is
- * scrolled again, with only its position updated.
- */
-export function withProgress(progress: unknown, at: string, sourceMtime: number, prev?: ReadingStatus): ReadingEntry {
-  const p = clampProgress(progress);
-  return { status: prev === "read" ? "read" : "reading", progress: p, readAt: at, sourceMtime };
-}
-
-/**
  * The entry that applies to a document right now. A record written for a different mtime is stale
  * (the document changed), so the document reads as unread with no progress; nothing is written here.
  */
 export function effectiveEntry(entry: ReadingEntry | undefined, sourceMtime: number, at = new Date().toISOString()): ReadingEntry {
   if (!entry) return unreadEntry(at, sourceMtime);
-  return entry.sourceMtime === sourceMtime ? entry : unreadEntry(at, sourceMtime);
+  if (entry.sourceMtime !== sourceMtime) return unreadEntry(at, sourceMtime);
+  // Rows written before the third state retired still say "reading"; they read as read now.
+  const legacy = entry.status as string;
+  return legacy === "reading" ? { ...entry, status: "read" } : entry;
 }
 
 export function countStatuses(docs: readonly { status: ReadingStatus }[]): WorkspaceCounts {
-  const counts: WorkspaceCounts = { total: docs.length, unread: 0, reading: 0, read: 0 };
+  const counts: WorkspaceCounts = { total: docs.length, unread: 0, read: 0 };
   for (const doc of docs) counts[doc.status] += 1;
   return counts;
 }
@@ -138,7 +132,6 @@ export function filterDocs<T extends { status: ReadingStatus; title: string; loc
   const needle = query.trim().toLowerCase();
   return docs.filter((doc) => {
     if (filter === "unread" && doc.status !== "unread") return false;
-    if (filter === "reading" && doc.status !== "reading") return false;
     if (repo && doc.repo !== repo) return false;
     if (!needle) return true;
     return [doc.title, doc.location, doc.path, doc.branch ?? "", doc.repo ?? ""].some((v) => v.toLowerCase().includes(needle));
