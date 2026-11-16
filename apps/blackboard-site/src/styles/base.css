@@ -3,10 +3,12 @@
 /* QuBlack Sans / Mono (SIL OFL 1.1) — subsets covering this page's characters only.
    Full family: github.com/gjuoun/qublack — license: fonts/OFL.txt */
 
-/* Tokens + component styles lifted from the app's globals.css */
+/* The hand-rolled styles below read the landing's short token names; they now resolve to the
+   bb-ui theme palette so the chrome and the phone demo share one vocabulary. The palette itself
+   is generated in packages/bb-ui/src/themes/blackboard.css — edit there, not here. */
 :root {
-  --fg: #1f2328; --muted: #59636e; --border: #d1d9e0;
-  --bg: #ffffff; --bg-subtle: #f6f8fa; --accent: #0969da;
+  --fg: var(--theme-foreground); --muted: var(--theme-muted-foreground); --border: var(--theme-border);
+  --bg: var(--theme-background); --bg-subtle: var(--theme-secondary); --accent: var(--theme-primary);
   --font-mono: "QuBlack Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 * { box-sizing: border-box; }
@@ -53,7 +55,7 @@ section.features { background: var(--bg-subtle); border-top: 1px solid var(--bor
 h2.sec { margin: 0 0 20px; font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
 ul.feat { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px 28px; padding: 0; margin: 0; list-style: none; }
 ul.feat li { padding-left: 22px; position: relative; text-wrap: pretty; }
-ul.feat li::before { content: "—"; position: absolute; left: 0; color: #9a6700; }
+ul.feat li::before { content: "—"; position: absolute; left: 0; color: var(--theme-warn); }
 ul.feat strong { font-weight: 700; }
 
 /* CLI block */

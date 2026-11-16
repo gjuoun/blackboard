@@ -1,3 +1,5 @@
+import react from "@astrojs/react";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "astro/config";
 
 // One deployment: Cloudflare Pages, project `blackboard`, served from the root of its domain.
@@ -7,6 +9,8 @@ export default defineConfig({
   build: { format: "directory" },
   server: { port: 4397 },
   preview: { port: 4397 },
+  integrations: [react()],
+  vite: { plugins: [tailwindcss()] },
   i18n: {
     locales: ["en", "zh"],
     defaultLocale: "en",

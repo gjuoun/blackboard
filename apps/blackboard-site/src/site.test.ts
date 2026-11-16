@@ -22,8 +22,8 @@ describe("routes and languages", () => {
   });
 
   test("each page declares its own lang", () => {
-    expect(page("")).toContain('<html lang="en">');
-    expect(page("zh")).toContain('<html lang="zh-CN">');
+    expect(page("")).toContain('lang="en"');
+    expect(page("zh")).toContain('lang="zh-CN"');
   });
 
   test("the two pages carry their own title, description and hero copy", () => {
@@ -66,6 +66,23 @@ describe("per-locale assets", () => {
     }
   });
 
+  test("the phone demo mounts in each locale with its own copy", () => {
+    expect(page("")).toContain('data-slot="demo-root"');
+    expect(page("zh")).toContain('data-slot="demo-root"');
+    expect(page("")).toContain("Try it on the phone");
+    expect(page("zh")).toContain("手机上试一试");
+    // the island ships its dict as props — English rows must not leak into the zh page
+    expect(page("")).toContain("Q1 launch plan");
+    expect(page("zh")).toContain("Q1 发布计划");
+  });
+
+  test("the ui-mock page ships but stays unlisted", () => {
+    expect(existsSync(join(dist, "ui-mock", "index.html"))).toBe(true);
+    expect(readFileSync(join(dist, "ui-mock", "index.html"), "utf8")).toContain("noindex");
+    expect(page("")).not.toContain("ui-mock");
+    expect(page("zh")).not.toContain("ui-mock");
+  });
+
   test("every root-absolute asset reference resolves inside dist", () => {
     const refs = new Set<string>();
     for (const html of [page(""), page("zh")]) {
@@ -79,8 +96,9 @@ describe("per-locale assets", () => {
         if (/^\/(?:_astro|assets|fonts)\//.test(ref)) refs.add(ref);
       }
     }
-    // Eight font subsets and four screenshots, all distinct across the two pages.
-    expect(refs.size).toBe(12);
+    // Eight font subsets, four screenshots and the bundled stylesheet,
+    // all distinct across the two pages.
+    expect(refs.size).toBe(13);
     const missing = [...refs].filter((ref) => !existsSync(join(dist, ref)));
     expect(missing).toEqual([]);
   });
@@ -101,6 +119,6 @@ describe("the deployed shape", () => {
 
   test("the build ships nothing but the pages and their assets", () => {
     const top = readdirSync(dist).sort();
-    expect(top).toEqual(["_redirects", "assets", "fonts", "index.html", "zh"]);
+    expect(top).toEqual(["_astro", "_redirects", "assets", "fonts", "index.html", "ui-mock", "zh"]);
   });
 });

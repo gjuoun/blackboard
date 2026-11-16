@@ -1,6 +1,7 @@
 ---
 import type { Dict } from "../i18n/types.ts";
 import CliBlock from "./CliBlock.astro";
+import DemoSection from "./DemoSection.astro";
 import Features from "./Features.astro";
 import Footer from "./Footer.astro";
 import Hero from "./Hero.astro";
@@ -20,6 +21,7 @@ const { dict } = Astro.props;
   <Shot shot={dict.inbox.shot} />
 </section>
 
+<DemoSection demo={dict.demo} />
 <Features features={dict.features} />
 <CliBlock cli={dict.cli} />
 <Footer dict={dict} />
