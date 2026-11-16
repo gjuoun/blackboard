@@ -44,28 +44,6 @@ export const documents = sqliteTable("documents", (d) => ({
   bodyRev: d.integer("body_rev"),
 }));
 
-/** One exchange of the reply-style stream: the unit the streamed doc UI appends. */
-export const blocks = sqliteTable(
-  "blocks",
-  (d) => ({
-    id: d.text("id").primaryKey(),
-    documentId: d
-      .text("document_id")
-      .notNull()
-      .references(() => documents.id, { onDelete: "cascade" }),
-    /** Exchange order within the document. */
-    n: d.integer("n").notNull(),
-    action: d.text("action", { enum: ["answer", "edit", "append"] }).notNull(),
-    author: d.text("author").notNull(),
-    body: d.text("body").notNull(),
-    images: d.text("images", { mode: "json" }).$type<string[]>(),
-    /** "writing" while the stream is open, null once the exchange is final. */
-    status: d.text("status"),
-    at: d.text("at").notNull(),
-  }),
-  (t) => [index("blocks_document_id").on(t.documentId)],
-);
-
 /** A comment on a doc: anchored to a quoted passage, or general. Replies ride along as JSON —
  *  a comment's flat thread is read and written whole. */
 export const comments = sqliteTable(
@@ -151,25 +129,6 @@ export const contentBlockRevs = sqliteTable(
     at: d.text("at").notNull(),
   }),
   (t) => [index("content_block_revs_block").on(t.blockId)],
-);
-
-/** One closed review round for a doc. */
-export const reviews = sqliteTable(
-  "reviews",
-  (d) => ({
-    id: d.text("id").primaryKey(),
-    documentId: d
-      .text("document_id")
-      .notNull()
-      .references(() => documents.id, { onDelete: "cascade" }),
-    doc: d.text("doc").notNull(),
-    round: d.integer("round").notNull(),
-    body: d.text("body").notNull(),
-    author: d.text("author").notNull(),
-    createdAt: d.text("created_at").notNull(),
-    verdict: d.text("verdict", { enum: ["commented"] }).notNull(),
-  }),
-  (t) => [index("reviews_document_id").on(t.documentId)],
 );
 
 /** One doc's reading state, keyed by the document itself. */

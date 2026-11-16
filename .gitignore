@@ -42,3 +42,8 @@ next-env.d.ts
 # built command
 apps/*/dist/
 apps/*/server/
+
+# tanstack start (the second tree, until it replaces next)
+apps/*/.output/
+apps/*/.tanstack/
+apps/*/src/routeTree.gen.ts

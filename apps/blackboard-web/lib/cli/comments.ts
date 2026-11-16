@@ -72,25 +72,6 @@ export function comments(
   });
 }
 
-/** Close a round for a session doc. The store refuses while an open comment has no agent reply. */
-export function review(
-  home: string,
-  ref: string,
-  round: number,
-  body: string,
-  author: string,
-  cwd = process.cwd(),
-): Effect.Effect<{ id: string; doc: string; round: number; verdict: "commented" }, CliError, SessionsStore | CommentsStore> {
-  return Effect.gen(function* () {
-    if (!body.trim()) return yield* new CliError({ message: "review text is empty", code: 2 });
-    const { session, doc } = yield* find(home, ref, cwd);
-    const api = apiPost(home, "/api/review", { session: session.id, doc, round, body: body.trim(), author }).pipe(
-      Effect.map((data) => (data as { review: { id: string; doc: string; round: number; verdict: "commented" } }).review),
-    );
-    return yield* route(home, api, store((s) => s.review(home, session.id, doc, { round, body: body.trim(), author })));
-  });
-}
-
 /** An independent comment: no passage. */
 export function commentGeneral(
   home: string,

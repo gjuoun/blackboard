@@ -82,7 +82,7 @@ const ratio = (a: string, b: string) => {
   return (hi + 0.05) / (lo + 0.05);
 };
 
-const CSS = read("styles/syntax.css").replace(/\/\*[\s\S]*?\*\//g, "");
+const CSS = read("src/styles/syntax.css").replace(/\/\*[\s\S]*?\*\//g, "");
 
 /** The generated theme package: the one file every colour in the app comes from. */
 const THEME_CSS = read("../../packages/bb-ui/src/themes/blackboard.css").replace(/\/\*[\s\S]*?\*\//g, "");

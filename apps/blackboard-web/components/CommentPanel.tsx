@@ -5,8 +5,6 @@ import { Fragment, useState, type ReactNode } from "react";
 import type { RenderedComment } from "@/lib/comment-markdown";
 import { cn } from "@gjuoun/bb-ui/lib/utils";
 import { Button } from "@gjuoun/bb-ui/components/ui/button";
-import type { Review } from "@/lib/comments-store";
-import { ReviewCard } from "./ReviewCard";
 
 const TEXTAREA = "border-input bg-background focus-visible:ring-ring/40 w-full resize-y rounded-lg border p-2 text-[13.5px] outline-none focus-visible:ring-[3px]";
 
@@ -126,8 +124,6 @@ type Props = {
   title: string;
   path: string;
   comments: PanelComment[];
-  /** Round reviews: listed after the anchored comments, before the independent (general) ones. */
-  reviews?: Review[];
   activeId: string | null;
   flashId: string | null;
   onActivate: (id: string) => void;
@@ -212,7 +208,7 @@ export function CommentPanel(p: Props) {
                 {c.images?.length ? (
                   <div className="mt-1.5 flex flex-wrap gap-1.5" data-testid="comment-images">
                     {c.images.map((id) => (
-                      // eslint-disable-next-line @next/next/no-img-element -- stored images are served by our own route; next/image would add an optimizer hop
+                      // stored images are served by our own route; no framework image optimizer here
                       <img key={id} src={`/api/comment-images/${id}`} alt="attached image" loading="lazy" className="max-w-[96px] max-h-[96px] rounded-md border border-border object-cover" />
                     ))}
                   </div>
@@ -264,14 +260,10 @@ export function CommentPanel(p: Props) {
         </Button>
       </div>
       {visible.length === 0 && !p.composer ? <p className="text-muted-foreground text-[13px]">Select text in the doc to comment.</p> : null}
-      {/* Three groups in order: anchored comments, then round reviews, then independent (general) comments.
-          The reviews are their own group, so they render with or without comments. */}
+      {/* Two groups in order: anchored comments, then independent (general) comments. */}
       <ol className="m-0 flex list-none flex-col gap-2.5 p-0">
         {visible.filter((c) => !c.general).map((c) => (
           <Fragment key={c.id}>{renderItem(c)}</Fragment>
-        ))}
-        {(p.reviews ?? []).map((r) => (
-          <ReviewCard key={r.id} review={r} />
         ))}
         {visible.some((c) => c.general) ? (
           <li aria-hidden className="text-muted-foreground flex items-center gap-2 text-[11px] uppercase tracking-wide" data-testid="general-divider">

@@ -41,6 +41,18 @@ export const CATEGORIES: CatalogCategory[] = [
     title: "Data display",
     components: [{ id: "badge", title: "Badge", source: "components/ui/badge.tsx" }],
   },
+  {
+    id: "app",
+    title: "App components",
+    components: [
+      { id: "doc-chip", title: "Doc chip", source: "components/DocChip.tsx" },
+      { id: "copy-button", title: "Copy button", source: "components/CopyButton.tsx" },
+      { id: "composer-line", title: "Composer line", source: "components/ComposerLine.tsx" },
+      { id: "passage-composer", title: "Passage composer", source: "components/PassageComposer.tsx" },
+      { id: "comment-panel", title: "Comment panel", source: "components/CommentPanel.tsx" },
+      { id: "preview-reply-bar", title: "Preview reply bar", source: "components/PreviewReplyBar.tsx" },
+    ],
+  },
 ];
 
 /** Every anchor on the page, in scroll order: the rail's active-section reader walks this. */

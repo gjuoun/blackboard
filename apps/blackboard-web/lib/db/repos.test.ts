@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { Effect } from "effect";
 import { Db, layer as dbLayer } from "./client";
 import { DocumentsRepo, layer as documentsLayer } from "./repos/documents";
-import { BlocksRepo, layer as blocksLayer } from "./repos/blocks";
 import { CommentsRepo, layer as commentsLayer } from "./repos/comments";
 import { ReadingStateRepo, layer as readingLayer } from "./repos/reading-state";
 import { AgentsRepo, layer as agentsLayer } from "./repos/agents";
@@ -15,11 +14,10 @@ const at = "2026-11-10T00:00:00.000Z";
 const quote = { exact: "warm", prefix: "is ", suffix: "." };
 
 /** One program with every repo layer provided, the way a store composes them. */
-const run = <A>(effect: Effect.Effect<A, unknown, Db | DocumentsRepo | BlocksRepo | CommentsRepo | ReadingStateRepo | AgentsRepo>): Promise<A> =>
+const run = <A>(effect: Effect.Effect<A, unknown, Db | DocumentsRepo | CommentsRepo | ReadingStateRepo | AgentsRepo>): Promise<A> =>
   Effect.runPromise(
     effect.pipe(
       Effect.provide(documentsLayer),
-      Effect.provide(blocksLayer),
       Effect.provide(commentsLayer),
       Effect.provide(readingLayer),
       Effect.provide(agentsLayer),
@@ -56,7 +54,7 @@ describe("DocumentsRepo", () => {
 });
 
 describe("CommentsRepo", () => {
-  test("add/list/setStatus/addReply/update/remove and reviews", async () => {
+  test("add/list/setStatus/addReply/update/remove", async () => {
     const home = fresh();
     await seed(home);
     const c = await run(
@@ -79,10 +77,6 @@ describe("CommentsRepo", () => {
     expect(reopened?.resolvedAt).toBeNull();
     const list = await run(Effect.gen(function* () { const r = yield* CommentsRepo; return yield* r.list(home, "doc1"); }));
     expect(list).toHaveLength(1);
-    const rv = await run(Effect.gen(function* () { const r = yield* CommentsRepo; return yield* r.addReview(home, { id: "v_1", documentId: "doc1", doc: "x.md", round: 1, body: "done", author: "agent", createdAt: at, verdict: "commented" }); }));
-    expect(rv.round).toBe(1);
-    const rvs = await run(Effect.gen(function* () { const r = yield* CommentsRepo; return yield* r.listReviews(home, "doc1"); }));
-    expect(rvs).toHaveLength(1);
     const edited = await run(Effect.gen(function* () { const r = yield* CommentsRepo; return yield* r.update(home, "c_1", "edited"); }));
     expect(edited?.editedAt).not.toBeNull();
     const gone = await run(Effect.gen(function* () { const r = yield* CommentsRepo; return yield* r.remove(home, "c_1"); }));
@@ -122,16 +116,4 @@ describe("AgentsRepo", () => {
   });
 });
 
-describe("BlocksRepo", () => {
-  test("append assigns n, list orders by it", async () => {
-    const home = fresh();
-    await seed(home);
-    const b1 = await run(Effect.gen(function* () { const b = yield* BlocksRepo; return yield* b.append(home, { documentId: "doc1", action: "answer", author: "agent", body: "first", images: null, status: null, at }); }));
-    const b2 = await run(Effect.gen(function* () { const b = yield* BlocksRepo; return yield* b.append(home, { documentId: "doc1", action: "edit", author: "jun", body: "second", images: null, status: "writing", at }); }));
-    expect([b1.n, b2.n]).toEqual([1, 2]);
-    const next = await run(Effect.gen(function* () { const b = yield* BlocksRepo; return yield* b.next(home, "doc1"); }));
-    expect(next).toBe(3);
-    const list = await run(Effect.gen(function* () { const b = yield* BlocksRepo; return yield* b.list(home, "doc1"); }));
-    expect(list.map((x) => x.body)).toEqual(["first", "second"]);
-  });
-});
+

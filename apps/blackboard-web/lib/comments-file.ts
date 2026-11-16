@@ -35,9 +35,7 @@ export type Comment = {
   block?: { id: string; rev: number; state: "current" | "modified" | "deleted"; before?: string; after?: string };
   replies: Reply[];
 };
-/** One round's review: the agent has answered each open comment and closes the round. */
-export type Review = { id: string; doc: string; round: number; body: string; author: string; createdAt: string; verdict: "commented" };
-export type CommentFile = { version: 1; docs: Record<string, Comment[]>; reviews?: Review[] };
+export type CommentFile = { version: 1; docs: Record<string, Comment[]> };
 
 const newId = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "").slice(0, 12)}`;
 
@@ -51,4 +49,3 @@ export function readComments(p: string): CommentFile {
 
 export const commentId = (): string => newId("c");
 export const replyId = (): string => newId("r");
-export const reviewId = (): string => newId("v");

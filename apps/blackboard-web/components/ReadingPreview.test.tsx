@@ -1,11 +1,8 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { WorkspaceDoc } from "@/lib/reading-model";
 
-mock.module("next/link", () => ({
-  Link: (p: { href: string; children: React.ReactNode }) => <a href={p.href}>{p.children}</a>,
-}));
-
+import { TestNav } from "@/test/nav";
 import { ReadingPreview } from "./ReadingPreview";
 
 const DOC: WorkspaceDoc = {
@@ -26,7 +23,9 @@ const noop = () => {};
 
 function render() {
   return renderToStaticMarkup(
-    <ReadingPreview doc={DOC} preview={null} loading={false} error={null} resume={false} onClose={noop} onMark={noop} onProgress={noop} onReply={async () => true} />,
+    <TestNav pathname="/inbox">
+      <ReadingPreview doc={DOC} preview={null} loading={false} error={null} resume={false} onClose={noop} onMark={noop} onReply={async () => true} />
+    </TestNav>,
   );
 }
 

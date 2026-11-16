@@ -1,13 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mock } from "bun:test";
-
-// DocView is a client component; outside Next its only router use is the live-refresh effect.
-mock.module("next/navigation", () => ({
-  useRouter: () => ({ refresh() {}, push() {} }),
-  usePathname: () => "/s/abc",
-}));
 
 import { renderToStaticMarkup } from "react-dom/server";
+import { TestNav } from "@/test/nav";
 import type { RenderedComment } from "@/lib/comment-markdown";
 import { DocView } from "./DocView";
 
@@ -24,15 +18,17 @@ const comment = (id: string, status: "open" | "resolved"): RenderedComment => ({
 
 function render(over: { comments?: RenderedComment[] } = {}) {
   return renderToStaticMarkup(
-    <DocView
-      session="abc"
-      title="Plan"
-      path="/repo/docs/plan.md"
-      html="<p>body</p>"
-      initialComments={over.comments ?? [comment("c1", "open"), comment("c2", "resolved")]}
-      header={null}
-      toc={<nav data-testid="toc">Contents</nav>}
-    />,
+    <TestNav pathname="/s/abc">
+      <DocView
+        session="abc"
+        title="Plan"
+        path="/repo/docs/plan.md"
+        html="<p>body</p>"
+        initialComments={over.comments ?? [comment("c1", "open"), comment("c2", "resolved")]}
+        header={null}
+        toc={<nav data-testid="toc">Contents</nav>}
+      />
+    </TestNav>,
   );
 }
 

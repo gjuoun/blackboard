@@ -5,12 +5,10 @@ import { guard } from "./guard";
 import { respond } from "./respond";
 import { asset } from "./routes/asset";
 import { bind } from "./routes/bind";
-import { comments, review } from "./routes/comments";
+import { comments } from "./routes/comments";
 import { doc } from "./routes/doc";
 import { images } from "./routes/images";
 import { reading } from "./routes/reading";
-import { streamBlocks } from "./routes/stream-blocks";
-import { streams } from "./routes/streams";
 import { watch } from "./routes/watch";
 
 /**
@@ -27,11 +25,8 @@ app.get("/api/health", () => respond(Effect.succeed({ app: "blackboard", version
 
 app.route("/api/comments", comments);
 app.route("/api/bind", bind);
-app.route("/api/review", review);
 app.route("/api/reading", reading);
 app.route("/api/comment-images", images);
 app.route("/api/asset", asset);
 app.route("/api/watch", watch);
-app.route("/api", streamBlocks);
-app.route("/api", streams);
 app.route("/api", doc);

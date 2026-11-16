@@ -2,9 +2,6 @@ import { describe, expect, mock, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 // The controls read the bar the inbox page publishes; the store is seeded with a fixed snapshot.
-mock.module("next/link", () => ({
-  Link: (p: { href: string; children: React.ReactNode }) => <a href={p.href}>{p.children}</a>,
-}));
 mock.module("./workspace-bar", () => ({
   useWorkspaceBar: () => ({
     query: "",
@@ -19,9 +16,15 @@ mock.module("./workspace-bar", () => ({
   }),
 }));
 
+import { TestNav } from "@/test/nav";
 import { WorkspaceBarControls } from "./WorkspaceBarControls";
 
-const html = () => renderToStaticMarkup(<WorkspaceBarControls />);
+const html = () =>
+  renderToStaticMarkup(
+    <TestNav>
+      <WorkspaceBarControls />
+    </TestNav>,
+  );
 
 describe("WorkspaceBarControls", () => {
   test("the breadcrumb names the page Inbox and the gear opens its settings", () => {

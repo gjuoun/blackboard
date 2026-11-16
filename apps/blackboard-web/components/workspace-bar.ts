@@ -11,14 +11,13 @@ export type WorkspaceBar = {
   repos: string[];
   onRepo: (value: string) => void;
   filter: ReadingFilter;
-  onFilter: (value: "all" | "unread" | "reading") => void;
+  onFilter: (value: "all" | "unread") => void;
   counts: WorkspaceCounts;
   pending: number;
 };
 
 // The workspace page publishes its bar props here so the top bar (in the root layout, above the
-// page) can fold them into the single desktop row — the tabs-store pattern: one cached snapshot,
-// set listeners on write.
+// page) can fold them into the single desktop row: one cached snapshot, set listeners on write.
 let bar: WorkspaceBar | null = null;
 const listeners = new Set<() => void>();
 

@@ -1,7 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { utimesSync, writeFileSync } from "node:fs";
-import { Effect, FileSystem } from "effect";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { commentGeneral } from "../../lib/cli/comments";
 import { LOCAL, fixture, register } from "../../test/api-fixture";
@@ -49,55 +47,6 @@ describe("GET /api/reading/doc", () => {
     const res = await get("nosuchid");
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "unknown session" });
-  });
-});
-
-describe("GET /api/session?range= (stream)", () => {
-  const HOST = { host: "127.0.0.1", "content-type": "application/json" };
-
-  async function seed(n: number) {
-    const { base } = await run(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        return { base: yield* fs.realPath(yield* fs.makeTempDirectory({ directory: tmpdir(), prefix: "bb-session-range-" })) };
-      }),
-    );
-    process.env.BLACKBOARD_HOME = join(base, "home");
-    const res = await app.request("http://127.0.0.1/api/stream", { method: "POST", headers: HOST, body: JSON.stringify({ title: "Log" }) });
-    const { session } = (await res.json()) as { session: { id: string } };
-    for (let i = 1; i <= n; i++) {
-      await app.request("http://127.0.0.1/api/block", {
-        method: "POST",
-        headers: HOST,
-        body: JSON.stringify({ session: session.id, action: "append", body: `Exchange ${i}`, author: "agent" }),
-      });
-    }
-    return session.id;
-  }
-
-  test("range returns a slice and the stream window meta", async () => {
-    const id = await seed(5);
-    const res = await app.request(`http://127.0.0.1/api/session?id=${id}&range=0:1`, { headers: { host: "127.0.0.1" } });
-    expect(res.status).toBe(200);
-    const data = (await res.json()) as { blocks: { n: number }[]; stream: { total: number; epoch: string; estimates: number[] }; window: { head: number[]; tail: number[] } };
-    expect(data.blocks.map((b) => b.n)).toEqual([1, 2]);
-    expect(data.stream.total).toBe(5);
-    expect(data.stream.epoch).toMatch(/^5:\d+$/);
-    expect(data.stream.estimates).toHaveLength(5);
-    expect(data.window.head.length).toBeGreaterThan(0);
-  });
-
-  test("an invalid range answers 400", async () => {
-    const id = await seed(2);
-    expect((await app.request(`http://127.0.0.1/api/session?id=${id}&range=2:1`, { headers: { host: "127.0.0.1" } })).status).toBe(400);
-  });
-
-  test("no range returns all blocks and the same stream meta", async () => {
-    const id = await seed(4);
-    const res = await app.request(`http://127.0.0.1/api/session?id=${id}`, { headers: { host: "127.0.0.1" } });
-    const data = (await res.json()) as { blocks: { n: number }[]; stream: { total: number } };
-    expect(data.blocks).toHaveLength(4);
-    expect(data.stream.total).toBe(4);
   });
 });
 

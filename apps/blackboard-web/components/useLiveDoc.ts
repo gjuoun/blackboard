@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useNav } from "./nav";
 import { useEffect } from "react";
 
 /**
@@ -8,14 +8,14 @@ import { useEffect } from "react";
  * header) and reload the comments when its comment file changes.
  */
 export function useLiveDoc(session: string, onCommentsChanged: () => void) {
-  const router = useRouter();
+  const { refresh } = useNav();
   useEffect(() => {
     const es = new EventSource(`/api/watch?session=${encodeURIComponent(session)}`);
     es.addEventListener("changed", (e) => {
       const { doc, comments } = JSON.parse((e as MessageEvent).data) as { doc: boolean; comments: boolean };
       if (comments) onCommentsChanged();
-      if (doc) router.refresh();
+      if (doc) refresh();
     });
     return () => es.close();
-  }, [session, router, onCommentsChanged]);
+  }, [session, refresh, onCommentsChanged]);
 }

@@ -24,31 +24,6 @@ const store = <A>(work: (s: CommentsStore["Service"]) => Effect.Effect<A, { mess
     return yield* work(s);
   }));
 
-describe("review", () => {
-  test("refused while a comment has no agent reply", async () => {
-    const { home, sid, doc } = await fresh();
-    await store((s) => s.add(home, sid, doc, { quote, body: "Why warm?", author: "jun" }));
-    const refusal = await store((s) => s.review(home, sid, doc, { round: 1, body: "done", author: "agent" })).then(() => null, (e: Error) => e.message);
-    expect(refusal).toMatch(/no reply from agent/);
-  });
-
-  test("round is stored after an agent reply", async () => {
-    const { home, sid, doc } = await fresh();
-    const c = await store((s) => s.add(home, sid, doc, { quote, body: "Why warm?", author: "jun" }));
-    await store((s) => s.reply(home, c.id, doc, { body: "Preloaded.", author: "agent" }));
-    const r = await store((s) => s.review(home, sid, doc, { round: 1, body: "all answered", author: "agent" }));
-    expect(r).toMatchObject({ round: 1, verdict: "commented", body: "all answered", author: "agent", doc });
-    const file = await store((s) => s.read(home, sid));
-    expect(file.reviews?.[0]).toMatchObject({ round: 1, verdict: "commented" });
-  });
-
-  test("a bad round number is refused", async () => {
-    const { home, sid, doc } = await fresh();
-    const e = await store((s) => s.review(home, sid, doc, { round: 0, body: "x", author: "agent" })).then(() => null, (e: Error) => e.message);
-    expect(e).toMatch(/whole number/);
-  });
-});
-
 describe("comments through the store", () => {
   test("reads as empty when there are no comments yet", async () => {
     const { home, sid } = await fresh();

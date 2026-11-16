@@ -10,16 +10,16 @@ import type { ServerStatus } from "./server-status";
 
 export async function restart(
   home: string,
-  opts: { port?: number | string; apiPort?: number | string } = {},
+  opts: { port?: number | string } = {},
   impl: { start?: typeof start } = {},
 ): Promise<ServerStatus & { started: boolean }> {
   const stopped = await stop(home, resolveUrl({ port: opts.port }));
   // `nothing` means nothing was running anywhere: a fresh start, not a failed stop — proceed.
   if (!stopped.stopped && !stopped.nothing) {
-    throw new ServerError(`cannot restart: the running pair was not stopped${stopped.note ? ` — ${stopped.note}` : ""}`);
+    throw new ServerError(`cannot restart: the running server was not stopped${stopped.note ? ` — ${stopped.note}` : ""}`);
   }
   const run = impl.start ?? start;
-  const r = await run(home, { port: opts.port, apiPort: opts.apiPort });
+  const r = await run(home, { port: opts.port });
   if (!r.started) {
     const url = resolveUrl({ port: opts.port });
     throw new ServerError(`cannot restart: ${unrecordedNote(url, listenersOn(portOf(url)))}`);

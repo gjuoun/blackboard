@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useNav } from "./nav";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { clampInbox, LIST_MIN, type PanelKey } from "@/lib/prefs";
 import { countStatuses, filterDocs, type PreviewData, type ReadingFilter, type ReadingResult, type WorkspaceData } from "@/lib/reading-model";
@@ -11,9 +11,7 @@ import { ReadingHeader } from "./ReadingHeader";
 import { ReadingList } from "./ReadingList";
 import { ReadingPreview } from "./ReadingPreview";
 import { ReadingRail } from "./ReadingRail";
-import { usePreviewScroll } from "./usePreviewScroll";
 import { setWorkspaceBar } from "./workspace-bar";
-import { WorkspaceNew } from "./WorkspaceNew";
 import { isWorkspaceView, VIEW_FILTERS, WorkspaceTabBar, type WorkspaceView } from "./WorkspaceTabBar";
 
 /** A media query as a hook, same subscribe pattern as the chrome store's desktop flag. */
@@ -41,12 +39,12 @@ const viewFromLocation = (): WorkspaceView | null => {
 
 /**
  * The reading workspace: a three-column inbox on desktop, the mail-app shell on a phone — the list
- * with a bottom tab bar, a full-screen preview over it, and the New and Settings screens behind
+ * with a bottom tab bar, a full-screen preview over it, and the Settings screen behind
  * the fourth and fifth tabs. The list and the preview are two views of one state; selecting a row
  * is what opens the document, and every state change is written through `/api/reading`.
  */
 export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
-  const router = useRouter();
+  const { push, replace } = useNav();
   const chrome = useChrome();
   const [docs, setDocs] = useState(initial.docs);
   const [view, setViewState] = useState<WorkspaceView>("all");
@@ -82,7 +80,7 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
   const setView = useCallback(
     (v: WorkspaceView) => {
       if (v === "settings") {
-        router.push("/inbox/settings");
+        push("/inbox/settings");
         return;
       }
       // A tab switch always lands on the list: an open preview closes with it.
@@ -91,9 +89,9 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
       setLoading(false);
       setViewState(v);
       const f = VIEW_FILTERS[v];
-      router.replace(f ? `/inbox?f=${f}` : "/inbox?f=new", { scroll: false });
+      replace(f ? `/inbox?f=${f}` : "/inbox", { scroll: false });
     },
-    [router],
+    [push, replace],
   );
 
   /** Apply the entries a write answered with; the server's copy is authoritative. */
@@ -110,18 +108,17 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
     [patch],
   );
 
-  const { docsRef, cancelProgress, holdProgress, onProgress } = usePreviewScroll({ selected, docs, setDocs, write });
+  const docsRef = useRef(docs);
+  useEffect(() => { docsRef.current = docs; }, [docs]);
 
   const mark = useCallback(
     (id: string, action: "read" | "unread") => {
-      cancelProgress();
-      holdProgress(800);
       // The optimistic copy mirrors the server rule: marking read keeps the position, marking
       // unread clears it — progress is position, never "finished".
       setDocs((prev) => prev.map((doc) => (doc.id === id ? { ...doc, status: action, progress: action === "unread" ? 0 : doc.progress } : doc)));
       void write({ session: id, action });
     },
-    [write, cancelProgress, holdProgress],
+    [write],
   );
 
   // The open handler and the key listener run outside render, so they read the latest values
@@ -137,8 +134,6 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
   const open = useCallback(
     (id: string) => {
       if (id === selected) return;
-      cancelProgress();
-      holdProgress(300);
       setSelected(id);
       setPreview(null);
       setError(null);
@@ -146,7 +141,7 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
       const doc = docsRef.current.find((d) => d.id === id);
       if (doc?.status === "unread" && readOnOpen.current) markRef.current(id, "read");
     },
-    [selected, cancelProgress, holdProgress, docsRef],
+    [selected, docsRef],
   );
 
   const close = useCallback(() => {
@@ -212,7 +207,7 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
       }
       if (e.key === "Enter" && selected) {
         e.preventDefault();
-        router.push(`/s/${selected}`);
+        push(`/s/${selected}`);
         return;
       }
       if (e.key === "m" && selected) {
@@ -222,7 +217,7 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [visible, selected, open, router, close, docsRef]);
+  }, [visible, selected, open, push, close, docsRef]);
 
   // The desktop top bar folds the inbox controls into itself; publish them while this page is
   // mounted and clear the slot on the way out so no other page inherits them.
@@ -251,7 +246,6 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
   }, [chrome.railW, chrome.previewW]);
 
   const selectedDoc = docs.find((doc) => doc.id === selected) ?? null;
-  const listVisible = view !== "new";
 
   return (
     <div data-testid="rw-shell" className="flex h-[calc(100dvh-var(--bar-h))] flex-col overflow-hidden max-md:h-dvh">
@@ -283,13 +277,11 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
           ) : null}
         </div>
 
-        <section className={cn("min-h-0 min-w-0 flex-col overflow-hidden", listVisible ? "flex" : "hidden md:flex")}>
+        <section className="flex min-h-0 min-w-0 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 overflow-auto">
             <ReadingList docs={visible} selected={selected} onSelect={open} onMark={mark} />
           </div>
         </section>
-
-        {view === "new" ? <WorkspaceNew /> : null}
 
         <div className={cn("relative min-h-0 flex-col md:flex", selected ? "max-md:fixed max-md:inset-0 max-md:z-30 max-md:flex" : "max-md:hidden")}>
           {desktop ? (
@@ -311,7 +303,6 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
             resume={chrome.resumeOnOpen}
             onClose={close}
             onMark={mark}
-            onProgress={onProgress}
             onReply={reply}
           />
         </div>

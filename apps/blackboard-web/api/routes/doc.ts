@@ -8,9 +8,7 @@ import { jsonBody } from "../../lib/effect/schema";
 import { getHome } from "../../lib/home";
 import { workspaceDocs } from "../../lib/reading-workspace";
 import { docKey } from "../../lib/session-model";
-import { realDoc, SCRATCHPAD_ID, SessionsStore, toWire } from "../../lib/sessions";
-import { StreamsStore } from "../../lib/stream-store";
-import { planStreamWindow, windowMeta, parseRange, DEFAULT_VIEWPORT_H } from "../../lib/stream-window";
+import { realDoc, SessionsStore, toWire } from "../../lib/sessions";
 import { respond } from "../respond";
 
 /**
@@ -30,18 +28,6 @@ doc.get("/sessions", () =>
   ),
 );
 
-/** GET /api/scratchpad — the scratchpad row, created on first use. The home page shows it pinned. */
-doc.get("/scratchpad", () =>
-  respond(
-    Effect.gen(function* () {
-      const sessions = yield* SessionsStore;
-      const home = getHome();
-      const scratch = yield* sessions.scratchpad(home);
-      return { pad: toWire(yield* sessions.row(home, scratch)) };
-    }),
-  ),
-);
-
 /** GET /api/session?id= — one session with its row and whole comment surface for the doc page. */
 doc.get("/session", (c) =>
   respond(
@@ -51,35 +37,13 @@ doc.get("/session", (c) =>
       const home = getHome();
       const url = new URL(c.req.url);
       const id = url.searchParams.get("id") ?? "";
-      const rangeParam = url.searchParams.get("range");
-      const vhParam = url.searchParams.get("vh");
-      if (id === SCRATCHPAD_ID) yield* sessions.scratchpad(home);
       const session = yield* sessions.get(home, id);
       if (!session) return yield* Effect.fail(sessionNotFound(404));
       const row = yield* sessions.row(home, session);
       const file = yield* comments.read(home, session.id);
       const key = docKey(session);
       const body = yield* sessions.body(home, session.id);
-      // The timeline view renders the exchanges themselves; a file session has none to send.
-      const all = session.kind === "stream" ? yield* (yield* StreamsStore).blocks(home, session.id) : undefined;
-      if (all) {
-        const range = parseRange(rangeParam, all.length);
-        if (range === "invalid") return yield* Effect.fail(new InvalidInput({ message: "invalid range", status: 400, field: "range" }));
-        const vh = vhParam ? Number(vhParam) : DEFAULT_VIEWPORT_H;
-        const window = planStreamWindow(all, Number.isFinite(vh) && vh > 0 ? vh : DEFAULT_VIEWPORT_H);
-        const blocks = range ? all.slice(range.from, range.to + 1) : all;
-        return {
-          session,
-          row: toWire(row),
-          body,
-          blocks,
-          stream: windowMeta(window, Number.isFinite(vh) ? vh : DEFAULT_VIEWPORT_H),
-          window: { head: window.head, tail: window.tail },
-          comments: renderComments(file.docs[key] ?? []),
-          reviews: (file.reviews ?? []).filter((r) => r.doc === key),
-        };
-      }
-      return { session, row: toWire(row), body, comments: renderComments(file.docs[key] ?? []), reviews: (file.reviews ?? []).filter((r) => r.doc === key) };
+      return { session, row: toWire(row), body, comments: renderComments(file.docs[key] ?? []) };
     }),
   ),
 );

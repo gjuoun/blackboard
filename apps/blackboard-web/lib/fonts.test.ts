@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { CJK_BY_ID, CJK_FONTS, LATIN_BY_ID, LATIN_FONTS, MONO_BY_ID, MONO_FONTS } from "./fonts";
 import { CJK_IDS, DEFAULT_PREFS, LATIN_IDS, MONO_IDS } from "./prefs";
 
-const CSS = readFileSync(join(import.meta.dir, "..", "styles", "fonts.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+const CSS = readFileSync(join(import.meta.dir, "..", "src", "styles", "fonts.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
 /** The body of `html[data-font-<slot>="<id>"] { … }`. */
 function rule(slot: string, id: string): string | null {

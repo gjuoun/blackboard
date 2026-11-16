@@ -5,7 +5,6 @@ import { Button } from "@gjuoun/bb-ui/components/ui/button";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { QuoteSelector } from "@/lib/anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
-import type { Review } from "@/lib/comments-store";
 import { cn } from "@gjuoun/bb-ui/lib/utils";
 import { clampPanels, type PanelKey } from "@/lib/prefs";
 import { DESKTOP, patchDoc, setChrome, useChrome, useIsDesktop } from "./chrome";
@@ -14,7 +13,6 @@ import { CommentPanel } from "./CommentPanel";
 import { ComposerLine } from "./ComposerLine";
 import { DocBody } from "./DocBody";
 import { PassageComposer } from "./PassageComposer";
-import { useStreamDoc, type StreamDocInput } from "./useStreamDoc";
 import { interceptHashClick, useVirtualDoc, VirtualDocProvider } from "./useVirtualDoc";
 import { useComments } from "./useComments";
 import { useDocAnchors } from "./useDocAnchors";
@@ -23,22 +21,9 @@ import { useLiveDoc } from "./useLiveDoc";
 const AUTHOR_KEY = "bb-author";
 type DocViewProps = {
   session: string;
-  /** This doc's review rounds, listed after the anchored comments. */
-  reviews?: Review[];
   title: string;
   path: string;
   html: string;
-  /** A custom body (a streamed doc's timeline) rendered as DocBody's children instead of its
-   *  html. `html` then carries only the virtualization key: pass `bodyHtml` — a fingerprint of
-   *  the rendered nodes — so rechunking follows the stream. */
-  bodySlot?: ReactNode;
-  bodyHtml?: string;
-  /** Keep the tail block mounted — a stream's open exchange lives there. */
-  pinTail?: boolean;
-  /** A streamed doc whose first screen was windowed: its lazy-loading metadata. Exchanges the
-   *  server skipped are placeholders until they scroll in; a comment quoted inside one stays
-   *  orphaned in the panel until that exchange loads, which is the documented trade-off. */
-  stream?: StreamDocInput;
   initialComments: RenderedComment[];
   header: ReactNode;
   toc: ReactNode;
@@ -48,7 +33,7 @@ type DocViewProps = {
  * The doc plus its comments. The anchoring and selection half lives in `useDocAnchors`; this
  * component owns the layout: the three columns on desktop, the bottom sheets on a phone.
  */
-export function DocView({ session, reviews = [], title, path, html, bodySlot, bodyHtml, pinTail, stream, initialComments, header, toc }: DocViewProps) {
+export function DocView({ session, title, path, html, initialComments, header, toc }: DocViewProps) {
   const [author, setAuthor] = useState("jun");
   useEffect(() => {
     const saved = localStorage.getItem(AUTHOR_KEY);
@@ -64,13 +49,13 @@ export function DocView({ session, reviews = [], title, path, html, bodySlot, bo
   // The rendered body lives here so both the virtualizer and the anchoring can watch it: the
   // virtualizer chunks it when the doc is long, the anchoring keeps working against its map.
   const bodyRef = useRef<HTMLElement>(null);
-  // The plain virtualizer always runs; on a stream page its body is the windowed timeline and
-    // the payload controller adopts it instead. Both hooks run unconditionally, one no-ops.
-    const virtDoc = useVirtualDoc({ html: bodyHtml ?? html, bodyRef, pinTail, disabled: !!stream });
-    const streamVirt = useStreamDoc({ stream, bodyRef });
-    const virt = stream ? streamVirt : virtDoc;
+  const virt = useVirtualDoc({ html, bodyRef });
   const chrome = useChrome();
   const desktop = useIsDesktop();
+  useEffect(() => {
+    setChrome({ doc: { id: session, path, title, readable: true, hasToc: !!toc, open: 0 }, sheet: null });
+    return () => setChrome({ doc: null, sheet: null });
+  }, [session, path, title, toc]);
   useLiveDoc(session, reload);
   const openCount = comments.filter((c) => c.status === "open").length;
   useEffect(() => patchDoc({ open: openCount }), [openCount, chrome.doc?.id]);
@@ -138,7 +123,6 @@ export function DocView({ session, reviews = [], title, path, html, bodySlot, bo
 
   const panel = (
     <CommentPanel
-      reviews={reviews}
       title={title}
       path={path}
       comments={panelComments}
@@ -199,13 +183,7 @@ export function DocView({ session, reviews = [], title, path, html, bodySlot, bo
       <main className="relative min-w-0 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] max-md:pt-[calc(env(safe-area-inset-top)+1.25rem)] md:px-10 md:pt-10 md:pb-24" ref={mainRef}>
         <div className="mx-auto min-w-0 max-w-[760px]">
           {header}
-          {bodySlot ? (
-            <DocBody ref={bodyRef} onClick={onDocClick} onMouseMove={onDocMove} onMouseLeave={onDocLeave}>
-              {bodySlot}
-            </DocBody>
-          ) : (
-            <DocBody html={html} ref={bodyRef} onClick={onDocClick} onMouseMove={onDocMove} onMouseLeave={onDocLeave} />
-          )}
+          <DocBody html={html} ref={bodyRef} onClick={onDocClick} onMouseMove={onDocMove} onMouseLeave={onDocLeave} />
         </div>
         {draft ? (
           <Button

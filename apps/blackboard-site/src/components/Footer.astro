@@ -1,0 +1,22 @@
+---
+import type { Dict } from "../i18n/types.ts";
+
+interface Props {
+  dict: Dict;
+}
+
+const { dict } = Astro.props;
+---
+
+<footer>
+  <div class="wrap cols">
+    <div>{dict.footer.license} · <a href="https://github.com/gjuoun/blackboard">github.com/gjuoun/blackboard</a></div>
+    <div>
+      {dict.languageName} ·
+      <a href={dict.switcher.href} lang={dict.switcher.lang} hreflang={dict.switcher.lang}>
+        {dict.switcher.label}
+      </a>
+    </div>
+    <div>{dict.footer.requirements}</div>
+  </div>
+</footer>

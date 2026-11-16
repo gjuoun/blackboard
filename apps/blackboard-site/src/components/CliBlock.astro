@@ -1,0 +1,29 @@
+---
+import type { Dict } from "../i18n/types.ts";
+
+interface Props {
+  cli: Dict["cli"];
+}
+
+const { cli } = Astro.props;
+
+// The block is a <pre>: its alignment is the artifact, so the rows are one exact string rather
+// than JSX children (whose indentation would land inside the preserved whitespace).
+const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const html = cli.rows
+  .map((row) => {
+    const comment = row.comment
+      ? '<span class="c"># ' + escape(row.comment) + "</span>"
+      : "";
+    return '<span class="b">blackboard</span> ' + escape(row.command) + comment;
+  })
+  .join("\n");
+---
+
+<section class="wrap cli">
+  <h2 class="sec">{cli.heading}</h2>
+  <pre class="cli" set:html={html}></pre>
+  <p class="muted">
+    {cli.note.before}<code>{cli.note.code}</code>{cli.note.after}
+  </p>
+</section>

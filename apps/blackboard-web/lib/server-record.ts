@@ -1,38 +1,40 @@
 /**
- * The serve record: which two processes this home started, where they answer, and whether a pid is alive.
+ * The serve record: which process this home started, where it answers, and whether its pid is alive.
  * No probing here; that is server-status.ts. Nothing in this file imports another serve module.
  */
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
- * Running the web app + the API from the `blackboard` command: `serve start | stop | restart |
- * status`, and `open` starting them on first use. Two processes now: the standalone Next build in
- * `server/` (UI) and `dist/api.mjs` (API, always Bun — it owns bun:sqlite). What this module
- * started is remembered in `<home>/server.json` as two proc entries; anything else answering at
- * the same address is treated as running but not ours to stop.
+ * Running the web app from the `blackboard` command: `serve start | stop | restart | status`, and
+ * `open` starting it on first use. One process now: the Nitro build in `server/`, always Bun — the
+ * API is mounted in-process on the same port (dev runs `bun api/server.ts` alongside instead).
+ * What this module started is remembered in `<home>/server.json` as one `ui` proc entry; anything
+ * else answering at the same address is treated as running but not ours to stop. Records from the
+ * two-process era (`{ui,api}`) and the single-file era (bare proc) read back as their own shapes —
+ * a running pair is still this home's to stop or restart.
  */
-/** A serve failure the command reports as text: a bad port, a missing build, a pair that did not start. */
+/** A serve failure the command reports as text: a bad port, a missing build, a server that did not start. */
 export class ServerError extends Error {}
 
 export const DEFAULT_URL = "http://127.0.0.1:38770";
 
-export const DEFAULT_API_URL = "http://127.0.0.1:38771";
-
 export type Proc = { pid: number; url: string; startedAt: string };
 
-export type ServerState = { ui: Proc; api: Proc };
+/** The current record: one process serving UI and API on one port. */
+export type ServerState = { ui: Proc };
+
+/** A record from the two-process era: the UI plus the separate API it forwarded to. */
+export type PairState = { ui: Proc; api: Proc };
 
 /** A record the single-process CLI wrote before the app+api split: one proc at top level, no ui/api. */
 export type LegacyState = { legacy: Proc };
 
-export type RecordedState = ServerState | LegacyState;
+export type RecordedState = ServerState | PairState | LegacyState;
 
 export const statePath = (home: string) => join(home, "server.json");
 
 export const uiLogPath = (home: string) => join(home, "server.log");
-
-export const apiLogPath = (home: string) => join(home, "api.log");
 
 /** Where the app should answer: --port, else $BLACKBOARD_URL, else the default. Always an http origin. */
 export function resolveUrl(opts: { port?: number | string; env?: Record<string, string | undefined> } = {}): string {
@@ -48,20 +50,6 @@ export function resolveUrl(opts: { port?: number | string; env?: Record<string, 
   return base.origin;
 }
 
-/** Where the API should answer: --api-port, else $BLACKBOARD_API_URL, else the default API port. */
-export function resolveApiUrl(opts: { apiPort?: number | string; env?: Record<string, string | undefined> } = {}): string {
-  const env = opts.env ?? process.env;
-  const base = new URL((env.BLACKBOARD_API_URL || DEFAULT_API_URL).replace(/\/+$/, ""));
-  if (opts.apiPort !== undefined) {
-    const n = Number(opts.apiPort);
-    if (!Number.isInteger(n) || n < 1 || n > 65535) throw new ServerError(`--api-port must be a number from 1 to 65535, got "${opts.apiPort}"`);
-    base.protocol = "http:";
-    base.hostname = "127.0.0.1";
-    base.port = String(n);
-  }
-  return base.origin;
-}
-
 /** The port a URL names (80 / 443 when it names none). */
 export function portOf(url: string): number {
   const u = new URL(url);
@@ -69,15 +57,17 @@ export function portOf(url: string): number {
 }
 
 /**
- * Read the state file. The current shape is two procs; a file the single-process CLI wrote (before
- * the app+api split) reads as a marked legacy record, never as none — a legacy pid is ours to stop
- * or restart, and reading it as unrecorded was how `serve` once refused its own server.
+ * Read the state file. The current shape is one `ui` proc; a two-proc `{ui,api}` file (the era when
+ * the API was a second process) and a bare-proc file (before the split) read back as their own
+ * marked records, never as none — their pids are ours to stop or restart, and reading them as
+ * unrecorded was how `serve` once refused its own server.
  */
 export function readState(home: string): RecordedState | null {
   try {
     const v = JSON.parse(readFileSync(statePath(home), "utf8"));
     const ok = (p: unknown): p is Proc => !!p && Number.isInteger((p as Proc).pid) && typeof (p as Proc).url === "string" && typeof (p as Proc).startedAt === "string";
-    if (ok(v?.ui) && ok(v?.api)) return v;
+    if (ok(v?.ui) && ok(v?.api)) return { ui: v.ui, api: v.api };
+    if (ok(v?.ui)) return { ui: v.ui };
     return ok(v) ? { legacy: v } : null;
   } catch {
     return null;

@@ -8,7 +8,6 @@ import { documents } from "../db/schema";
 import { indexRow } from "../doc-index-run";
 import { RepoMemo } from "../doc-index";
 import { SessionsStore } from "../sessions";
-import { StreamsStore, layer as streamsLayer } from "../stream-store";
 
 /**
  * `blackboard blocks` and `blackboard patch`: the agent-facing block edit surface. `blocks`
@@ -18,8 +17,8 @@ import { StreamsStore, layer as streamsLayer } from "../stream-store";
 
 export type BlockLine = { id: string; n: number; grp: number; kind: string; rev: number; text: string };
 
-const provide = <A, E>(effect: Effect.Effect<A, E, SessionsStore | StreamsStore | ContentBlocksRepo | Db>) =>
-  effect.pipe(Effect.provide(contentBlocksLayer), Effect.provide(streamsLayer), Effect.provide(dbLayer));
+const provide = <A, E>(effect: Effect.Effect<A, E, SessionsStore | ContentBlocksRepo | Db>) =>
+  effect.pipe(Effect.provide(contentBlocksLayer), Effect.provide(dbLayer));
 
 const localOnly = () => process.versions.bun !== undefined;
 
@@ -52,14 +51,13 @@ export type PatchResult = { blockId: string; session: string; rev: number; text:
 /**
  * Rewrite one block's text. `--id` names the block; `--old` (optional) scopes the replacement
  * inside that block's text and must occur exactly once — the whole block is replaced otherwise.
- * File docs get the file spliced and reindexed; stream docs get the spliced body appended as an
- * `edit` exchange, which refolds and reconciles in the same pass.
+ * The file is spliced and reindexed.
  */
 export function patch(
   home: string,
   ref: string,
   input: { id: string; old?: string; next: string; author: string },
-): Effect.Effect<PatchResult, CliError, SessionsStore | ContentBlocksRepo | Db | StreamsStore> {
+): Effect.Effect<PatchResult, CliError, SessionsStore | ContentBlocksRepo | Db> {
   return Effect.gen(function* () {
     const { session } = yield* find(home, ref);
     if (!localOnly()) return yield* new CliError({ message: "patch edits the local file and database — run it under bun", code: 1 });
@@ -83,16 +81,7 @@ export function patch(
         newBlockText = input.next;
       }
 
-      if (session.kind === "stream") {
-        // The body lives in the exchange list: a patch appends an `edit` exchange carrying the
-        // spliced document, exactly what `blackboard block --action edit` does by hand.
-        const streams = yield* StreamsStore;
-        const body = yield* streams.body(home, session.id).pipe(Effect.mapError((error) => cliFailure(error)));
-        if (!body || occurrences(body, block.text) !== 1) {
-          return yield* new CliError({ message: `${input.id} is not uniquely present in the folded body — patch refused`, code: 1 });
-        }
-        yield* streams.append(home, session.id, { action: "edit", body: body.replace(block.text, newBlockText), author: input.author }).pipe(Effect.mapError((error) => cliFailure(error)));
-      } else {
+      {
         if (!session.path) return yield* new CliError({ message: `${session.id} has no file to patch`, code: 1 });
         const path = session.path;
         const src = yield* Effect.try({ try: () => readFileSync(path, "utf8"), catch: (error) => cliFailure({ message: `read ${path}: ${(error as Error).message}` }) });

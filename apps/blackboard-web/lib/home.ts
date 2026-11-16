@@ -8,7 +8,7 @@ export function expandHome(p: string): string {
 }
 
 /**
- * Blackboard's own folder: the session registry, each session's comments, the scratchpad.
+ * Blackboard's own folder: the session registry and each session's comments.
  * `--home`, then BLACKBOARD_HOME, then ~/.blackboard. Created when missing.
  */
 export function getHome(explicit?: string): string {

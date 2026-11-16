@@ -1,0 +1,31 @@
+---
+import type { Dict } from "../i18n/types.ts";
+
+interface Props {
+  install: Dict["install"];
+}
+
+const { install } = Astro.props;
+---
+
+<div class="install" id="install">
+  {
+    install.rows.map((command) => (
+      <div class="row">
+        <span class="prompt">$</span>
+        <code>{command}</code>
+        <button
+          class="copy-btn"
+          data-copy={command}
+          data-copy-label={install.copy}
+          data-copied-label={install.copied}
+        >
+          {install.copy}
+        </button>
+      </div>
+    ))
+  }
+</div>
+<p class="muted" style="font-size:13px;margin-top:10px;">
+  {install.bunPrefix}<code>{install.bunCommand}</code>
+</p>

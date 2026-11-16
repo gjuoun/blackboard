@@ -11,7 +11,7 @@ type Needs = Db | Lock;
 /** What a migrate run reports, as plain CLI output. */
 const formatReport = (r: MigrateReport): string => {
   if (r.nothing) return "nothing to migrate";
-  const counts = `${r.documents} documents, ${r.comments} comments, ${r.reviews} reviews, ${r.readingState} reading_state, ${r.agents} agents`;
+  const counts = `${r.documents} documents, ${r.comments} comments, ${r.readingState} reading_state, ${r.agents} agents`;
   if (r.dry) return `would migrate: ${counts}`;
   return `migrated: ${counts} (${r.renamed.length} source files renamed to .migrated)`;
 };

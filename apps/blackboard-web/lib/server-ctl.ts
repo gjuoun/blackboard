@@ -1,15 +1,15 @@
 /**
- * Running the web app and the API from the `blackboard` command: start, stop, restart, status. The record lives in
- * server-record.ts and the probing in server-status.ts; this file starts and stops the processes and formats output.
+ * Running the web app from the `blackboard` command: start, stop, restart, status. The record lives in
+ * server-record.ts and the probing in server-status.ts; this file starts and stops the process and formats output.
  */
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { basename, delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { clearState, pidAlive, portOf, readState, resolveUrl, resolveApiUrl, uiLogPath, apiLogPath, ServerError, statePath, writeState, type ServerState } from "./server-record";
+import { clearState, pidAlive, portOf, readState, resolveUrl, uiLogPath, ServerError, statePath, writeState, type ServerState } from "./server-record";
 import { portListens, status, type ServerStatus } from "./server-status";
 
-export { DEFAULT_API_URL, DEFAULT_URL, ServerError, clearState, pidAlive, portOf, readState, resolveApiUrl, resolveUrl, statePath, uiLogPath, apiLogPath, writeState } from "./server-record";
+export { DEFAULT_URL, ServerError, clearState, pidAlive, portOf, readState, resolveUrl, statePath, uiLogPath, writeState } from "./server-record";
 export { restart } from "./server-restart";
 export { HEALTH_BUDGET_MS, healthAnswers, portListens, procState, status } from "./server-status";
 export type { ProcName, ProcState, ServerStatus } from "./server-status";
@@ -30,28 +30,28 @@ function appRoot(from: string = import.meta.url): string {
   return dirname(dirname(fileURLToPath(from)));
 }
 
-/** Command that runs a JS file: Node when this process is Node or one is on PATH, else this Bun in Node-compat mode. */
+/** Command that runs the built app: Bun only — the API mounts in-process and owns bun:sqlite. */
 export function runtimeFor(opts: { execPath: string; pathDirs: string[]; exists: (p: string) => boolean }): { cmd: string; args: string[] } {
-  if (/^node(\.exe)?$/i.test(basename(opts.execPath))) return { cmd: opts.execPath, args: [] };
+  if (/^bun/i.test(basename(opts.execPath))) return { cmd: opts.execPath, args: [] };
   for (const d of opts.pathDirs) {
-    const p = join(d, process.platform === "win32" ? "node.exe" : "node");
+    const p = join(d, process.platform === "win32" ? "bun.exe" : "bun");
     if (opts.exists(p)) return { cmd: p, args: [] };
   }
-  return { cmd: opts.execPath, args: ["--bun"] };
+  return { cmd: opts.execPath, args: [] };
 }
 
 const currentRuntime = () =>
   runtimeFor({ execPath: process.execPath, pathDirs: (process.env.PATH ?? "").split(delimiter).filter(Boolean), exists: existsSync });
 
 /**
- * Where the app sits inside the assembled server tree. A workspace above the app makes `next build`
- * root its standalone output at the workspace root, so the entry is `server/apps/blackboard-web/server.js`
- * and the dependencies are split across two `node_modules`: the workspace root's and the app's own.
+ * Where the app sits inside the assembled server tree: Nitro's node-server preset emits
+ * .output/{server,public,nitro.json}, build:server copies that to server/, so the entry is
+ * server/server/index.mjs.
  */
-const APP_IN_SERVER = join("apps", "blackboard-web");
+const APP_IN_SERVER = join("server");
 
 /** The production app's entry inside an assembled (or copied) server tree. */
-const serverEntry = (dir: string) => join(dir, APP_IN_SERVER, "server.js");
+const serverEntry = (dir: string) => join(dir, APP_IN_SERVER, "index.mjs");
 
 /**
  * npm drops any folder named node_modules from a package, so the build ships them as `modules` — at
@@ -105,38 +105,15 @@ function uiStartCommand(root: string, home: string) {
     throw new ServerError("this copy has no production build; run `bun run build && bun run build:server` first (or use `bun dev`)");
   }
   const dir = prepareServer(serverDir, home, packageVersion(root));
-  const appDir = join(dir, APP_IN_SERVER);
   const rt = currentRuntime();
-  return { cmd: rt.cmd, args: [...rt.args, join(appDir, "server.js")], cwd: appDir };
+  // Nitro's entry reads its own neighbours by relative path, so it runs from the tree root.
+  return { cmd: rt.cmd, args: [...rt.args, serverEntry(dir)], cwd: dir };
 }
 
-/**
- * The command line that starts the API, and the folder to run it in. Always Bun: storage is
- * bun:sqlite, so Node can never run this process. `dist/api.mjs` when the package shipped one,
- * else the source entry for a dev checkout.
- */
-function apiStartCommand(root: string) {
-  const bundled = join(root, "dist", "api.mjs");
-  const source = join(root, "api", "server.ts");
-  const entry = existsSync(bundled) ? bundled : existsSync(source) ? source : null;
-  if (!entry) throw new ServerError("this copy has no API entry; run `bun run build:api` first");
-  const exec = basename(process.execPath);
-  if (!/^bun/i.test(exec)) {
-    for (const d of (process.env.PATH ?? "").split(delimiter).filter(Boolean)) {
-      const p = join(d, process.platform === "win32" ? "bun.exe" : "bun");
-      if (existsSync(p)) return { cmd: p, args: [entry], cwd: dirname(entry) };
-    }
-    throw new ServerError("the API needs Bun (it stores in bun:sqlite) and no `bun` is on PATH");
-  }
-  return { cmd: process.execPath, args: [entry], cwd: dirname(entry) };
-}
-
-function appEnv(home: string, url: string, apiUrl: string): NodeJS.ProcessEnv {
-  return { ...process.env, NODE_ENV: "production", BLACKBOARD_HOME: home, BLACKBOARD_URL: url, BLACKBOARD_API_URL: apiUrl, PORT: String(portOf(url)), HOSTNAME: "127.0.0.1" };
-}
-
-function apiEnv(home: string, apiUrl: string): NodeJS.ProcessEnv {
-  return { ...process.env, NODE_ENV: "production", BLACKBOARD_HOME: home, BLACKBOARD_API_URL: apiUrl, PORT: String(portOf(apiUrl)) };
+function appEnv(home: string, url: string): NodeJS.ProcessEnv {
+  // No BLACKBOARD_API_URL: the app's /api/* route mounts the Hono app in-process when it is absent —
+  // the one-process fold. Dev's forwarder sets it for the API it runs alongside.
+  return { ...process.env, NODE_ENV: "production", BLACKBOARD_HOME: home, BLACKBOARD_URL: url, PORT: String(portOf(url)), HOSTNAME: "127.0.0.1" };
 }
 
 /**
@@ -146,9 +123,9 @@ function apiEnv(home: string, apiUrl: string): NodeJS.ProcessEnv {
  */
 export function verifyRecord(home: string, expected: ServerState): void {
   const back = readState(home);
-  if (back && "ui" in back && back.ui.pid === expected.ui.pid && back.api.pid === expected.api.pid) return;
+  if (back && "ui" in back && back.ui.pid === expected.ui.pid) return;
   throw new ServerError(
-    `the pair started (ui pid ${expected.ui.pid}, api pid ${expected.api.pid}) but ${statePath(home)} did not read back; stop them with: kill ${expected.ui.pid} ${expected.api.pid}`,
+    `the server started (pid ${expected.ui.pid}) but ${statePath(home)} did not read back; stop it with: kill ${expected.ui.pid}`,
   );
 }
 
@@ -184,10 +161,9 @@ async function spawnAndWait(child: ChildProcess, url: string, log: string): Prom
   throw new ServerError(`${why} (${url}). Last log lines (${log}):\n${tail(log)}`);
 }
 
-/** Start the app + API in the background and wait until both answer. A running pair is left alone. */
-export async function start(home: string, opts: { port?: number | string; apiPort?: number | string } = {}): Promise<ServerStatus & { started: boolean }> {
+/** Start the app in the background and wait until it answers. A running server is left alone. */
+export async function start(home: string, opts: { port?: number | string } = {}): Promise<ServerStatus & { started: boolean }> {
   const url = resolveUrl({ port: opts.port });
-  const apiUrl = resolveApiUrl({ apiPort: opts.apiPort });
   const cur = await status(home, url);
   if (cur.running) return { ...cur, started: false };
 
@@ -195,68 +171,43 @@ export async function start(home: string, opts: { port?: number | string; apiPor
   mkdirSync(home, { recursive: true });
   // The API opens the database on first request — migration is the caller's (bin folds it once).
 
-  const apiCmd = apiStartCommand(root);
-  const apiLog = openSync(apiLogPath(home), "a");
-  let apiChild: ChildProcess;
-  try {
-    apiChild = spawn(apiCmd.cmd, apiCmd.args, { cwd: apiCmd.cwd, detached: true, stdio: ["ignore", apiLog, apiLog], env: apiEnv(home, apiUrl) });
-  } finally {
-    closeSync(apiLog);
-  }
-  await spawnAndWait(apiChild, apiUrl, apiLogPath(home));
-  const apiPid = apiChild.pid!;
-
   const uiCmd = uiStartCommand(root, home);
   const uiLog = openSync(uiLogPath(home), "a");
   let uiChild: ChildProcess;
   try {
-    uiChild = spawn(uiCmd.cmd, uiCmd.args, { cwd: uiCmd.cwd, detached: true, stdio: ["ignore", uiLog, uiLog], env: appEnv(home, url, apiUrl) });
+    uiChild = spawn(uiCmd.cmd, uiCmd.args, { cwd: uiCmd.cwd, detached: true, stdio: ["ignore", uiLog, uiLog], env: appEnv(home, url) });
   } finally {
     closeSync(uiLog);
   }
-  try {
-    await spawnAndWait(uiChild, url, uiLogPath(home));
-  } catch (e) {
-    try { process.kill(apiPid, "SIGKILL"); } catch { /* already gone */ }
-    throw e;
-  }
+  await spawnAndWait(uiChild, url, uiLogPath(home));
 
   const startedAt = new Date().toISOString();
   const record: ServerState = {
     ui: { pid: uiChild.pid!, url, startedAt },
-    api: { pid: apiPid, url: apiUrl, startedAt },
   };
   writeState(home, record);
-  // Success is the record reading back as written, not a probe: a probe can miss a pair that is up.
+  // Success is the record reading back as written, not a probe: a probe can miss a server that is up.
   verifyRecord(home, record);
-  // Report what this command started, from the record it just verified. A probe here could miss a pair
-  // that is up, and then the output would call our own processes someone else's.
-  return { running: true, url, managed: true, degraded: [], ui: { ...record.ui, log: uiLogPath(home) }, api: { ...record.api, log: apiLogPath(home) }, started: true };
+  // Report what this command started, from the record it just verified. A probe here could miss a server
+  // that is up, and then the output would call our own process someone else's.
+  return { running: true, url, managed: true, degraded: [], ui: { ...record.ui, log: uiLogPath(home) }, started: true };
 }
 
-/** Run both processes in this terminal until they stop (Ctrl-C). For containers and service managers. */
-export async function runForeground(home: string, opts: { port?: number | string; apiPort?: number | string } = {}): Promise<number> {
+/** Run the app in this terminal until it stops (Ctrl-C). For containers and service managers. */
+export async function runForeground(home: string, opts: { port?: number | string } = {}): Promise<number> {
   const url = resolveUrl({ port: opts.port });
-  const apiUrl = resolveApiUrl({ apiPort: opts.apiPort });
   // Foreground has no probe-then-report path: it must refuse a busy port before any spawn,
-  // or a foreign process answers as "our api" and the pair silently takes over its port.
-  for (const [name, u] of [["app", url], ["api", apiUrl]] as const) {
-    const port = portOf(u);
-    if (await portListens(u, 400)) {
-      const pids = listenersOn(port);
-      throw new ServerError(`port ${port} is already in use${pids.length ? ` by pid ${pids.join(", ")}` : ""} (${name} would answer at ${u})`);
-    }
+  // or a foreign process answers as "our app" and the spawn silently takes over its port.
+  const port = portOf(url);
+  if (await portListens(url, 400)) {
+    const pids = listenersOn(port);
+    throw new ServerError(`port ${port} is already in use${pids.length ? ` by pid ${pids.join(", ")}` : ""} (the app would answer at ${url})`);
   }
   const root = appRoot();
-  const apiCmd = apiStartCommand(root);
   const uiCmd = uiStartCommand(root, home);
-  const api = spawn(apiCmd.cmd, apiCmd.args, { cwd: apiCmd.cwd, stdio: "inherit", env: apiEnv(home, apiUrl) });
-  const ui = spawn(uiCmd.cmd, uiCmd.args, { cwd: uiCmd.cwd, stdio: "inherit", env: appEnv(home, url, apiUrl) });
-  const forward = (sig: NodeJS.Signals) => () => { api.kill(sig); ui.kill(sig); };
-  process.on("SIGINT", forward("SIGINT"));
-  process.on("SIGTERM", forward("SIGTERM"));
-  console.error(`blackboard: serving ${url} (api ${apiUrl})`);
-  return new Promise((resolve) => ui.on("exit", (code) => { api.kill("SIGTERM"); resolve(code ?? 0); }));
+  const ui = spawn(uiCmd.cmd, uiCmd.args, { cwd: uiCmd.cwd, stdio: "inherit", env: appEnv(home, url) });
+  console.error(`blackboard: serving ${url}`);
+  return new Promise((resolve) => ui.on("exit", (code) => resolve(code ?? 0)));
 }
 
 /**
@@ -290,8 +241,8 @@ async function portQuiet(url: string): Promise<boolean> {
   return false;
 }
 
-/** Stop the pair this home started. `stopped` requires both pids gone AND both recorded ports quiet —
- *  anything less is not a stop a restart may build on. Refuses a pair it did not start. */
+/** Stop the process this home started. `stopped` requires the pid gone AND the recorded port quiet —
+ *  anything less is not a stop a restart may build on. Refuses a server it did not start. */
 export async function stop(home: string, at = resolveUrl()): Promise<{ stopped: boolean; note?: string; nothing?: boolean }> {
   const st = readState(home);
   if (!st) {
@@ -301,8 +252,9 @@ export async function stop(home: string, at = resolveUrl()): Promise<{ stopped: 
     const pids = listenersOn(portOf(at));
     return { stopped: false, note: unrecordedNote(at, pids) };
   }
-  // A pre-split record names one process; the pair names two. The kill-and-confirm loop is the same.
-  const procs = "legacy" in st ? [st.legacy] : [st.ui, st.api];
+  // A pre-split record names one process, a two-process record names two — the kill-and-confirm loop
+  // is the same for each pid it names.
+  const procs = "legacy" in st ? [st.legacy] : "api" in st ? [st.ui, st.api] : [st.ui];
   for (const proc of procs) {
     if (!pidAlive(proc.pid)) continue;
     try { process.kill(proc.pid, "SIGTERM"); } catch { /* already gone */ }
@@ -331,12 +283,18 @@ export function formatStatus(s: ServerStatus): string {
     const advice = p.state === "down" ? "clear it with: blackboard serve stop" : "adopt it with: blackboard serve restart (or: blackboard serve stop)";
     return [head, `a pre-split record (single process, written before the app+api split) — ${advice}`].join("\n");
   }
+  if ("pair" in s) {
+    const p = s.pair;
+    const head = p.ui === "running" ? `running at ${s.url}  ui pid ${p.pids.ui}` : `not running (${s.url}): the recorded UI is ${p.ui}`;
+    const apiLine = `api: ${p.api} (pid ${p.pids.api})`;
+    const note = "a two-process record, written before the fold — restart it with: blackboard serve restart (or: blackboard serve stop)";
+    return [head, apiLine, note].join("\n");
+  }
   if (!s.running && "partial" in s) {
-    const p = s.partial;
-    return [`not running (${s.url}): one of the pair has stopped`, `ui: ${p.ui} (pid ${p.pids.ui})`, `api: ${p.api} (pid ${p.pids.api})`, "run: blackboard serve stop, then blackboard serve start"].join("\n");
+    return [`not running (${s.url}): the recorded process is ${s.partial.ui} (pid ${s.partial.pid})`, "run: blackboard serve stop, then blackboard serve start"].join("\n");
   }
   if (!s.running) return `not running (${s.url})`;
   if (!s.managed) return `running at ${s.url} (not started by this command)`;
   const note = s.degraded.length === 0 ? [] : [`degraded: ${s.degraded.join(", ")} is up but slow to answer its health route (it may still be starting)`];
-  return [`running at ${s.url}  pid ${s.ui.pid}  since ${s.ui.startedAt}`, `api: running at ${s.api.url}  pid ${s.api.pid}  since ${s.api.startedAt}`, ...note, `log: ${s.ui.log}`, `log: ${s.api.log}`].join("\n");
+  return [`running at ${s.url}  pid ${s.ui.pid}  since ${s.ui.startedAt}`, ...note, `log: ${s.ui.log}`].join("\n");
 }

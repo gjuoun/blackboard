@@ -6,10 +6,10 @@ import type { Comment, CommentFile } from "../comments-file";
 import { errorMessage, IoFailure, type LockTimeout, type DbFailure } from "../effect/errors";
 import { commentFiles, readAgentsFile, readCommentsFile, readReadingFile, readRegistryFile } from "../json-sources";
 import { Lock } from "../lock";
-import type { Session } from "../sessions";
+type RegistrySession = { id: string; path: string | null; createdAt: string; openedAt: string; kind?: string | null };
 import { Db } from "./client";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { agents, comments, documents, readingState, reviews } from "./schema";
+import { agents, comments, documents, readingState } from "./schema";
 
 /**
  * One-shot, idempotent migration of the four JSON stores into `<home>/blackboard.db`:
@@ -26,7 +26,7 @@ export type MigrateReport = {
   dry: boolean;
   documents: number;
   comments: number;
-  reviews: number;
+
   readingState: number;
   agents: number;
   /** Source files renamed to .migrated (empty on dry-run). */
@@ -49,13 +49,13 @@ const insert = (db: BunSQLiteDatabase, home: string): MigrateReport => {
   const hasRegistry = existsSync(src.registry);
   const hasReading = existsSync(src.reading);
   const hasAgents = existsSync(src.agents);
-  const report: MigrateReport = { dry: false, documents: 0, comments: 0, reviews: 0, readingState: 0, agents: 0, renamed: [], nothing: false };
+  const report: MigrateReport = { dry: false, documents: 0, comments: 0, readingState: 0, agents: 0, renamed: [], nothing: false };
 
   const registry = hasRegistry ? readRegistryFile(home) : ({ version: 1, sessions: [] } as const);
-  const ids = new Set(registry.sessions.map((s: Session) => s.id));
+  const ids = new Set(registry.sessions.map((s: RegistrySession) => s.id));
 
   // documents: registry rows first
-  for (const s of registry.sessions) {
+  for (const s of registry.sessions as RegistrySession[]) {
     db.insert(documents)
       .values({ id: s.id, path: s.path, createdAt: s.createdAt, openedAt: s.openedAt, kind: s.kind ?? null })
       .onConflictDoUpdate({ target: documents.id, set: { path: s.path, openedAt: s.openedAt, kind: s.kind ?? null } })
@@ -92,13 +92,6 @@ const insert = (db: BunSQLiteDatabase, home: string): MigrateReport => {
           .run();
         report.comments++;
       }
-    }
-    for (const r of parsed.reviews ?? []) {
-      db.insert(reviews)
-        .values({ id: r.id, documentId: id, doc: r.doc, round: r.round, body: r.body, author: r.author, createdAt: r.createdAt, verdict: r.verdict })
-        .onConflictDoNothing()
-        .run();
-      report.reviews++;
     }
   }
 
@@ -142,7 +135,7 @@ const insert = (db: BunSQLiteDatabase, home: string): MigrateReport => {
     }
   }
 
-  report.nothing = report.documents + report.comments + report.reviews + report.readingState + report.agents === 0;
+  report.nothing = report.documents + report.comments + report.readingState + report.agents === 0;
   return report;
 };
 
@@ -190,7 +183,7 @@ export const stats = (home: string): Effect.Effect<{ path: string; tables: Recor
     const db = yield* Db;
     return yield* db.raw(home, (raw) => {
       const tables: Record<string, number> = {};
-      for (const name of ["documents", "blocks", "comments", "reviews", "reading_state", "agents"]) {
+      for (const name of ["documents", "comments", "reading_state", "agents"]) {
         tables[name] = (raw.query(`SELECT COUNT(*) AS n FROM ${name}`).get() as { n: number }).n;
       }
       const p = join(home, "blackboard.db");
