@@ -34,7 +34,8 @@ export const INTERNAL_ERROR: EnvelopeFailure = {
 export class HttpFailure extends HTTPException {
   readonly failure: EnvelopeFailure;
 
-  constructor(failure: EnvelopeFailure) {
+  /** `label` is the log tag for a 5xx answer ("GET /api/x"): a 4xx is a client answer, silent. */
+  constructor(failure: EnvelopeFailure, label?: string) {
     const status = statusOf(failure);
     super(status, {
       message: (Object.values(failure)[0] as { message: string }).message,
@@ -44,11 +45,13 @@ export class HttpFailure extends HTTPException {
       }),
     });
     this.failure = failure;
+    if (label !== undefined && status >= 500) console.error(label, failure);
   }
 
   /** A defect or an interrupt: same 500 exit as a classified failure, with the detail logged. */
-  static defect(defect: unknown): HttpFailure {
-    console.error(defect);
+  static defect(defect: unknown, label?: string): HttpFailure {
+    if (label !== undefined) console.error(label, defect);
+    else console.error(defect);
     return new HttpFailure(INTERNAL_ERROR);
   }
 }

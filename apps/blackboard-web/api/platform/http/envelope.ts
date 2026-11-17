@@ -72,6 +72,7 @@ export async function json<A, E extends EnvelopeFailure>(
   // 客户端断开（或 Hono 中止）就中断这次运行：服务的 `Scheduler.onCancel` 会跟着 abort。
   const exit = await Runtime.run(safe, { signal: c.req.raw.signal });
   if (exit._tag === "success") return c.json(success(exit.value), 200);
-  if (exit._tag === "fail") throw new HttpFailure(exit.error);
-  throw HttpFailure.defect(exit._tag === "die" ? exit.defect : "safe-ts: run was interrupted");
+  const label = `${c.req.method} ${new URL(c.req.url).pathname}`;
+  if (exit._tag === "fail") throw new HttpFailure(exit.error, label);
+  throw HttpFailure.defect(exit._tag === "die" ? exit.defect : "safe-ts: run was interrupted", label);
 }

@@ -1,7 +1,6 @@
 import { statSync } from "node:fs";
-
-import { Effect } from "effect";
-import { CommentsStore } from "./comments-store";
+import { Safe } from "@gjuoun/safe-ts";
+import type { CommentsStore } from "./comments-store";
 import { type ApiFailure, errorMessage, IoFailure, sessionNotFound } from "./errors";
 import { renderMarkdown } from "./markdown";
 import {
@@ -16,27 +15,30 @@ import {
   type WorkspaceData,
   type WorkspaceDoc,
 } from "./reading-model";
-import { ReadingStateStore } from "./reading-state";
+import type { ReadingStateStore } from "./reading-state";
 import { relativeTime } from "./relative-time";
 import { docKey } from "./session-model";
-import { SessionsStore, servablePath } from "./sessions";
+import { type SessionsStore, servablePath } from "./sessions";
 
 /**
- * The inbox: every registered session with its reading state, sorted by last update. One `stat`
- * per document supplies the mtime that decides whether a stored record is still current.
+ * The inbox: every registered session with its reading state, sorted by last update. One `stat` per
+ * document supplies the mtime that decides whether a stored record is still current.
  */
 export const workspaceDocs = (
+  sessions: SessionsStore,
+  state: ReadingStateStore,
   home: string,
   now = Date.now(),
-): Effect.Effect<WorkspaceData, IoFailure | ApiFailure, SessionsStore | ReadingStateStore> =>
-  Effect.gen(function* () {
-    const sessions = yield* SessionsStore;
-    const state = yield* ReadingStateStore;
-    const rows = yield* sessions.rows(home);
-    const file = yield* state.read(home);
+): Safe<WorkspaceData, IoFailure | ApiFailure> =>
+  Safe.try(function* () {
+    const rows = (yield sessions.rows(home)) as Awaited<ReturnType<SessionsStore["rows"]>> extends
+      Safe<infer A, infer _E>
+      ? A
+      : never;
+    const file = (yield state.read(home)) as { docs: Record<string, Parameters<typeof effectiveEntry>[0]> };
     const at = new Date(now).toISOString();
-    // The file mtime comes from the row the index wrote, not from a stat: the reading state is current while the
-    // file still has the mtime the index read. A missing file reads as 0, as it always has.
+    // The file mtime comes from the row the index wrote, not from a stat: the reading state is current
+    // while the file still has the mtime the index read. A missing file reads as 0, as it always has.
     const docs: WorkspaceDoc[] = rows.map((row) => {
       const sourceMtime = row.srcMtime ?? 0;
       const entry = effectiveEntry(file.docs[row.id], sourceMtime, at);
@@ -63,31 +65,43 @@ export const workspaceDocs = (
   });
 
 /**
- * The preview: the whole document rendered the way the doc page renders it, plus the general
- * comments (the ones with no quoted passage) as the thread under it. Null when the session is
- * gone or its file can no longer be served.
+ * The preview: the whole document rendered the way the doc page renders it, plus the general comments
+ * (the ones with no quoted passage) as the thread under it. Null when the session is gone or its file
+ * can no longer be served.
  */
 export const previewDoc = (
+  sessions: SessionsStore,
+  comments: CommentsStore,
   home: string,
   id: string,
-): Effect.Effect<PreviewData | null, IoFailure | ApiFailure, SessionsStore | CommentsStore> =>
-  Effect.gen(function* () {
-    const sessions = yield* SessionsStore;
-    const comments = yield* CommentsStore;
-    const session = yield* sessions.get(home, id);
+): Safe<PreviewData | null, IoFailure | ApiFailure> =>
+  Safe.try(function* () {
+    const session = (yield sessions.get(home, id)) as Awaited<
+      ReturnType<SessionsStore["get"]>
+    > extends Safe<infer A, infer _E>
+      ? A
+      : never;
     if (!session) return null;
     const file = servablePath(session);
     if (!file) return null;
-    const row = yield* sessions.row(home, session);
-    // The markdown comes from the row the index stored. A row not yet indexed has no body to render, and `row()`
-    // indexed it a moment ago, so a null here means the file is gone.
-    const src = yield* sessions.body(home, id);
+    const row = (yield sessions.row(home, session)) as {
+      title: string | null;
+      path: string | null;
+      branch: string | null;
+      updatedAt: string;
+      stats: { sections: number; diagrams: number };
+    };
+    // The markdown comes from the row the index stored. A row not yet indexed has no body to render, and
+    // `row()` indexed it a moment ago, so a null here means the file is gone.
+    const src = (yield sessions.body(home, id)) as string | null;
     if (src === null) return null;
-    const rendered = yield* Effect.tryPromise({
-      try: () => renderMarkdown(src, { assetBase: `/api/asset/${id}` }),
-      catch: (error) => new IoFailure({ message: errorMessage(error), status: 500 }),
-    });
-    const commentFile = yield* comments.read(home, id);
+    const rendered = (yield Safe.call(
+      () => renderMarkdown(src, { assetBase: `/api/asset/${id}` }),
+      (error) => new IoFailure({ message: errorMessage(error), status: 500 }),
+    )) as { html: string };
+    const commentFile = (yield comments.read(home, id)) as {
+      docs: Record<string, PreviewReply[] & { general?: boolean }[]>;
+    } as unknown as { docs: Record<string, Array<{ id: string; author: string; body: string; createdAt: string; general?: boolean; replies: Array<{ id: string; author: string; body: string; createdAt: string }> }>> };
     const replies: PreviewReply[] = (commentFile.docs[docKey(session)] ?? [])
       .filter((comment) => comment.general)
       .flatMap((comment) => [
@@ -120,11 +134,8 @@ export const previewDoc = (
   });
 
 /** The doc file's own mtime, or 0 when it cannot be read: the reading state uses it to spot edits. */
-const mtimeOf = (path: string): Effect.Effect<number> =>
-  Effect.try({
-    try: () => statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? 0,
-    catch: () => "unreadable" as const,
-  }).pipe(Effect.catch(() => Effect.succeed(0)));
+const mtimeOf = (path: string): number =>
+  (Safe.call(() => statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? 0, () => 0) as unknown as number) ?? 0;
 
 /** What a workspace write names: one session's read or unread mark. */
 export type ReadingInput = { session?: string; action: ReadingAction };
@@ -134,20 +145,20 @@ export type ReadingInput = { session?: string; action: ReadingAction };
  * vocabulary. Every write stamps the document's current mtime, so a later edit invalidates it.
  */
 export const applyReading = (
+  sessions: SessionsStore,
+  state: ReadingStateStore,
   home: string,
   input: ReadingInput,
-): Effect.Effect<ReadingResult, ApiFailure, SessionsStore | ReadingStateStore> =>
-  Effect.gen(function* () {
-    const sessions = yield* SessionsStore;
-    const state = yield* ReadingStateStore;
+): Safe<ReadingResult, ApiFailure> =>
+  Safe.try(function* () {
     const at = new Date().toISOString();
-
-    if (!input.session) return yield* Effect.fail(sessionNotFound(400));
-    const session = yield* sessions.get(home, input.session);
-    if (!session) return yield* Effect.fail(sessionNotFound(400));
-    const mtime = yield* mtimeOf(session.path);
-    const prevEntry = effectiveEntry((yield* state.read(home)).docs[session.id], mtime, at);
+    if (!input.session) return (yield Safe.err(sessionNotFound(400))) as never;
+    const session = (yield sessions.get(home, input.session)) as { id: string; path: string } | null;
+    if (!session) return (yield Safe.err(sessionNotFound(400))) as never;
+    const mtime = mtimeOf(session.path);
+    const file = (yield state.read(home)) as { docs: Record<string, Parameters<typeof effectiveEntry>[0]> };
+    const prevEntry = effectiveEntry(file.docs[session.id], mtime, at);
     const entry = input.action === "read" ? markRead(at, mtime, prevEntry.progress) : markUnread(at, mtime);
-    yield* state.set(home, session.id, entry);
+    yield state.set(home, session.id, entry);
     return { docs: { [session.id]: { status: entry.status, progress: entry.progress } } };
   });
