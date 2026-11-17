@@ -1,45 +1,16 @@
 import { createMiddleware } from "@tanstack/react-start";
-
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
-
-/**
- * Extra hosts the app answers, from $BLACKBOARD_ALLOWED_HOSTS (comma-separated,
- * e.g. "192.168.2.80,mypc.tail123.ts.net"). The production domain is always
- * allowed; the env var only opts extra (LAN/tailnet) hosts in.
- */
-const ALLOWED_HOSTS = new Set(
-  ["blackboard.qqntt.com", ...(process.env.BLACKBOARD_ALLOWED_HOSTS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)],
-);
-
-/** "localhost:38770" -> "localhost", "[::1]:38770" -> "[::1]". */
-export function hostname(host: string): string {
-  if (host.startsWith("[")) return host.slice(0, host.indexOf("]") + 1);
-  return host.split(":")[0];
-}
-
-function isLocalOrigin(origin: string): boolean {
-  try {
-    const host = hostname(new URL(origin).host).toLowerCase();
-    return LOCAL_HOSTS.has(host) || ALLOWED_HOSTS.has(host);
-  } catch {
-    return false;
-  }
-}
+import { crossSiteWrite, hostAllowed } from "@/lib/http-guard";
 
 /**
- * The app writes files, so it answers only requests addressed to this machine. Binding
- * 127.0.0.1 stops other machines; checking Host also stops DNS rebinding from a web page.
- * $BLACKBOARD_ALLOWED_HOSTS opts this machine's own LAN/tailnet names in.
+ * The UI process's guard — the same rules as the API's, over the same file. A denial here is a
+ * plain 403 for the browser (there is no envelope in the UI process); the API answers its own
+ * denials in the envelope, which is what a caller of `/api/*` sees.
  */
 export const guard = createMiddleware({ type: "request" }).server(async ({ request, next }) => {
-  const host = hostname(request.headers.get("host") ?? "").toLowerCase();
-  if (!LOCAL_HOSTS.has(host) && !ALLOWED_HOSTS.has(host)) {
+  if (!hostAllowed(request.headers.get("host") ?? "")) {
     return new Response("Forbidden: Blackboard only answers localhost", { status: 403 });
   }
-  // A page on another site can still send a simple POST to 127.0.0.1 with the right Host.
-  // Browsers label those with Origin, so refuse writes whose Origin is not this machine.
-  const origin = request.headers.get("origin");
-  if (request.method !== "GET" && request.method !== "HEAD" && origin && !isLocalOrigin(origin)) {
+  if (crossSiteWrite(request.method, request.headers.get("origin"))) {
     return new Response("Forbidden: cross-site write", { status: 403 });
   }
   return next();
