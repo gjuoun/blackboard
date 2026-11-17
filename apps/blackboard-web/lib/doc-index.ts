@@ -31,7 +31,13 @@ const GIT_TIMEOUT_MS = 2000;
 /** One git answer, or null. The one place this module runs git. */
 function git(cwd: string, ...args: string[]): string | null {
   try {
-    const out = execFileSync("git", args, { cwd, timeout: GIT_TIMEOUT_MS, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    const out = execFileSync("git", args, {
+      cwd,
+      timeout: GIT_TIMEOUT_MS,
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
     return out || null;
   } catch {
     return null;
@@ -39,7 +45,17 @@ function git(cwd: string, ...args: string[]): string | null {
 }
 
 /** A repository as git describes it for one run: the top, the names, and the branch. Keyed by the directory asked. */
-export type RepoFacts = Pick<DocFacts, "branch" | "detached" | "repoName" | "repoRoot" | "worktreeName" | "worktreePath" | "projectName" | "projectRoot"> & { top: string | null };
+export type RepoFacts = Pick<
+  DocFacts,
+  | "branch"
+  | "detached"
+  | "repoName"
+  | "repoRoot"
+  | "worktreeName"
+  | "worktreePath"
+  | "projectName"
+  | "projectRoot"
+> & { top: string | null };
 
 /**
  * The checkout facts for a directory. Memoised only inside one `RepoMemo`, so one index run asks git once per work
@@ -56,7 +72,17 @@ export class RepoMemo {
     if (held) return held;
     const top = this.findTop(dir);
     if (top === null) {
-      const outside: RepoFacts = { top: null, branch: null, detached: false, repoName: null, repoRoot: null, worktreeName: null, worktreePath: null, projectName: null, projectRoot: null };
+      const outside: RepoFacts = {
+        top: null,
+        branch: null,
+        detached: false,
+        repoName: null,
+        repoRoot: null,
+        worktreeName: null,
+        worktreePath: null,
+        projectName: null,
+        projectRoot: null,
+      };
       this.byDir.set(dir, outside);
       return outside;
     }
@@ -95,7 +121,8 @@ export class RepoMemo {
     const gitDir = gitDirRaw ? realpathSync(resolve(top, gitDirRaw)) : null;
     const common = commonRaw ? realpathSync(resolve(top, commonRaw)) : null;
     const linked = gitDir !== null && common !== null && gitDir !== common;
-    const mainRoot = common !== null && common.slice(common.lastIndexOf("/") + 1) === ".git" ? resolve(common, "..") : root;
+    const mainRoot =
+      common !== null && common.slice(common.lastIndexOf("/") + 1) === ".git" ? resolve(common, "..") : root;
     return {
       top: root,
       branch,

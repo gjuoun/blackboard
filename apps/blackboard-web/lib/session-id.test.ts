@@ -14,8 +14,12 @@ describe("isSessionId", () => {
       "s-01M720SVVSKX0H7QGKNFRYC2JD", // the retired stream id form
       "scratchpad", // the retired fixed id
       "b-01M720SVVSKX0H7QGKNFRYC2JD", // a block id is not a session id
-      "../x", "x/y", "a b", "",
-    ]) expect(isSessionId(bad)).toBe(false);
+      "../x",
+      "x/y",
+      "a b",
+      "",
+    ])
+      expect(isSessionId(bad)).toBe(false);
   });
 });
 
@@ -26,7 +30,17 @@ describe("sessionIdOf", () => {
   });
 
   test("other paths and ids no generator makes return null", () => {
-    for (const p of ["/", "/inbox", "/s", "/s/", "/s/not-a-session", "/s/x/y", "/api/s/x", "/s/../..", "/s/118d065fcf/extra"])
+    for (const p of [
+      "/",
+      "/inbox",
+      "/s",
+      "/s/",
+      "/s/not-a-session",
+      "/s/x/y",
+      "/api/s/x",
+      "/s/../..",
+      "/s/118d065fcf/extra",
+    ])
       expect(sessionIdOf(p)).toBeNull();
   });
 });

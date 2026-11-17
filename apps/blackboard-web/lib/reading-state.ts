@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Context, Effect, Layer } from "effect";
 import { ReadingStateRepo, type ReadingStateRow } from "./db/repos/reading-state";
-import type { DbFailure } from "./effect/errors";
+import type { DbFailure } from "./errors";
 import { clampProgress, isReadingStatus, type ReadingEntry } from "./reading-model";
 
 /**
@@ -38,7 +38,8 @@ function entryOf(v: unknown): ReadingEntry | null {
 export function readReadingState(p: string): ReadingFile {
   if (!existsSync(p)) return { version: 1, docs: {} };
   const data = JSON.parse(readFileSync(p, "utf8"));
-  if (data?.version !== 1 || typeof data.docs !== "object" || data.docs === null) throw new Error(`unsupported reading state: ${p}`);
+  if (data?.version !== 1 || typeof data.docs !== "object" || data.docs === null)
+    throw new Error(`unsupported reading state: ${p}`);
   const docs: Record<string, ReadingEntry> = {};
   for (const [id, raw] of Object.entries(data.docs)) {
     const entry = entryOf(raw);

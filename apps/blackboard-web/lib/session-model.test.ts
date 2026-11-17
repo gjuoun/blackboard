@@ -13,8 +13,6 @@ describe("docKey", () => {
   test("a file session keys its comments by the file's basename", () => {
     expect(docKey(session())).toBe("design.md");
   });
-
 });
 
-describe("servablePath", () => {
-});
+describe("servablePath", () => {});

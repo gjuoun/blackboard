@@ -9,18 +9,18 @@ import { parseArgs } from "node:util";
 import { Cause, Effect, Exit, Result } from "effect";
 import { CliError, formatComments, formatSessions } from "../lib/cli";
 import { CommentArgs, decodeArgs, MigrateArgs } from "../lib/cli/args";
+import * as blocksCli from "../lib/cli/blocks";
 import * as commentsCli from "../lib/cli/comments";
 import * as dbCli from "../lib/cli/db";
-import * as blocksCli from "../lib/cli/blocks";
-import { layer as dbLayer } from "../lib/db/client";
-import { layer as lockLayer } from "../lib/lock";
 import * as sessionsCli from "../lib/cli/sessions";
+import { layer as dbLayer } from "../lib/db/client";
 import type { AppServices } from "../lib/effect/layers";
-import { errorMessage } from "../lib/effect/errors";
 import { runtime } from "../lib/effect/runtime";
+import { errorMessage } from "../lib/errors";
 import { getHome } from "../lib/home";
-import pkg from "../package.json";
+import { layer as lockLayer } from "../lib/lock";
 import * as server from "../lib/server-ctl";
+import pkg from "../package.json";
 
 const HELP = `blackboard — review markdown files and their comments, from the shell
 
@@ -61,14 +61,21 @@ Options:
 
 Exit codes: 0 ok, 1 command failed, 2 bad usage, 3 serve status: not running.`;
 
-
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 /** True when any JSON-era store still sits in `home` as a real file (not .migrated). */
 const jsonSourcesLeft = (home: string): boolean => {
   const flat = ["sessions.json", "reading-state.json", "agents.json"].some((f) => existsSync(join(home, f)));
-  const comments = (() => { try { return readdirSync(join(home, "sessions")).some((d) => existsSync(join(home, "sessions", d, "comments.json"))); } catch { return false; } })();
+  const comments = (() => {
+    try {
+      return readdirSync(join(home, "sessions")).some((d) =>
+        existsSync(join(home, "sessions", d, "comments.json")),
+      );
+    } catch {
+      return false;
+    }
+  })();
   return flat || comments;
 };
 
@@ -82,14 +89,20 @@ const migrateIfSources = (home: string): Effect.Effect<void, CliError> =>
 const launch = (url: string): Effect.Effect<void> =>
   Effect.try(() => {
     const cmd = process.platform === "darwin" ? "open" : "xdg-open";
-    spawn(cmd, [url], { detached: true, stdio: "ignore" }).on("error", () => {}).unref();
+    spawn(cmd, [url], { detached: true, stdio: "ignore" })
+      .on("error", () => {})
+      .unref();
   }).pipe(Effect.catch(() => Effect.void));
 
 /** The web app commands answer with their own error class; every failure leaves as exit code 1. */
 const serverCall = <A>(run: () => Promise<A>) =>
   Effect.tryPromise({
     try: run,
-    catch: (error) => new CliError({ message: error instanceof server.ServerError ? error.message : errorMessage(error), code: 1 }),
+    catch: (error) =>
+      new CliError({
+        message: error instanceof server.ServerError ? error.message : errorMessage(error),
+        code: 1,
+      }),
   });
 
 /**
@@ -100,9 +113,14 @@ const serverCall = <A>(run: () => Promise<A>) =>
 const ensureServer = (home: string): Effect.Effect<void> =>
   Effect.gen(function* () {
     const r = yield* serverCall(() => server.start(home));
-    if (r.started) console.error(`blackboard: started the web app at ${r.url} (stop it with: blackboard serve stop)`);
+    if (r.started)
+      console.error(`blackboard: started the web app at ${r.url} (stop it with: blackboard serve stop)`);
     process.env.BLACKBOARD_URL = r.url;
-  }).pipe(Effect.catch((error) => Effect.sync(() => console.error(`blackboard: could not start the web app: ${error.message}`))));
+  }).pipe(
+    Effect.catch((error) =>
+      Effect.sync(() => console.error(`blackboard: could not start the web app: ${error.message}`)),
+    ),
+  );
 
 const OPTIONS = {
   home: { type: "string" },
@@ -152,7 +170,9 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
     const home = getHome(o.home);
     const author = (o.author ?? process.env.BLACKBOARD_AUTHOR ?? "agent").trim() || "agent";
     const need = (n: number, usage: string): Effect.Effect<void, CliError> =>
-      args.length < n ? Effect.fail(new CliError({ message: `usage: blackboard ${usage}`, code: 2 })) : Effect.void;
+      args.length < n
+        ? Effect.fail(new CliError({ message: `usage: blackboard ${usage}`, code: 2 }))
+        : Effect.void;
     const print = (data: unknown, text: string) => console.log(o.json ? JSON.stringify(data, null, 2) : text);
 
     switch (cmd) {
@@ -192,7 +212,10 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
           print(r, server.formatStatus(r));
           return r.running ? 0 : 3;
         }
-        return yield* new CliError({ message: "usage: blackboard serve start|stop|restart|status [--port <n>] [--foreground]", code: 2 });
+        return yield* new CliError({
+          message: "usage: blackboard serve start|stop|restart|status [--port <n>] [--foreground]",
+          code: 2,
+        });
       }
       case "sessions": {
         const rows = yield* sessionsCli.sessions(home);
@@ -215,13 +238,24 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
         yield* need(3, "reply <session> <comment-id> <text>");
         const c = yield* commentsCli.reply(home, args[0], args[1], args.slice(2).join(" "), author);
         const joined = args[1] !== c.id;
-        print(c, joined ? `replied to ${args[1]} on ${c.doc}: joined thread of ${c.id}` : `replied to ${c.id} on ${c.doc}`);
+        print(
+          c,
+          joined
+            ? `replied to ${args[1]} on ${c.doc}: joined thread of ${c.id}`
+            : `replied to ${c.id} on ${c.doc}`,
+        );
         return 0;
       }
       case "resolve":
       case "reopen": {
         yield* need(2, `${cmd} <session> <comment-id>`);
-        const c = yield* commentsCli.status(home, args[0], args[1], cmd === "resolve" ? "resolved" : "open", author);
+        const c = yield* commentsCli.status(
+          home,
+          args[0],
+          args[1],
+          cmd === "resolve" ? "resolved" : "open",
+          author,
+        );
         print(c, `${cmd === "resolve" ? "resolved" : "reopened"} ${c.id} on ${c.doc}`);
         return 0;
       }
@@ -241,7 +275,9 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
           return 0;
         }
         if (sub === "reindex") {
-          const r = yield* dbCli.reindexCmd(home, o.force === true).pipe(Effect.provide(dbLayer), Effect.provide(lockLayer));
+          const r = yield* dbCli
+            .reindexCmd(home, o.force === true)
+            .pipe(Effect.provide(dbLayer), Effect.provide(lockLayer));
           print(r, dbCli.formatIndex(r));
           return 0;
         }
@@ -250,7 +286,17 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
       case "blocks": {
         yield* need(1, "blocks <session>");
         const list = yield* blocksCli.blocks(home, args[0]);
-        print(list, list.length === 0 ? "no blocks" : list.map((b) => `${b.id}  #${b.n}  ${b.kind}  rev${b.rev}  ${b.text.replace(/\s+/g, " ").slice(0, 80)}`).join("\n"));
+        print(
+          list,
+          list.length === 0
+            ? "no blocks"
+            : list
+                .map(
+                  (b) =>
+                    `${b.id}  #${b.n}  ${b.kind}  rev${b.rev}  ${b.text.replace(/\s+/g, " ").slice(0, 80)}`,
+                )
+                .join("\n"),
+        );
         return 0;
       }
       case "patch": {
@@ -265,7 +311,11 @@ function main(argv: string[]): Effect.Effect<number, CliError, AppServices> {
       }
       case "comment": {
         yield* need(2, "comment <session> --quote <passage> | --general <note>");
-        const opts = yield* decodeArgs(CommentArgs, { general: o.general, quote: o.quote, occurrence: o.occurrence });
+        const opts = yield* decodeArgs(CommentArgs, {
+          general: o.general,
+          quote: o.quote,
+          occurrence: o.occurrence,
+        });
         const note = args.slice(1).join(" ");
         if (opts.general) {
           const c = yield* commentsCli.commentGeneral(home, args[0], note, author);

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { notifyAgent, payloadFor, postPayload, type AgentPayload } from "./agent-notify";
+import { type AgentPayload, notifyAgent, payloadFor, postPayload } from "./agent-notify";
 import type { Binding } from "./agents-store";
 import type { Comment } from "./comments-store";
 
@@ -109,13 +109,23 @@ describe("postPayload", () => {
     const fake = start();
     const url = fake.url;
     fake.server.stop(true);
-    expect(await postPayload(url, payloadFor({ session: "a", doc: "d.md", comment: comment(), body: "b", author: "jun", pageUrl: "u" }))).toBe(false);
+    expect(
+      await postPayload(
+        url,
+        payloadFor({ session: "a", doc: "d.md", comment: comment(), body: "b", author: "jun", pageUrl: "u" }),
+      ),
+    ).toBe(false);
   });
 
   test("a listener that never answers is abandoned at the 500 ms budget", async () => {
     const fake = start(() => new Promise<Response>(() => {}));
     const began = performance.now();
-    expect(await postPayload(fake.url, payloadFor({ session: "a", doc: "d.md", comment: comment(), body: "b", author: "jun", pageUrl: "u" }))).toBe(false);
+    expect(
+      await postPayload(
+        fake.url,
+        payloadFor({ session: "a", doc: "d.md", comment: comment(), body: "b", author: "jun", pageUrl: "u" }),
+      ),
+    ).toBe(false);
     const took = performance.now() - began;
     expect(took).toBeGreaterThanOrEqual(450);
     expect(took).toBeLessThan(1500);
@@ -125,14 +135,31 @@ describe("postPayload", () => {
 describe("notifyAgent", () => {
   test("no binding is a no-op", async () => {
     const fake = start();
-    notifyAgent(null, payloadFor({ session: "abc123", doc: "d.md", comment: comment(), body: "b", author: "jun", pageUrl: "u" }));
+    notifyAgent(
+      null,
+      payloadFor({
+        session: "abc123",
+        doc: "d.md",
+        comment: comment(),
+        body: "b",
+        author: "jun",
+        pageUrl: "u",
+      }),
+    );
     await Bun.sleep(50);
     expect(fake.received).toHaveLength(0);
   });
 
   test("a binding hands the payload over without the caller waiting", async () => {
     const fake = start();
-    const payload = payloadFor({ session: "abc123", doc: "d.md", comment: comment(), body: "b", author: "jun", pageUrl: "u" });
+    const payload = payloadFor({
+      session: "abc123",
+      doc: "d.md",
+      comment: comment(),
+      body: "b",
+      author: "jun",
+      pageUrl: "u",
+    });
     const began = performance.now();
     notifyAgent(binding(fake.url), payload);
     expect(performance.now() - began).toBeLessThan(5);

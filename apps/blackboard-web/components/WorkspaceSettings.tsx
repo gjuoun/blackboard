@@ -1,14 +1,24 @@
 "use client";
 
+import { cn } from "@gjuoun/bb-ui/lib/utils";
+import { MODES, THEMES } from "@gjuoun/bb-ui/themes";
 import { useState } from "react";
 import { LATIN_FONTS } from "@/lib/fonts";
-import { MODES, THEMES } from "@gjuoun/bb-ui/themes";
-import { cn } from "@gjuoun/bb-ui/lib/utils";
 import { DOC_SIZE_IDS, DOC_SIZE_LABEL } from "@/lib/prefs";
 import { setChrome, useChrome } from "./chrome";
 
 /** One settings row: label on the left, the current value and a chevron on the right. */
-function Row({ label, value, onPress, testid }: { label: string; value: string; onPress?: () => void; testid?: string }) {
+function Row({
+  label,
+  value,
+  onPress,
+  testid,
+}: {
+  label: string;
+  value: string;
+  onPress?: () => void;
+  testid?: string;
+}) {
   return (
     <button
       type="button"
@@ -28,7 +38,15 @@ function Row({ label, value, onPress, testid }: { label: string; value: string; 
 }
 
 /** The small picker that opens under a row; a tap on an option writes it and closes. */
-function Pick({ options, value, onPick }: { options: { id: string; label: string }[]; value: string; onPick: (id: string) => void }) {
+function Pick({
+  options,
+  value,
+  onPick,
+}: {
+  options: { id: string; label: string }[];
+  value: string;
+  onPick: (id: string) => void;
+}) {
   return (
     <div className="bg-secondary flex gap-1 px-3 py-2 shadow-[inset_0_1px_0_var(--border)]">
       {options.map((o) => (
@@ -37,7 +55,10 @@ function Pick({ options, value, onPick }: { options: { id: string; label: string
           type="button"
           aria-pressed={value === o.id}
           onClick={() => onPick(o.id)}
-          className={cn("border-border bg-card h-7 flex-1 truncate rounded-lg border px-2 text-xs", value === o.id && "border-primary text-primary font-semibold")}
+          className={cn(
+            "border-border bg-card h-7 flex-1 truncate rounded-lg border px-2 text-xs",
+            value === o.id && "border-primary text-primary font-semibold",
+          )}
         >
           {o.label}
         </button>
@@ -50,7 +71,9 @@ function Pick({ options, value, onPick }: { options: { id: string; label: string
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div data-testid={`sg-${label.toLowerCase()}`} className="px-3 pt-3.5">
-      <p className="text-muted-foreground mx-1 mb-1.5 font-mono text-[10px] tracking-[0.06em] uppercase">{label}</p>
+      <p className="text-muted-foreground mx-1 mb-1.5 font-mono text-[10px] tracking-[0.06em] uppercase">
+        {label}
+      </p>
       <div className="border-border bg-card overflow-hidden rounded-[10px] border">{children}</div>
     </div>
   );
@@ -74,14 +97,40 @@ export function WorkspaceSettings({ repos, version }: { repos: string[]; version
     <div data-testid="workspace-settings" className="pb-6">
       <Group label="Appearance">
         <Row label="Theme" value={theme.label} onPress={() => toggle("theme")} testid="sg-theme" />
-        {open === "theme" ? <Pick options={THEMES.map((t) => ({ id: t.id, label: t.label }))} value={chrome.theme} onPick={(id) => setChrome({ theme: id as typeof chrome.theme })} /> : null}
-        <Row label="Mode" value={chrome.mode === "dark" ? "Dark" : "Light"} onPress={() => toggle("mode")} testid="sg-mode" />
+        {open === "theme" ? (
+          <Pick
+            options={THEMES.map((t) => ({ id: t.id, label: t.label }))}
+            value={chrome.theme}
+            onPick={(id) => setChrome({ theme: id as typeof chrome.theme })}
+          />
+        ) : null}
+        <Row
+          label="Mode"
+          value={chrome.mode === "dark" ? "Dark" : "Light"}
+          onPress={() => toggle("mode")}
+          testid="sg-mode"
+        />
         {open === "mode" ? (
-          <Pick options={MODES.map((m) => ({ id: m, label: m === "dark" ? "Dark" : "Light" }))} value={chrome.mode} onPick={(id) => setChrome({ mode: id as typeof chrome.mode })} />
+          <Pick
+            options={MODES.map((m) => ({ id: m, label: m === "dark" ? "Dark" : "Light" }))}
+            value={chrome.mode}
+            onPick={(id) => setChrome({ mode: id as typeof chrome.mode })}
+          />
         ) : null}
         <Row label="Font" value={font.label} onPress={() => toggle("font")} testid="sg-font" />
-        {open === "font" ? <Pick options={LATIN_FONTS.map((f) => ({ id: f.id, label: f.label }))} value={chrome.fontLatin} onPick={(id) => setChrome({ fontLatin: id as typeof chrome.fontLatin })} /> : null}
-        <Row label="Size" value={DOC_SIZE_LABEL[chrome.docSize]} onPress={() => toggle("size")} testid="sg-size" />
+        {open === "font" ? (
+          <Pick
+            options={LATIN_FONTS.map((f) => ({ id: f.id, label: f.label }))}
+            value={chrome.fontLatin}
+            onPick={(id) => setChrome({ fontLatin: id as typeof chrome.fontLatin })}
+          />
+        ) : null}
+        <Row
+          label="Size"
+          value={DOC_SIZE_LABEL[chrome.docSize]}
+          onPress={() => toggle("size")}
+          testid="sg-size"
+        />
         {open === "size" ? (
           <Pick
             options={DOC_SIZE_IDS.map((id) => ({ id, label: DOC_SIZE_LABEL[id] }))}
@@ -91,12 +140,32 @@ export function WorkspaceSettings({ repos, version }: { repos: string[]; version
         ) : null}
       </Group>
       <Group label="Reading">
-        <Row label="Open at" value={chrome.resumeOnOpen ? "Last position" : "Top"} onPress={() => setChrome({ resumeOnOpen: !chrome.resumeOnOpen })} testid="sg-resume" />
-        <Row label="Mark read on open" value={chrome.markReadOnOpen ? "On" : "Off"} onPress={() => setChrome({ markReadOnOpen: !chrome.markReadOnOpen })} testid="sg-mark" />
-        <Row label="Body width" value={chrome.textWidth === "wide" ? "Full width" : "Auto"} onPress={() => setChrome({ textWidth: chrome.textWidth === "wide" ? "fit" : "wide" })} testid="sg-width" />
+        <Row
+          label="Open at"
+          value={chrome.resumeOnOpen ? "Last position" : "Top"}
+          onPress={() => setChrome({ resumeOnOpen: !chrome.resumeOnOpen })}
+          testid="sg-resume"
+        />
+        <Row
+          label="Mark read on open"
+          value={chrome.markReadOnOpen ? "On" : "Off"}
+          onPress={() => setChrome({ markReadOnOpen: !chrome.markReadOnOpen })}
+          testid="sg-mark"
+        />
+        <Row
+          label="Body width"
+          value={chrome.textWidth === "wide" ? "Full width" : "Auto"}
+          onPress={() => setChrome({ textWidth: chrome.textWidth === "wide" ? "fit" : "wide" })}
+          testid="sg-width"
+        />
       </Group>
       <Group label="Workspace">
-        <Row label="Default repo" value={repo || "All repos"} onPress={() => toggle("repo")} testid="sg-repo" />
+        <Row
+          label="Default repo"
+          value={repo || "All repos"}
+          onPress={() => toggle("repo")}
+          testid="sg-repo"
+        />
         {open === "repo" ? (
           <Pick
             options={[{ id: "", label: "All repos" }, ...repos.map((r) => ({ id: r, label: r }))]}

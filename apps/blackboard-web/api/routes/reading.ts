@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { Hono } from "hono";
-import { InvalidInput, sessionNotFound } from "../../lib/effect/errors";
 import { decodeBody, jsonBody, ReadingPostBody, readingReject } from "../../lib/effect/schema";
+import { InvalidInput, sessionNotFound } from "../../lib/errors";
 import { getHome } from "../../lib/home";
 import { applyReading, previewDoc } from "../../lib/reading-workspace";
 import { respond } from "../respond";
@@ -15,7 +15,10 @@ reading.post("/", (c) =>
       const raw = yield* jsonBody(c.req.raw);
       if (raw === null) return yield* Effect.fail(sessionNotFound(400));
       const body = yield* decodeBody(ReadingPostBody, raw, readingReject);
-      if (!body.action) return yield* Effect.fail(new InvalidInput({ message: "unknown action", status: 400, field: "action" }));
+      if (!body.action)
+        return yield* Effect.fail(
+          new InvalidInput({ message: "unknown action", status: 400, field: "action" }),
+        );
       return yield* applyReading(getHome(), { session: body.session, action: body.action });
     }),
   ),

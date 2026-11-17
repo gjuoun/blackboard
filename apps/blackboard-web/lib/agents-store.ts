@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Context, Effect, Layer } from "effect";
 import { AgentsRepo } from "./db/repos/agents";
-import type { DbFailure } from "./effect/errors";
+import type { DbFailure } from "./errors";
 
 /**
  * A document bound to the pi session that opened it. The pi extension posts this record, and the

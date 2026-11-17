@@ -3,7 +3,15 @@ import { DEFAULT_PREFS } from "@/lib/prefs";
 
 // The chrome store is module state shared across the suite (and TopBar.test mocks it outright), so
 // this file mocks it too and feeds the component a fixed snapshot.
-let chromeState = { ...DEFAULT_PREFS, tocOpen: true, cmOpen: true, showResolved: false, wrapCode: false, sheet: null, doc: null };
+let chromeState = {
+  ...DEFAULT_PREFS,
+  tocOpen: true,
+  cmOpen: true,
+  showResolved: false,
+  wrapCode: false,
+  sheet: null,
+  doc: null,
+};
 mock.module("./chrome", () => ({
   setChrome: () => {},
   togglePanel: () => {},
@@ -15,12 +23,14 @@ mock.module("./chrome", () => ({
 import { renderToStaticMarkup } from "react-dom/server";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 
-const render = () => renderToStaticMarkup(<WorkspaceSettings repos={["blackboard", "sites"]} version="0.3.0-beta.0" />);
+const render = () =>
+  renderToStaticMarkup(<WorkspaceSettings repos={["blackboard", "sites"]} version="0.3.0-beta.0" />);
 
 describe("WorkspaceSettings", () => {
   test("renders the four groups in order", () => {
     const html = render();
-    for (const group of ["sg-appearance", "sg-reading", "sg-workspace", "sg-about"]) expect(html).toContain(`data-testid="${group}"`);
+    for (const group of ["sg-appearance", "sg-reading", "sg-workspace", "sg-about"])
+      expect(html).toContain(`data-testid="${group}"`);
     expect(html.indexOf("sg-appearance")).toBeLessThan(html.indexOf("sg-reading"));
     expect(html.indexOf("sg-reading")).toBeLessThan(html.indexOf("sg-workspace"));
     expect(html.indexOf("sg-workspace")).toBeLessThan(html.indexOf("sg-about"));
@@ -50,7 +60,15 @@ describe("WorkspaceSettings", () => {
   });
 
   test("stored values ride the row instead of the defaults", () => {
-    chromeState = { ...chromeState, theme: "cold", mode: "dark", docSize: "16", resumeOnOpen: false, textWidth: "wide", docRepo: "sites" };
+    chromeState = {
+      ...chromeState,
+      theme: "cold",
+      mode: "dark",
+      docSize: "16",
+      resumeOnOpen: false,
+      textWidth: "wide",
+      docRepo: "sites",
+    };
     const html = render();
     expect(html).toContain("Cold");
     expect(html).toContain("Dark");
@@ -58,6 +76,14 @@ describe("WorkspaceSettings", () => {
     expect(html).toContain("Top");
     expect(html).toContain("Full width");
     expect(html).toContain("sites");
-    chromeState = { ...chromeState, theme: "warm", mode: "light", docSize: "default", resumeOnOpen: true, textWidth: "fit", docRepo: "" };
+    chromeState = {
+      ...chromeState,
+      theme: "warm",
+      mode: "light",
+      docSize: "default",
+      resumeOnOpen: true,
+      textWidth: "fit",
+      docRepo: "",
+    };
   });
 });

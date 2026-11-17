@@ -37,14 +37,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Typecheck
-        run: bun run typecheck
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Test
-        run: bun test
+      # One gate: typecheck (web + bb-ui + site) → biome check → bun test → bb-ui theme:check + ui:drift.
+      - name: Check
+        run: bun run check
 
       - name: Build app
         run: bun run build

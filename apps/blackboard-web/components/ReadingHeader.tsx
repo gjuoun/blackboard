@@ -26,7 +26,10 @@ export function ReadingHeader({
   const [searchOpen, setSearchOpen] = useState(false);
   const input = (
     <label className="relative min-w-0 flex-1">
-      <Search aria-hidden className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+      <Search
+        aria-hidden
+        className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2"
+      />
       <input
         value={query}
         onChange={(e) => onQuery(e.target.value)}
@@ -46,20 +49,23 @@ export function ReadingHeader({
           {VIEW_TITLES[view]}
         </span>
         <span className="flex-1" />
-        <span data-testid="rw-count-line-mobile" className="text-muted-foreground font-mono text-[10.5px] whitespace-nowrap">
+        <span
+          data-testid="rw-count-line-mobile"
+          className="text-muted-foreground font-mono text-[10.5px] whitespace-nowrap"
+        >
           {view === "settings" ? "Global" : `${counts.unread} unread`}
         </span>
         {VIEW_FILTERS[view] !== undefined ? (
-        <button
-          type="button"
-          data-testid="rw-search-toggle"
-          aria-label="Search"
-          aria-expanded={searchOpen}
-          title="Search"
-          onClick={() => setSearchOpen((v) => !v)}
-          className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-[34px] place-items-center rounded-[9px]"
-        >
-          <Search className="size-[17px]" />
+          <button
+            type="button"
+            data-testid="rw-search-toggle"
+            aria-label="Search"
+            aria-expanded={searchOpen}
+            title="Search"
+            onClick={() => setSearchOpen((v) => !v)}
+            className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-[34px] place-items-center rounded-[9px]"
+          >
+            <Search className="size-[17px]" />
           </button>
         ) : null}
       </div>

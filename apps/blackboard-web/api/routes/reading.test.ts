@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { Effect } from "effect";
 import { join } from "node:path";
-import { LOCAL, fixture, register } from "../../test/api-fixture";
-import { ReadingStateStore, type ReadingFile } from "../../lib/reading-state";
+import { Effect } from "effect";
+import { type ReadingFile, ReadingStateStore } from "../../lib/reading-state";
+import { fixture, LOCAL, register } from "../../test/api-fixture";
 import { run } from "../../test/app";
 import { app } from "../app";
 
@@ -58,10 +58,6 @@ describe("POST /api/reading", () => {
     expect((await stored(home))[designId]).toMatchObject({ status: "unread", progress: 0 });
   });
 
-
-
-
-
   test("an unknown session is refused with a plain message", async () => {
     await setup();
     const res = await send({ session: "nosuchid", action: "read" });
@@ -69,10 +65,11 @@ describe("POST /api/reading", () => {
     expect(await res.json()).toEqual({ error: "unknown session" });
   });
 
-
   test("an unknown or missing action is refused", async () => {
     const { designId } = await setup();
-    expect(await (await send({ session: designId, action: "pause" })).json()).toEqual({ error: "unknown action" });
+    expect(await (await send({ session: designId, action: "pause" })).json()).toEqual({
+      error: "unknown action",
+    });
     expect((await send({ session: designId })).status).toBe(400);
   });
 

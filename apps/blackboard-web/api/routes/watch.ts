@@ -2,13 +2,17 @@ import { basename, dirname } from "node:path";
 import { Effect, FileSystem, Stream } from "effect";
 import { Hono } from "hono";
 import { ChangeBus } from "../../lib/change-bus";
-import { sessionNotFound, type ApiFailure } from "../../lib/effect/errors";
+import { type ApiFailure, sessionNotFound } from "../../lib/errors";
 import { getHome } from "../../lib/home";
 import { SessionsStore } from "../../lib/sessions";
 import { docChanges, watchEvents } from "../../lib/sse";
 import { respondRaw } from "../respond";
 
-const HEADERS = { "content-type": "text/event-stream", "cache-control": "no-cache, no-transform", connection: "keep-alive" };
+const HEADERS = {
+  "content-type": "text/event-stream",
+  "cache-control": "no-cache, no-transform",
+  connection: "keep-alive",
+};
 
 /**
  * GET ?session= — Server-Sent Events. Sends `changed {doc, comments}` batched over 100 ms, so a
@@ -20,7 +24,9 @@ export const watch = new Hono();
 
 watch.get("/", (c) => respondRaw(program(c.req.raw)));
 
-function program(req: Request): Effect.Effect<Response, ApiFailure, SessionsStore | FileSystem.FileSystem | ChangeBus> {
+function program(
+  req: Request,
+): Effect.Effect<Response, ApiFailure, SessionsStore | FileSystem.FileSystem | ChangeBus> {
   return Effect.gen(function* () {
     const sessions = yield* SessionsStore;
     const fs = yield* FileSystem.FileSystem;
@@ -32,6 +38,8 @@ function program(req: Request): Effect.Effect<Response, ApiFailure, SessionsStor
     const docLeg = docChanges(fs.watch(dirname(session.path)), basename(session.path));
     const events = watchEvents(docLeg, commentEvents);
     const context = yield* Effect.context<SessionsStore | FileSystem.FileSystem | ChangeBus>();
-    return new Response(Stream.toReadableStreamWith(events, context, { signal: req.signal }), { headers: HEADERS });
+    return new Response(Stream.toReadableStreamWith(events, context, { signal: req.signal }), {
+      headers: HEADERS,
+    });
   });
 }

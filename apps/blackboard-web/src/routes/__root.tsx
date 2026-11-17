@@ -1,8 +1,8 @@
-import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
-import type { ReactNode } from "react";
 import { DEFAULT_MODE, DEFAULT_THEME } from "@gjuoun/bb-ui/themes";
-import { TopBar } from "@/components/TopBar";
+import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { StartNavProvider } from "@/components/nav-start";
+import { TopBar } from "@/components/TopBar";
 import { bootScript } from "@/lib/prefs";
 import commentMdCss from "../styles/comment-md.css?url";
 import katexCss from "../styles/katex.css?url";

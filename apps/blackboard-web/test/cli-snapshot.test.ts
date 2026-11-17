@@ -7,7 +7,7 @@ import { isAbsolute, join, relative } from "node:path";
  * The CLI snapshot: the real binary, one call per subcommand and failure mode, recorded as
  * {argv, code, stdout, stderr}. The file next to this test is generated from the code and then
  * never edited by hand, so a refactor that changes what a command prints or which exit code it
- * answers fails here instead of in a shell.
+ * answers fails here instead of in a shell. Refresh it deliberately: `bun run test:update`.
  */
 
 const SNAPSHOT = join(import.meta.dir, "cli-snapshot.json");
@@ -22,7 +22,10 @@ function fixture() {
   const docs = join(base, "docs");
   mkdirSync(docs, { recursive: true });
   mkdirSync(join(home, "sessions"), { recursive: true });
-  writeFileSync(join(docs, "design.md"), "# Design\n\nThe cache is warm. Later text. The cache is warm. End.\n");
+  writeFileSync(
+    join(docs, "design.md"),
+    "# Design\n\nThe cache is warm. Later text. The cache is warm. End.\n",
+  );
   writeFileSync(join(docs, "other.md"), "# Other\n");
   writeFileSync(join(docs, "log.jsonl"), "");
   writeFileSync(join(docs, "notes.txt"), "not markdown\n");
@@ -78,7 +81,12 @@ describe("the CLI answers the same thing after every refactor", () => {
       const call = raw(argv, cwd);
       calls.push({
         label,
-        call: { ...call, argv: call.argv.map((arg) => normalize(arg, base)), stdout: normalize(call.stdout, base), stderr: normalize(call.stderr, base) },
+        call: {
+          ...call,
+          argv: call.argv.map((arg) => normalize(arg, base)),
+          stdout: normalize(call.stdout, base),
+          stderr: normalize(call.stderr, base),
+        },
       });
       return call;
     };
@@ -99,10 +107,25 @@ describe("the CLI answers the same thing after every refactor", () => {
 
     // comments: general, quote, resolve/reopen, review, close
     record("comment.general", ["comment", "design.md", "--general", "an independent note"]);
-    const quoted = json("comment.quote", ["comment", "design.md", "--quote", "Later text.", "--json", "why warm?"]);
+    const quoted = json("comment.quote", [
+      "comment",
+      "design.md",
+      "--quote",
+      "Later text.",
+      "--json",
+      "why warm?",
+    ]);
     record("comment.empty-text", ["comment", "design.md", "--quote", "Later text.", ""]);
     record("comment.no-anchor", ["comment", "design.md", "note"]);
-    record("comment.bad-occurrence", ["comment", "design.md", "--quote", "Later text.", "--occurrence", "x", "note"]);
+    record("comment.bad-occurrence", [
+      "comment",
+      "design.md",
+      "--quote",
+      "Later text.",
+      "--occurrence",
+      "x",
+      "note",
+    ]);
     record("comments.text", ["comments", "design.md"]);
     record("comments.json", ["comments", "design.md", "--json"]);
     record("reply.ok", ["reply", "design.md", quoted.id, "answered"]);
@@ -122,7 +145,10 @@ describe("the CLI answers the same thing after every refactor", () => {
 
     const actual = calls.map(({ label, call }) => ({ label, ...call }));
     const body = JSON.stringify(actual, null, 2) + "\n";
-    if (!existsSync(SNAPSHOT)) writeFileSync(SNAPSHOT, body);
+    if (process.env.UPDATE_SNAPSHOTS === "1") writeFileSync(SNAPSHOT, body);
+    // A missing snapshot is a failure, not an invitation to write one: a test that creates the
+    // file it compares against passes over an empty history. Regenerate with `bun run test:update`.
+    expect(existsSync(SNAPSHOT)).toBe(true);
     expect(body).toBe(readFileSync(SNAPSHOT, "utf8"));
   }, 120_000);
 });

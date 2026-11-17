@@ -13,8 +13,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@gjuoun/bb-ui/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@gjuoun/bb-ui/components/ui/sheet";
 import { useState } from "react";
-import { ComposerLine } from "@/components/ComposerLine";
 import { CommentPanel } from "@/components/CommentPanel";
+import { ComposerLine } from "@/components/ComposerLine";
 import { CopyButton } from "@/components/CopyButton";
 import { DocChip } from "@/components/DocChip";
 import { PassageComposer } from "@/components/PassageComposer";
@@ -31,9 +31,23 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Card({ id, title, source, children }: { id: string; title: string; source: string; children: React.ReactNode }) {
+function Card({
+  id,
+  title,
+  source,
+  children,
+}: {
+  id: string;
+  title: string;
+  source: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div id={id} data-component={id} className="flex scroll-mt-[calc(var(--bar-h)+16px)] flex-col gap-4 rounded-xl border border-border bg-card p-5 text-card-foreground">
+    <div
+      id={id}
+      data-component={id}
+      className="flex scroll-mt-[calc(var(--bar-h)+16px)] flex-col gap-4 rounded-xl border border-border bg-card p-5 text-card-foreground"
+    >
       <header className="flex flex-col gap-0.5">
         <h3 className="text-base font-semibold text-foreground">{title}</h3>
         <code className="font-mono text-[11px] text-muted-foreground">{source}</code>
@@ -130,7 +144,11 @@ export function ComponentsSection() {
                   </DocChip>
                 </Group>
                 <Group label="With copy">
-                  <DocChip testid="cat-chip-copy" title="with copy" copy={{ value: "docs/design.md", label: "Copy path" }}>
+                  <DocChip
+                    testid="cat-chip-copy"
+                    title="with copy"
+                    copy={{ value: "docs/design.md", label: "Copy path" }}
+                  >
                     docs/design.md
                   </DocChip>
                 </Group>
@@ -146,7 +164,11 @@ export function ComponentsSection() {
               <Card id="composer-line" title="Composer line" source="components/ComposerLine.tsx">
                 <Group label="Live">
                   <div className="w-full max-w-sm">
-                    <ComposerLine onSend={async (text) => { void text; }} />
+                    <ComposerLine
+                      onSend={async (text) => {
+                        void text;
+                      }}
+                    />
                   </div>
                 </Group>
               </Card>
@@ -243,8 +265,12 @@ export function ComponentsSection() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent align="start" data-opened>
-                      <p className="text-sm text-foreground">A popover paints on the same palette as the page.</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Its surface is the card colour, its text the foreground.</p>
+                      <p className="text-sm text-foreground">
+                        A popover paints on the same palette as the page.
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Its surface is the card colour, its text the foreground.
+                      </p>
                     </PopoverContent>
                   </Popover>
                 </Group>

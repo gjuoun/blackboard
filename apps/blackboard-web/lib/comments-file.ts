@@ -32,7 +32,13 @@ export type Comment = {
    *  against — so a rewrite never strands the thread on an invisible anchor. `modified` also
    *  carries `after`, the block's present text. Absent for general comments and for quotes
    *  nothing holds. */
-  block?: { id: string; rev: number; state: "current" | "modified" | "deleted"; before?: string; after?: string };
+  block?: {
+    id: string;
+    rev: number;
+    state: "current" | "modified" | "deleted";
+    before?: string;
+    after?: string;
+  };
   replies: Reply[];
 };
 export type CommentFile = { version: 1; docs: Record<string, Comment[]> };

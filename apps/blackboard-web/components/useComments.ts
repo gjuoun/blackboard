@@ -7,7 +7,11 @@ import type { RenderedComment } from "@/lib/comment-markdown";
 type Answer = { comment?: RenderedComment; deleted?: string };
 
 async function call(method: string, payload: unknown): Promise<Answer> {
-  const res = await fetch("/api/comments", { method, headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+  const res = await fetch("/api/comments", {
+    method,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
   if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? `HTTP ${res.status}`);
   return res.json();
 }
@@ -19,7 +23,10 @@ export function useComments(session: string, initial: RenderedComment[], author:
 
   const apply = useCallback((a: Answer) => {
     const c = a.comment;
-    if (c) setComments((list) => (list.some((x) => x.id === c.id) ? list.map((x) => (x.id === c.id ? c : x)) : [...list, c]));
+    if (c)
+      setComments((list) =>
+        list.some((x) => x.id === c.id) ? list.map((x) => (x.id === c.id ? c : x)) : [...list, c],
+      );
     if (a.deleted) setComments((list) => list.filter((x) => x.id !== a.deleted));
   }, []);
 
@@ -47,9 +54,11 @@ export function useComments(session: string, initial: RenderedComment[], author:
     comments,
     error,
     reload,
-    add: (quote: QuoteSelector, body: string, images: string[] = []) => run(call("POST", { session, quote, body, author, images })),
+    add: (quote: QuoteSelector, body: string, images: string[] = []) =>
+      run(call("POST", { session, quote, body, author, images })),
     /** An independent comment: no passage, no line. */
-    addGeneral: (body: string, images: string[] = []) => run(call("POST", { session, general: true, body, author, images })),
+    addGeneral: (body: string, images: string[] = []) =>
+      run(call("POST", { session, general: true, body, author, images })),
     reply: (id: string, body: string) => patch(id, "reply", { body }),
     setResolved: (id: string, resolved: boolean) => patch(id, resolved ? "resolve" : "reopen"),
     edit: (id: string, body: string) => patch(id, "edit", { body }),

@@ -10,10 +10,10 @@ from disk or from an agent.
 Fixes land on `main` and ship in the next release. Only the latest published version is supported —
 there are no backports to older versions.
 
-| Version | Supported |
-|---|---|
-| latest `@gjuoun/blackboard` | yes |
-| anything older | no — upgrade first, then report if it still reproduces |
+| Version                     | Supported                                              |
+| --------------------------- | ------------------------------------------------------ |
+| latest `@gjuoun/blackboard` | yes                                                    |
+| anything older              | no — upgrade first, then report if it still reproduces |
 
 ## Reporting a vulnerability
 

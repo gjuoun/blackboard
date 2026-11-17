@@ -1,6 +1,6 @@
 # Blackboard
 
-![Blackboard](docs/social-preview.png)
+![Blackboard](apps/blackboard-web/docs/social-preview.png)
 
 A local web app for reviewing markdown documents (with mermaid diagrams) and leaving comments
 on the text, so a person and a coding agent can go back and forth on a plan.
@@ -11,11 +11,11 @@ You select text and comment; an agent reads the file from disk and takes part th
 same `blackboard` CLI (see [CLI for agents](#cli-for-agents)).
 
 <p>
-  <img src="docs/screenshots/doc.png" alt="A doc with its contents on the left and comments on the right" width="720">
-  <img src="docs/screenshots/phone.png" alt="The same doc on a phone, with the comments sheet open" width="170">
+  <img src="apps/blackboard-web/docs/screenshots/doc.png" alt="A doc with its contents on the left and comments on the right" width="720">
+  <img src="apps/blackboard-web/docs/screenshots/phone.png" alt="The same doc on a phone, with the comments sheet open" width="170">
 </p>
 
-![Home: every session as a card](docs/screenshots/home.png)
+![Home: every session as a card](apps/blackboard-web/docs/screenshots/home.png)
 
 ## Install
 
@@ -24,9 +24,9 @@ npm install -g @gjuoun/blackboard        # or: bun add -g @gjuoun/blackboard
 blackboard open docs/design.md           # starts the web app the first time, then opens the doc
 ```
 
-Runs on **Bun 1.3+**. macOS and Linux; browsers: Chrome/Edge and Safari 17.2+ (CSS Custom Highlight API). It is a
-Next.js app, shipped as a pre-built standalone server: about 8 MB to download, 37 MB on disk, and
-no dependencies to install.
+Runs on **Bun 1.3+**. macOS and Linux; browsers: Chrome/Edge and Safari 17.2+ (CSS Custom Highlight API).
+It is a TanStack Start app on Vite, shipped as a pre-built standalone server: one process on one port,
+with no dependencies to install.
 
 The web app runs in the background on `http://127.0.0.1:38770`:
 
@@ -55,12 +55,12 @@ blackboard open docs/design.md       # registers the file and opens its tab
 runs (`server/`); `bun run build:cli` bundles the command for Node (`dist/`). npm lifecycle hooks
 no longer build them — run them yourself before `npm pack` / `npm publish`.
 
-| Variable | Default | Meaning |
-|----------|---------|---------|
-| `BLACKBOARD_HOME` | `~/.blackboard` | Blackboard's own folder: the session list, each session's comments, the scratchpad. |
-| `PORT` | `38770` | Port for `bun dev` / `bun start` (`serve start` takes `--port` or the port in `BLACKBOARD_URL`). |
-| `BLACKBOARD_NO_SERVER` | off | `1`: `blackboard open` never starts the web app. |
-| `BLACKBOARD_URL` | `http://127.0.0.1:38770` | Where `blackboard open` points the browser, and the base of the share-card URLs in each page. Set it to your public address if the app is reachable from outside. |
+| Variable               | Default                  | Meaning                                                                                                                                                           |
+| ---------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BLACKBOARD_HOME`      | `~/.blackboard`          | Blackboard's own folder: the session list, each session's comments, the scratchpad.                                                                               |
+| `PORT`                 | `38770`                  | Port for `bun dev` / `bun start` (`serve start` takes `--port` or the port in `BLACKBOARD_URL`).                                                                  |
+| `BLACKBOARD_NO_SERVER` | off                      | `1`: `blackboard open` never starts the web app.                                                                                                                  |
+| `BLACKBOARD_URL`       | `http://127.0.0.1:38770` | Where `blackboard open` points the browser, and the base of the share-card URLs in each page. Set it to your public address if the app is reachable from outside. |
 
 The server binds `127.0.0.1` and answers only `localhost` / `127.0.0.1` / `[::1]` Host
 headers; writes from another site's Origin get a 403. It serves only files that were
@@ -108,7 +108,7 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
 - **Click a highlight** — the pointer changes over highlighted text; a click focuses that
   comment in the panel. Clicking a comment in the panel scrolls the doc to its passage.
 - **Live view** — the page refreshes when the file changes on disk. Highlights follow their
-  passage; a comment whose passage is gone stays in the list as *orphaned*.
+  passage; a comment whose passage is gone stays in the list as _orphaned_.
 - **Copy open** — copies the doc's open comments as markdown (title, file, then quote, note,
   replies) to paste to an agent.
 - **Old marks** — `==passage==[^n]` shows as a read-only yellow highlight with the footnote as
@@ -165,11 +165,11 @@ blackboard resolve  <session> <comment-id>        # or: reopen
 
 `<session>` is a session id or a path to the registered file (relative paths are fine).
 
-| Setting | Default | Meaning |
-|---------|---------|---------|
-| `--home` / `BLACKBOARD_HOME` | `~/.blackboard` | Blackboard's folder |
-| `--author` / `BLACKBOARD_AUTHOR` | `agent` | Name on what the CLI writes |
-| `--no-browser` / `BLACKBOARD_NO_BROWSER=1` | off | `open` registers without launching the browser |
+| Setting                                    | Default         | Meaning                                        |
+| ------------------------------------------ | --------------- | ---------------------------------------------- |
+| `--home` / `BLACKBOARD_HOME`               | `~/.blackboard` | Blackboard's folder                            |
+| `--author` / `BLACKBOARD_AUTHOR`           | `agent`         | Name on what the CLI writes                    |
+| `--no-browser` / `BLACKBOARD_NO_BROWSER=1` | off             | `open` registers without launching the browser |
 
 Exit codes: `0` ok, `1` command failed (not a markdown file, unknown session / id, quote not
 found), `2` bad usage, `3` `serve status` when the app is not running.
@@ -210,7 +210,12 @@ $BLACKBOARD_HOME/
 {
   "version": 1,
   "sessions": [
-    { "id": "3dc91666ea", "path": "/work/app/docs/design.md", "createdAt": "2026-10-16T19:40:00.000Z", "openedAt": "2026-10-16T19:40:00.000Z" }
+    {
+      "id": "3dc91666ea",
+      "path": "/work/app/docs/design.md",
+      "createdAt": "2026-10-16T19:40:00.000Z",
+      "openedAt": "2026-10-16T19:40:00.000Z"
+    }
   ]
 }
 ```
@@ -291,7 +296,8 @@ proxy.ts                  localhost-only Host and Origin checks
 
 ## Look and themes
 
-Built with Next.js 16, React 19, Tailwind 4 and [shadcn/ui](https://ui.shadcn.com) components.
+Built with TanStack Start, React 19, Tailwind 4 and [shadcn/ui](https://ui.shadcn.com) components,
+with the theme and primitives in `packages/bb-ui`.
 
 **Three palettes.** `paper` is the warm theme the app had, with two tokens moved to reach AA
 (`--muted-foreground` `#8a8178` → `#6f675e` at 5.24:1, `--primary` `#c4603f` → `#b3532f` at
@@ -326,12 +332,13 @@ the list says which choices stay aligned. Regenerate the shipped subsets with
 ## Titles, icons and share cards
 
 - Each tab title is the doc's own title (`Doc title · Blackboard`); Home is `Sessions · Blackboard`.
-- The site icon is `app/icon.svg` (plus `favicon.ico` and `apple-icon.png`).
-- `/opengraph-image` and `/s/<id>/opengraph-image` draw the share cards that social apps show. The
+- The site icon is `public/icon.svg` (plus `favicon.ico` and `apple-icon.png`).
+- `/og.png` and `/s/<id>/og.png` draw the share cards that social apps show. The
   card's built-in font draws Latin text only, so a title with other scripts falls back to the file name.
 - Set `BLACKBOARD_URL` (for example `https://notes.example.com`) when the app is reachable from outside, so
-  the card URLs in the page are absolute. In `bun dev` Next always uses `localhost`.
-- `docs/social-preview.png` is the same default card; upload it under GitHub's Settings → Social preview.
+  the card URLs in the page are absolute. `bun dev` serves on `127.0.0.1:38792`.
+- `apps/blackboard-web/docs/social-preview.png` is the same default card; upload it under GitHub's
+  Settings → Social preview.
 
 ## Releasing
 

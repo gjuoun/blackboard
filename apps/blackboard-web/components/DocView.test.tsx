@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import { renderToStaticMarkup } from "react-dom/server";
-import { TestNav } from "@/test/nav";
 import type { RenderedComment } from "@/lib/comment-markdown";
+import { TestNav } from "@/test/nav";
 import { DocView } from "./DocView";
 
 const comment = (id: string, status: "open" | "resolved"): RenderedComment => ({

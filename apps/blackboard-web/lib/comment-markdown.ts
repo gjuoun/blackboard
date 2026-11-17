@@ -10,9 +10,9 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
 import remarkRehype from "remark-rehype";
+import type { PluggableList } from "unified";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
-import type { PluggableList } from "unified";
 import type { Comment, Reply } from "./comments-store";
 import { remarkDisplayMath } from "./markdown";
 import { remarkSingleDollarMath } from "./math";
@@ -35,38 +35,58 @@ function remarkHtmlAsText() {
 /** A link whose target is not an allowed scheme becomes its own text. */
 function remarkSafeLinks() {
   return (tree: Parameters<typeof visit>[0]) => {
-    visit(tree, "link", (node: { url: string; children: unknown[] }, index: number | undefined, parent: { children: unknown[] } | undefined) => {
-      if (!parent || index === undefined || SAFE_URL.test(node.url.trim())) return;
-      parent.children.splice(index, 1, ...node.children);
-      return index;
-    });
+    visit(
+      tree,
+      "link",
+      (
+        node: { url: string; children: unknown[] },
+        index: number | undefined,
+        parent: { children: unknown[] } | undefined,
+      ) => {
+        if (!parent || index === undefined || SAFE_URL.test(node.url.trim())) return;
+        parent.children.splice(index, 1, ...node.children);
+        return index;
+      },
+    );
   };
 }
 
 /** An image in a comment becomes its alt text: comments never fetch pictures. */
 function remarkImagesAsText() {
   return (tree: Parameters<typeof visit>[0]) => {
-    visit(tree, "image", (node: { alt?: string | null }, index: number | undefined, parent: { children: unknown[] } | undefined) => {
-      if (!parent || index === undefined) return;
-      parent.children.splice(index, 1, { type: "text", value: node.alt || "image" });
-      return index + 1;
-    });
+    visit(
+      tree,
+      "image",
+      (
+        node: { alt?: string | null },
+        index: number | undefined,
+        parent: { children: unknown[] } | undefined,
+      ) => {
+        if (!parent || index === undefined) return;
+        parent.children.splice(index, 1, { type: "text", value: node.alt || "image" });
+        return index + 1;
+      },
+    );
   };
 }
 
 /** A newline inside a paragraph is a line break, as the author typed it. */
 function remarkLineBreaks() {
   return (tree: Parameters<typeof visit>[0]) => {
-    visit(tree, "text", (node: { value: string }, index: number | undefined, parent: { children: unknown[] } | undefined) => {
-      if (!parent || index === undefined || !node.value.includes("\n")) return;
-      const nodes: { type: string; value?: string }[] = [];
-      node.value.split("\n").forEach((part, i) => {
-        if (i > 0) nodes.push({ type: "break" });
-        if (part) nodes.push({ type: "text", value: part });
-      });
-      parent.children.splice(index, 1, ...nodes);
-      return index + nodes.length;
-    });
+    visit(
+      tree,
+      "text",
+      (node: { value: string }, index: number | undefined, parent: { children: unknown[] } | undefined) => {
+        if (!parent || index === undefined || !node.value.includes("\n")) return;
+        const nodes: { type: string; value?: string }[] = [];
+        node.value.split("\n").forEach((part, i) => {
+          if (i > 0) nodes.push({ type: "break" });
+          if (part) nodes.push({ type: "text", value: part });
+        });
+        parent.children.splice(index, 1, ...nodes);
+        return index + nodes.length;
+      },
+    );
   };
 }
 
@@ -88,8 +108,16 @@ function rehypeLinkSafety() {
  */
 function build(withMath: boolean, withCode: boolean) {
   const plugins: PluggableList = [remarkParse, remarkGfm];
-  if (withMath) plugins.push([remarkMath, { singleDollarTextMath: false }], remarkSingleDollarMath, remarkDisplayMath);
-  plugins.push(remarkHtmlAsText, remarkSafeLinks, remarkImagesAsText, remarkLineBreaks, remarkRehype, rehypeLinkSafety);
+  if (withMath)
+    plugins.push([remarkMath, { singleDollarTextMath: false }], remarkSingleDollarMath, remarkDisplayMath);
+  plugins.push(
+    remarkHtmlAsText,
+    remarkSafeLinks,
+    remarkImagesAsText,
+    remarkLineBreaks,
+    remarkRehype,
+    rehypeLinkSafety,
+  );
   if (withMath) plugins.push([rehypeKatex, { output: "html" }]);
   if (withCode) plugins.push([rehypeHighlight, { detect: false, ignoreMissing: true }]);
   plugins.push(rehypeStringify);

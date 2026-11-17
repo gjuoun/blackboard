@@ -1,8 +1,8 @@
-import { Context, Effect, Layer } from "effect";
 import { asc, eq } from "drizzle-orm";
+import { Context, Effect, Layer } from "effect";
+import type { DbFailure } from "../../errors";
 import { Db } from "../client";
 import { comments } from "../schema";
-import type { DbFailure } from "../../effect/errors";
 
 /** A comment row; `replies` is its flat thread, stored as JSON and always read/written whole. */
 export type CommentRow = typeof comments.$inferSelect;
@@ -16,8 +16,17 @@ export class CommentsRepo extends Context.Service<
     add(home: string, input: CommentInput): Effect.Effect<CommentRow, DbFailure>;
     get(home: string, id: string): Effect.Effect<CommentRow | null, DbFailure>;
     list(home: string, documentId: string): Effect.Effect<CommentRow[], DbFailure>;
-    setStatus(home: string, id: string, status: "open" | "resolved", by: string): Effect.Effect<CommentRow | null, DbFailure>;
-    addReply(home: string, id: string, reply: { id: string; body: string; author: string }): Effect.Effect<CommentRow | null, DbFailure>;
+    setStatus(
+      home: string,
+      id: string,
+      status: "open" | "resolved",
+      by: string,
+    ): Effect.Effect<CommentRow | null, DbFailure>;
+    addReply(
+      home: string,
+      id: string,
+      reply: { id: string; body: string; author: string },
+    ): Effect.Effect<CommentRow | null, DbFailure>;
     update(home: string, id: string, body: string): Effect.Effect<CommentRow | null, DbFailure>;
     /** Whole-row rewrite for changes that are not a body edit: replies, status fields. */
     updateRow(home: string, row: CommentRow): Effect.Effect<CommentRow | null, DbFailure>;
@@ -40,14 +49,27 @@ export const layer = Layer.effect(
           return row;
         }),
       list: (home, documentId) =>
-        db.use(home, (d) => d.select().from(comments).where(eq(comments.documentId, documentId)).orderBy(asc(comments.createdAt)).all()),
+        db.use(home, (d) =>
+          d
+            .select()
+            .from(comments)
+            .where(eq(comments.documentId, documentId))
+            .orderBy(asc(comments.createdAt))
+            .all(),
+        ),
       setStatus: (home, id, status, by) =>
         db.use(home, (d) => {
           const c = d.select().from(comments).where(eq(comments.id, id)).get() ?? null;
           if (!c) return null;
-          const patch = status === "resolved"
-            ? { status, resolvedAt: now(), resolvedBy: by }
-            : { status, resolvedAt: null, resolvedBy: null, ...(c.resolvedAt ? { reopenedAt: now(), reopenedBy: by } : {}) };
+          const patch =
+            status === "resolved"
+              ? { status, resolvedAt: now(), resolvedBy: by }
+              : {
+                  status,
+                  resolvedAt: null,
+                  resolvedBy: null,
+                  ...(c.resolvedAt ? { reopenedAt: now(), reopenedBy: by } : {}),
+                };
           d.update(comments).set(patch).where(eq(comments.id, id)).run();
           return { ...c, ...patch };
         }),

@@ -4,7 +4,12 @@ import { describe, expect, mock, test } from "bun:test";
 // replaced with a controllable snapshot so each render sees a different open doc.
 let pathname = "/inbox";
 let desktop = true;
-let chromeState: { tocOpen: boolean; cmOpen: boolean; sheet: string | null; doc: Record<string, unknown> | null };
+let chromeState: {
+  tocOpen: boolean;
+  cmOpen: boolean;
+  sheet: string | null;
+  doc: Record<string, unknown> | null;
+};
 mock.module("./chrome", () => ({
   setChrome: () => {},
   togglePanel: () => {},

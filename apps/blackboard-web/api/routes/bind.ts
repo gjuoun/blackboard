@@ -1,10 +1,10 @@
 import { Effect } from "effect";
 import { Hono } from "hono";
 import { AgentsStore, type BindInput } from "../../lib/agents-store";
-import { InvalidInput, sessionNotFound, type ApiFailure } from "../../lib/effect/errors";
 import { BindPostBody, bindReject, decodeBody, jsonBody } from "../../lib/effect/schema";
+import { type ApiFailure, InvalidInput, sessionNotFound } from "../../lib/errors";
 import { getHome } from "../../lib/home";
-import { SessionsStore, type Session } from "../../lib/sessions";
+import { type Session, SessionsStore } from "../../lib/sessions";
 import { respond } from "../respond";
 
 /**
@@ -25,7 +25,10 @@ function loopbackOrigin(raw: string): Effect.Effect<string, InvalidInput> {
   const bad = new InvalidInput({ message: "url must be a loopback http url", status: 400, field: "url" });
   return Effect.try({ try: () => new URL(raw), catch: () => bad }).pipe(
     Effect.flatMap((parsed) =>
-      parsed.protocol === "http:" && LOOPBACK_HOSTS.has(parsed.hostname) && !parsed.username && !parsed.password
+      parsed.protocol === "http:" &&
+      LOOPBACK_HOSTS.has(parsed.hostname) &&
+      !parsed.username &&
+      !parsed.password
         ? Effect.succeed(parsed.origin)
         : Effect.fail(bad),
     ),
@@ -33,7 +36,13 @@ function loopbackOrigin(raw: string): Effect.Effect<string, InvalidInput> {
 }
 
 /** The session a bind names: an id, or a doc path resolved the way `blackboard open` finds it. */
-function bindTarget(req: Request): Effect.Effect<{ body: typeof BindPostBody.Type; home: string; session: Session }, ApiFailure, SessionsStore> {
+function bindTarget(
+  req: Request,
+): Effect.Effect<
+  { body: typeof BindPostBody.Type; home: string; session: Session },
+  ApiFailure,
+  SessionsStore
+> {
   return Effect.gen(function* () {
     const sessions = yield* SessionsStore;
     const raw = yield* jsonBody(req);
@@ -47,7 +56,9 @@ function bindTarget(req: Request): Effect.Effect<{ body: typeof BindPostBody.Typ
 }
 
 /** The session a GET or DELETE names: the same lookup, without a body. */
-function queryTarget(req: Request): Effect.Effect<{ home: string; session: string }, ApiFailure, SessionsStore> {
+function queryTarget(
+  req: Request,
+): Effect.Effect<{ home: string; session: string }, ApiFailure, SessionsStore> {
   return Effect.gen(function* () {
     const sessions = yield* SessionsStore;
     const home = getHome();
@@ -66,7 +77,10 @@ bind.post("/", (c) =>
       const agents = yield* AgentsStore;
       const { body, home, session } = yield* bindTarget(c.req.raw);
       const piSession = (body.piSession ?? "").trim();
-      if (!piSession) return yield* Effect.fail(new InvalidInput({ message: "piSession is required", status: 400, field: "piSession" }));
+      if (!piSession)
+        return yield* Effect.fail(
+          new InvalidInput({ message: "piSession is required", status: 400, field: "piSession" }),
+        );
       const url = yield* loopbackOrigin((body.url ?? "").trim());
       const input: BindInput = { session: session.id, path: session.path, piSession, url };
       return { binding: yield* agents.bind(home, input) };

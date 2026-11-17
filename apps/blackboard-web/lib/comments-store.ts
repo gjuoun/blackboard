@@ -1,10 +1,11 @@
 import { Context, Effect, Layer } from "effect";
 import type { QuoteSelector } from "./anchor";
-import { commentId, replyId, type Comment, type CommentFile } from "./comments-file";
 import { ChangeBus } from "./change-bus";
-import { CommentsRepo, type CommentRow } from "./db/repos/comments";
+import { type Comment, type CommentFile, commentId, replyId } from "./comments-file";
+import { type CommentRow, CommentsRepo } from "./db/repos/comments";
 import { ContentBlocksRepo } from "./db/repos/content-blocks";
-import { IoFailure, type ApiFailure } from "./effect/errors";
+import { type ApiFailure, IoFailure } from "./errors";
+
 export type { Comment, CommentFile, Reply } from "./comments-file";
 export { readComments } from "./comments-file";
 
@@ -30,8 +31,14 @@ const toComment = (row: CommentRow): Comment => {
   c.status = row.status as Comment["status"];
   c.replies = row.replies;
   if (row.editedAt) c.editedAt = row.editedAt;
-  if (row.resolvedAt) { c.resolvedAt = row.resolvedAt; c.resolvedBy = row.resolvedBy ?? undefined; }
-  if (row.reopenedAt) { c.reopenedAt = row.reopenedAt; c.reopenedBy = row.reopenedBy ?? undefined; }
+  if (row.resolvedAt) {
+    c.resolvedAt = row.resolvedAt;
+    c.resolvedBy = row.resolvedBy ?? undefined;
+  }
+  if (row.reopenedAt) {
+    c.reopenedAt = row.reopenedAt;
+    c.reopenedBy = row.reopenedBy ?? undefined;
+  }
   return c;
 };
 
@@ -46,33 +53,63 @@ export class CommentsStore extends Context.Service<
     countOpen(home: string, sessionId: string): Effect.Effect<number, ApiFailure>;
     /** Every comment on the session with its doc key, in creation order. */
     list(home: string, sessionId: string): Effect.Effect<(Comment & { doc: string })[], ApiFailure>;
-    add(home: string, sessionId: string, doc: string, input: Anchor & { body: string; author: string; images?: string[] }): Effect.Effect<Comment, ApiFailure>;
-    reply(home: string, id: string, doc: string, input: { body: string; author: string; joinReplyId?: string }): Effect.Effect<Comment, ApiFailure>;
+    add(
+      home: string,
+      sessionId: string,
+      doc: string,
+      input: Anchor & { body: string; author: string; images?: string[] },
+    ): Effect.Effect<Comment, ApiFailure>;
+    reply(
+      home: string,
+      id: string,
+      doc: string,
+      input: { body: string; author: string; joinReplyId?: string },
+    ): Effect.Effect<Comment, ApiFailure>;
     edit(home: string, id: string, doc: string, body: string): Effect.Effect<Comment, ApiFailure>;
     remove(home: string, id: string, doc: string): Effect.Effect<Comment, ApiFailure>;
-    editReply(home: string, id: string, rId: string, doc: string, body: string): Effect.Effect<Comment, ApiFailure>;
+    editReply(
+      home: string,
+      id: string,
+      rId: string,
+      doc: string,
+      body: string,
+    ): Effect.Effect<Comment, ApiFailure>;
     deleteReply(home: string, id: string, rId: string, doc: string): Effect.Effect<Comment, ApiFailure>;
-    setStatus(home: string, id: string, doc: string, status: "open" | "resolved", by: string): Effect.Effect<Comment, ApiFailure>;
+    setStatus(
+      home: string,
+      id: string,
+      doc: string,
+      status: "open" | "resolved",
+      by: string,
+    ): Effect.Effect<Comment, ApiFailure>;
   }
 >()("blackboard/CommentsStore") {}
 
-const notFound = (id: string, doc?: string) => new IoFailure({ message: `comment ${id} not found${doc ? ` in ${doc}` : ""}`, status: 404 });
-const replyNotFound = (id: string, cId: string) => new IoFailure({ message: `reply ${id} not found on ${cId}`, status: 404 });
+const notFound = (id: string, doc?: string) =>
+  new IoFailure({ message: `comment ${id} not found${doc ? ` in ${doc}` : ""}`, status: 404 });
+const replyNotFound = (id: string, cId: string) =>
+  new IoFailure({ message: `reply ${id} not found on ${cId}`, status: 404 });
 
 export const layer = Layer.effect(
   CommentsStore,
   Effect.gen(function* () {
     const repo = yield* CommentsRepo;
     const contentBlocks = yield* ContentBlocksRepo;
-    const bus = yield* Effect.serviceOption(ChangeBus).pipe(Effect.map((o) => (o._tag === "Some" ? o.value : null)));
+    const bus = yield* Effect.serviceOption(ChangeBus).pipe(
+      Effect.map((o) => (o._tag === "Some" ? o.value : null)),
+    );
     const mark = (row: { documentId: string }) => (bus ? bus.publish(row.documentId) : Effect.void);
 
     const getRow = (home: string, id: string, doc: string) =>
-      repo.get(home, id).pipe(Effect.flatMap((row) => (row ? Effect.succeed(row) : Effect.fail(notFound(id, doc)))));
+      repo
+        .get(home, id)
+        .pipe(Effect.flatMap((row) => (row ? Effect.succeed(row) : Effect.fail(notFound(id, doc)))));
 
     /** Whole-row rewrite: read-modify-write happens through the repo's per-row update path. */
     const save = (home: string, row: CommentRow) =>
-      repo.updateRow(home, row).pipe(Effect.flatMap((saved) => (saved ? Effect.succeed(saved) : Effect.fail(notFound(row.id)))));
+      repo
+        .updateRow(home, row)
+        .pipe(Effect.flatMap((saved) => (saved ? Effect.succeed(saved) : Effect.fail(notFound(row.id)))));
 
     /** The comment as the wire carries it, with its block's present state folded in. `block` is
      *  only attached when the block moved or died — a current anchor adds nothing but id churn. */
@@ -86,13 +123,23 @@ export const layer = Layer.effect(
           return c;
         }
         if (block.deletedAt) {
-          const before = yield* contentBlocks.revText(home, row.blockId, row.blockRev).pipe(Effect.orElseSucceed(() => null));
+          const before = yield* contentBlocks
+            .revText(home, row.blockId, row.blockRev)
+            .pipe(Effect.orElseSucceed(() => null));
           c.block = { id: row.blockId, rev: row.blockRev, state: "deleted", before: before ?? undefined };
           return c;
         }
         if (block.rev === row.blockRev) return c;
-        const before = yield* contentBlocks.revText(home, row.blockId, row.blockRev).pipe(Effect.orElseSucceed(() => null));
-        c.block = { id: row.blockId, rev: row.blockRev, state: "modified", before: before ?? undefined, after: block.text };
+        const before = yield* contentBlocks
+          .revText(home, row.blockId, row.blockRev)
+          .pipe(Effect.orElseSucceed(() => null));
+        c.block = {
+          id: row.blockId,
+          rev: row.blockRev,
+          state: "modified",
+          before: before ?? undefined,
+          after: block.text,
+        };
         return c;
       });
 
@@ -107,12 +154,23 @@ export const layer = Layer.effect(
       countOpen: (home, sessionId) =>
         repo.list(home, sessionId).pipe(Effect.map((rows) => rows.filter((r) => r.status === "open").length)),
       list: (home, sessionId) =>
-        repo.list(home, sessionId).pipe(Effect.flatMap((rows) => Effect.forEach(rows, (r) => Effect.map(withBlock(home, r), (c) => ({ ...c, doc: r.doc }))))),
+        repo
+          .list(home, sessionId)
+          .pipe(
+            Effect.flatMap((rows) =>
+              Effect.forEach(rows, (r) => Effect.map(withBlock(home, r), (c) => ({ ...c, doc: r.doc }))),
+            ),
+          ),
       add: (home, sessionId, doc, input) =>
         Effect.gen(function* () {
           // The quote's semantic identity: the live block it landed on, and the block's rev
           // right now. resolveQuote answers null for a quote nothing holds (stays an orphan).
-          const resolution = "quote" in input ? yield* contentBlocks.resolveQuote(home, sessionId, input.quote).pipe(Effect.orElseSucceed(() => null)) : null;
+          const resolution =
+            "quote" in input
+              ? yield* contentBlocks
+                  .resolveQuote(home, sessionId, input.quote)
+                  .pipe(Effect.orElseSucceed(() => null))
+              : null;
           const saved = yield* repo.add(home, {
             id: commentId(),
             documentId: sessionId,
@@ -142,12 +200,32 @@ export const layer = Layer.effect(
           if (input.joinReplyId !== undefined && !row.replies.some((r) => r.id === input.joinReplyId)) {
             return yield* Effect.fail(replyNotFound(input.joinReplyId, id));
           }
-          const saved = yield* save(home, { ...row, replies: [...row.replies, { id: replyId(), body: input.body, author: input.author, createdAt: now() }] });
+          const saved = yield* save(home, {
+            ...row,
+            replies: [
+              ...row.replies,
+              { id: replyId(), body: input.body, author: input.author, createdAt: now() },
+            ],
+          });
           yield* mark(saved);
           return toComment(saved);
         }),
-      edit: (home, id, doc, body) => repo.update(home, id, body).pipe(Effect.flatMap((r) => (r ? mark(r).pipe(Effect.as(toComment(r))) : Effect.fail(notFound(id, doc))))),
-      remove: (home, id, doc) => repo.remove(home, id).pipe(Effect.flatMap((r) => (r ? mark(r).pipe(Effect.as(toComment(r))) : Effect.fail(notFound(id, doc))))),
+      edit: (home, id, doc, body) =>
+        repo
+          .update(home, id, body)
+          .pipe(
+            Effect.flatMap((r) =>
+              r ? mark(r).pipe(Effect.as(toComment(r))) : Effect.fail(notFound(id, doc)),
+            ),
+          ),
+      remove: (home, id, doc) =>
+        repo
+          .remove(home, id)
+          .pipe(
+            Effect.flatMap((r) =>
+              r ? mark(r).pipe(Effect.as(toComment(r))) : Effect.fail(notFound(id, doc)),
+            ),
+          ),
       editReply: (home, id, rId, doc, body) =>
         Effect.gen(function* () {
           const row = yield* getRow(home, id, doc);
@@ -166,7 +244,13 @@ export const layer = Layer.effect(
           return toComment(saved);
         }),
       setStatus: (home, id, doc, status, by) =>
-        repo.setStatus(home, id, status, by).pipe(Effect.flatMap((r) => (r ? mark(r).pipe(Effect.as(toComment(r))) : Effect.fail(notFound(id, doc))))),
+        repo
+          .setStatus(home, id, status, by)
+          .pipe(
+            Effect.flatMap((r) =>
+              r ? mark(r).pipe(Effect.as(toComment(r))) : Effect.fail(notFound(id, doc)),
+            ),
+          ),
     });
   }),
 );

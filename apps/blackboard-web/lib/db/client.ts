@@ -1,9 +1,9 @@
 import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
-import { Context, Effect, Layer } from "effect";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { errorMessage, DbFailure } from "../effect/errors";
+import { Context, Effect, Layer } from "effect";
+import { DbFailure, errorMessage } from "../errors";
 
 /**
  * The one SQLite database for Blackboard: `<home>/blackboard.db`, WAL mode, foreign keys on.
@@ -27,14 +27,16 @@ import { BASELINE_COLUMNS, BASELINE_TAG, MIGRATIONS } from "./migrations/bundled
 
 const MIGRATIONS_TABLE = "__drizzle_migrations";
 
-const tableExists = (raw: RawDb, name: string) => raw.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !== null;
+const tableExists = (raw: RawDb, name: string) =>
+  raw.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !== null;
 
 /** Baseline ALTER pass for databases created before drizzle was wired in. */
 const backfillBaselineColumns = (raw: RawDb) => {
   for (const [table, columns] of Object.entries(BASELINE_COLUMNS)) {
     if (!tableExists(raw, table)) continue;
     for (const { name, type } of columns) {
-      const has = raw.query(`SELECT name FROM pragma_table_info('${table}') WHERE name = ?`).get(name) !== null;
+      const has =
+        raw.query(`SELECT name FROM pragma_table_info('${table}') WHERE name = ?`).get(name) !== null;
       if (!has) raw.exec(`ALTER TABLE \`${table}\` ADD COLUMN \`${name}\` ${type}`);
     }
   }
@@ -47,15 +49,21 @@ const backfillBaselineColumns = (raw: RawDb) => {
  * an old database takes it without complaint and gets its columns backfilled by the ALTER pass.
  */
 function runMigrations(raw: RawDb): void {
-  raw.exec(`CREATE TABLE IF NOT EXISTS \`${MIGRATIONS_TABLE}\` (id INTEGER PRIMARY KEY AUTOINCREMENT, hash TEXT NOT NULL, created_at NUMERIC)`);
-  const last = raw.query(`SELECT created_at FROM \`${MIGRATIONS_TABLE}\` ORDER BY created_at DESC LIMIT 1`).get();
+  raw.exec(
+    `CREATE TABLE IF NOT EXISTS \`${MIGRATIONS_TABLE}\` (id INTEGER PRIMARY KEY AUTOINCREMENT, hash TEXT NOT NULL, created_at NUMERIC)`,
+  );
+  const last = raw
+    .query(`SELECT created_at FROM \`${MIGRATIONS_TABLE}\` ORDER BY created_at DESC LIMIT 1`)
+    .get();
   raw.exec("BEGIN");
   try {
     for (const m of MIGRATIONS) {
       if (last && Number(last.created_at) >= m.folderMillis) continue;
       for (const stmt of m.stmts) raw.exec(stmt);
       if (m.tag === BASELINE_TAG) backfillBaselineColumns(raw);
-      raw.exec(`INSERT INTO \`${MIGRATIONS_TABLE}\` (hash, created_at) VALUES('${m.hash}', ${m.folderMillis})`);
+      raw.exec(
+        `INSERT INTO \`${MIGRATIONS_TABLE}\` (hash, created_at) VALUES('${m.hash}', ${m.folderMillis})`,
+      );
     }
     raw.exec("COMMIT");
   } catch (e) {
@@ -68,7 +76,10 @@ function runMigrations(raw: RawDb): void {
 type RawDb = {
   run(sql: string): void;
   exec(sql: string): void;
-  query(sql: string): { get(...params: unknown[]): Record<string, unknown> | null; all(...params: unknown[]): Record<string, unknown>[] };
+  query(sql: string): {
+    get(...params: unknown[]): Record<string, unknown> | null;
+    all(...params: unknown[]): Record<string, unknown>[];
+  };
 };
 
 /** The live handle: drizzle for typed queries, raw for PRAGMAs and one-off SQL. */
@@ -95,7 +106,8 @@ const open = (home: string): Effect.Effect<Conn, DbFailure> =>
       runMigrations(raw);
       return { orm: drizzle(raw), raw };
     },
-    catch: (error) => new DbFailure({ message: `cannot open blackboard.db: ${errorMessage(error)}`, status: 500 }),
+    catch: (error) =>
+      new DbFailure({ message: `cannot open blackboard.db: ${errorMessage(error)}`, status: 500 }),
   });
 
 export class Db extends Context.Service<
@@ -126,7 +138,12 @@ export const layer = Layer.effect(
       });
     const run = <A>(home: string, fn: (db: Conn) => A): Effect.Effect<A, DbFailure> =>
       conn(home).pipe(
-        Effect.flatMap((db) => Effect.try({ try: () => fn(db), catch: (e) => new DbFailure({ message: errorMessage(e), status: 500 }) })),
+        Effect.flatMap((db) =>
+          Effect.try({
+            try: () => fn(db),
+            catch: (e) => new DbFailure({ message: errorMessage(e), status: 500 }),
+          }),
+        ),
       );
     return Db.of({
       use: (home, fn) => run(home, ({ orm }) => fn(orm)),

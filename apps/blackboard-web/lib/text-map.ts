@@ -13,7 +13,8 @@ export function buildTextMap(root: HTMLElement): TextMap {
   const nodes: TextMap["nodes"] = [];
   let text = "";
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
-    acceptNode: (n) => (n.parentElement?.closest(SKIP_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+    acceptNode: (n) =>
+      n.parentElement?.closest(SKIP_SELECTOR) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
   });
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
     nodes.push({ node: n as Text, start: text.length });

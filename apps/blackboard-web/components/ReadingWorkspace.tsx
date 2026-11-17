@@ -1,18 +1,25 @@
 "use client";
 
-import { useNav } from "./nav";
+import { cn } from "@gjuoun/bb-ui/lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { clampInbox, LIST_MIN, type PanelKey } from "@/lib/prefs";
-import { countStatuses, filterDocs, type PreviewData, type ReadingFilter, type ReadingResult, type WorkspaceData } from "@/lib/reading-model";
-import { cn } from "@gjuoun/bb-ui/lib/utils";
+import {
+  countStatuses,
+  filterDocs,
+  type PreviewData,
+  type ReadingFilter,
+  type ReadingResult,
+  type WorkspaceData,
+} from "@/lib/reading-model";
 import { setChrome, useChrome, useIsDesktop } from "./chrome";
+import { useNav } from "./nav";
 import { PanelResizer } from "./PanelResizer";
 import { ReadingHeader } from "./ReadingHeader";
 import { ReadingList } from "./ReadingList";
 import { ReadingPreview } from "./ReadingPreview";
 import { ReadingRail } from "./ReadingRail";
-import { setWorkspaceBar } from "./workspace-bar";
 import { isWorkspaceView, VIEW_FILTERS, WorkspaceTabBar, type WorkspaceView } from "./WorkspaceTabBar";
+import { setWorkspaceBar } from "./workspace-bar";
 
 /** A media query as a hook, same subscribe pattern as the chrome store's desktop flag. */
 const useMediaQuery = (query: string) =>
@@ -60,16 +67,14 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
   // A deep link (or a tab tap) lands as `?f=…`; adopt it once, after mount.
   useEffect(() => {
     const v = viewFromLocation();
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the URL is only readable after mount
     if (v) setViewState(v);
   }, []);
 
   // The stored default repo applies while the repo filter is untouched ("" = all repos); a manual
   // pick of another repo wins until the preference itself changes.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage is only readable after mount
     if (repo === "" && initial.repos.includes(chrome.docRepo)) setRepo(chrome.docRepo);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `repo` is read, not driven
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `repo` is read, not driven
   }, [chrome.docRepo, initial.repos]);
 
   const visible = useMemo(() => filterDocs(docs, filter, query, repo), [docs, filter, query, repo]);
@@ -96,7 +101,13 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
 
   /** Apply the entries a write answered with; the server's copy is authoritative. */
   const patch = useCallback((entries: ReadingResult["docs"]) => {
-    setDocs((prev) => prev.map((doc) => (entries[doc.id] ? { ...doc, status: entries[doc.id].status, progress: entries[doc.id].progress } : doc)));
+    setDocs((prev) =>
+      prev.map((doc) =>
+        entries[doc.id]
+          ? { ...doc, status: entries[doc.id].status, progress: entries[doc.id].progress }
+          : doc,
+      ),
+    );
   }, []);
 
   const write = useCallback(
@@ -109,13 +120,19 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
   );
 
   const docsRef = useRef(docs);
-  useEffect(() => { docsRef.current = docs; }, [docs]);
+  useEffect(() => {
+    docsRef.current = docs;
+  }, [docs]);
 
   const mark = useCallback(
     (id: string, action: "read" | "unread") => {
       // The optimistic copy mirrors the server rule: marking read keeps the position, marking
       // unread clears it — progress is position, never "finished".
-      setDocs((prev) => prev.map((doc) => (doc.id === id ? { ...doc, status: action, progress: action === "unread" ? 0 : doc.progress } : doc)));
+      setDocs((prev) =>
+        prev.map((doc) =>
+          doc.id === id ? { ...doc, status: action, progress: action === "unread" ? 0 : doc.progress } : doc,
+        ),
+      );
       void write({ session: id, action });
     },
     [write],
@@ -175,12 +192,29 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
   const reply = useCallback(
     async (text: string) => {
       if (!selected) return false;
-      const data = (await post("/api/comments", { session: selected, general: true, body: text, author: "jun" })) as { comment: { id: string; body: string; author: string; createdAt: string } } | null;
+      const data = (await post("/api/comments", {
+        session: selected,
+        general: true,
+        body: text,
+        author: "jun",
+      })) as { comment: { id: string; body: string; author: string; createdAt: string } } | null;
       if (!data) return false;
       const { comment } = data;
       setPreview((prev) =>
         prev && prev.id === selected
-          ? { ...prev, replies: [...prev.replies, { id: comment.id, author: comment.author, body: comment.body, createdAt: comment.createdAt, updated: "just now" }] }
+          ? {
+              ...prev,
+              replies: [
+                ...prev.replies,
+                {
+                  id: comment.id,
+                  author: comment.author,
+                  body: comment.body,
+                  createdAt: comment.createdAt,
+                  updated: "just now",
+                },
+              ],
+            }
           : prev,
       );
       return true;
@@ -201,7 +235,10 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
         e.preventDefault();
         if (!visible.length) return;
         const i = selected ? visible.findIndex((doc) => doc.id === selected) : -1;
-        const next = e.key === "ArrowDown" ? visible[i < 0 ? 0 : Math.min(i + 1, visible.length - 1)] : visible[i < 0 ? visible.length - 1 : Math.max(i - 1, 0)];
+        const next =
+          e.key === "ArrowDown"
+            ? visible[i < 0 ? 0 : Math.min(i + 1, visible.length - 1)]
+            : visible[i < 0 ? visible.length - 1 : Math.max(i - 1, 0)];
         if (next) open(next.id);
         return;
       }
@@ -222,7 +259,17 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
   // The desktop top bar folds the inbox controls into itself; publish them while this page is
   // mounted and clear the slot on the way out so no other page inherits them.
   useEffect(() => {
-    setWorkspaceBar({ query, onQuery: setQuery, repo, repos: initial.repos, onRepo: setRepo, filter, onFilter: (f) => setView(f), counts, pending });
+    setWorkspaceBar({
+      query,
+      onQuery: setQuery,
+      repo,
+      repos: initial.repos,
+      onRepo: setRepo,
+      filter,
+      onFilter: (f) => setView(f),
+      counts,
+      pending,
+    });
     return () => setWorkspaceBar(null);
   }, [query, repo, initial.repos, filter, setView, counts, pending]);
 
@@ -248,7 +295,10 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
   const selectedDoc = docs.find((doc) => doc.id === selected) ?? null;
 
   return (
-    <div data-testid="rw-shell" className="flex h-[calc(100dvh-var(--bar-h))] flex-col overflow-hidden max-md:h-dvh">
+    <div
+      data-testid="rw-shell"
+      className="flex h-[calc(100dvh-var(--bar-h))] flex-col overflow-hidden max-md:h-dvh"
+    >
       <ReadingHeader query={query} onQuery={setQuery} counts={counts} view={view} />
 
       {/* Column widths ride CSS variables (--rail-w / --preview-w) that the boot script paints
@@ -257,10 +307,12 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
           variable inline so the grip stays under the pointer. */}
       <div
         className="inbox-grid grid min-h-0 flex-1 [html[data-resizing]_&]:transition-none"
-        style={{
-          ...(resizing?.which === "rail" ? { "--rail-w": resizing.width + "px" } : null),
-          ...(resizing?.which === "preview" ? { "--preview-w": resizing.width + "px" } : null),
-        } as React.CSSProperties}
+        style={
+          {
+            ...(resizing?.which === "rail" ? { "--rail-w": resizing.width + "px" } : null),
+            ...(resizing?.which === "preview" ? { "--preview-w": resizing.width + "px" } : null),
+          } as React.CSSProperties
+        }
       >
         <div className="relative hidden lg:block">
           <ReadingRail filter={filter} onFilter={(f) => setView(f)} counts={counts} />
@@ -283,7 +335,12 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
           </div>
         </section>
 
-        <div className={cn("relative min-h-0 flex-col md:flex", selected ? "max-md:fixed max-md:inset-0 max-md:z-30 max-md:flex" : "max-md:hidden")}>
+        <div
+          className={cn(
+            "relative min-h-0 flex-col md:flex",
+            selected ? "max-md:fixed max-md:inset-0 max-md:z-30 max-md:flex" : "max-md:hidden",
+          )}
+        >
           {desktop ? (
             <PanelResizer
               which="preview"

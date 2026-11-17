@@ -1,8 +1,8 @@
-import { Context, Effect, Layer } from "effect";
 import { and, eq, isNull } from "drizzle-orm";
+import { Context, Effect, Layer } from "effect";
+import type { DbFailure } from "../../errors";
 import { Db } from "../client";
 import { documents } from "../schema";
-import type { DbFailure } from "../../effect/errors";
 
 /** A registered document row (the old sessions.json record). */
 export type DocRow = typeof documents.$inferSelect;
@@ -14,7 +14,10 @@ export class DocumentsRepo extends Context.Service<
   DocumentsRepo,
   {
     /** Register or re-open: same id gets a fresh openedAt (and un-closes), everything else keeps. */
-    upsert(home: string, input: { id: string; path: string | null; kind?: string | null }): Effect.Effect<DocRow, DbFailure>;
+    upsert(
+      home: string,
+      input: { id: string; path: string | null; kind?: string | null },
+    ): Effect.Effect<DocRow, DbFailure>;
     /** The open (unclosed) row for an id. */
     get(home: string, id: string): Effect.Effect<DocRow | null, DbFailure>;
     /** Every open row, closed ones excluded. */
@@ -30,7 +33,15 @@ export const layer = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db;
     const get = (home: string, id: string) =>
-      db.use(home, (d) => d.select().from(documents).where(and(eq(documents.id, id), isNull(documents.closedAt))).get() ?? null);
+      db.use(
+        home,
+        (d) =>
+          d
+            .select()
+            .from(documents)
+            .where(and(eq(documents.id, id), isNull(documents.closedAt)))
+            .get() ?? null,
+      );
     return DocumentsRepo.of({
       get,
       list: (home) => db.use(home, (d) => d.select().from(documents).where(isNull(documents.closedAt)).all()),
@@ -38,20 +49,38 @@ export const layer = Layer.effect(
         db.use(home, (d) => {
           const t = now();
           d.insert(documents)
-            .values({ id: input.id, path: input.path, kind: input.kind ?? null, createdAt: t, openedAt: t, closedAt: null })
-            .onConflictDoUpdate({ target: documents.id, set: { path: input.path, kind: input.kind ?? null, openedAt: t, closedAt: null } })
+            .values({
+              id: input.id,
+              path: input.path,
+              kind: input.kind ?? null,
+              createdAt: t,
+              openedAt: t,
+              closedAt: null,
+            })
+            .onConflictDoUpdate({
+              target: documents.id,
+              set: { path: input.path, kind: input.kind ?? null, openedAt: t, closedAt: null },
+            })
             .run();
           return d.select().from(documents).where(eq(documents.id, input.id)).get()!;
         }),
       remove: (home, id) =>
         db.use(home, (d) => {
-          const found = d.select().from(documents).where(and(eq(documents.id, id), isNull(documents.closedAt))).get() ?? null;
+          const found =
+            d
+              .select()
+              .from(documents)
+              .where(and(eq(documents.id, id), isNull(documents.closedAt)))
+              .get() ?? null;
           if (!found) return null;
           d.update(documents).set({ closedAt: now() }).where(eq(documents.id, id)).run();
           return found;
         }),
       touch: (home, id) =>
-        db.use(home, (d) => void d.update(documents).set({ openedAt: now() }).where(eq(documents.id, id)).run()),
+        db.use(
+          home,
+          (d) => void d.update(documents).set({ openedAt: now() }).where(eq(documents.id, id)).run(),
+        ),
     });
   }),
 );

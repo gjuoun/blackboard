@@ -1,6 +1,6 @@
 import { closeSync, openSync, readFileSync, rmSync, statSync, writeSync } from "node:fs";
 import { Context, Effect, Layer, Schedule } from "effect";
-import { LockTimeout } from "./effect/errors";
+import { LockTimeout } from "./errors";
 
 const LOCK_WAIT_MS = 5_000;
 export const STALE_MS = 10_000;
@@ -44,7 +44,9 @@ const isStale = (lockPath: string, options: LockOptions): Effect.Effect<boolean>
     Effect.flatMap((info) => {
       if (!info) return Effect.succeed(false);
       if (info.age > (options.staleMs ?? STALE_MS)) return Effect.succeed(true);
-      return options.checkHolder === false ? Effect.succeed(false) : holderAlive(info.pid).pipe(Effect.map((alive) => !alive));
+      return options.checkHolder === false
+        ? Effect.succeed(false)
+        : holderAlive(info.pid).pipe(Effect.map((alive) => !alive));
     }),
   );
 
@@ -67,7 +69,9 @@ const attempt = (lockPath: string, options: LockOptions): Effect.Effect<number, 
       return isStale(lockPath, options).pipe(
         Effect.flatMap((stale) =>
           stale
-            ? Effect.sync(() => rmSync(lockPath, { force: true })).pipe(Effect.flatMap(() => attempt(lockPath, options)))
+            ? Effect.sync(() => rmSync(lockPath, { force: true })).pipe(
+                Effect.flatMap(() => attempt(lockPath, options)),
+              )
             : Effect.fail({ _tag: "Busy" as const, lockPath }),
         ),
       );
@@ -75,13 +79,19 @@ const attempt = (lockPath: string, options: LockOptions): Effect.Effect<number, 
   );
 
 const timeoutOf = (lockPath: string, options: LockOptions) =>
-  new LockTimeout({ message: options.timeoutMessage?.(lockPath) ?? `timed out waiting for ${lockPath}`, status: 400 });
+  new LockTimeout({
+    message: options.timeoutMessage?.(lockPath) ?? `timed out waiting for ${lockPath}`,
+    status: 400,
+  });
 
 /** Busy is retried on a jittered exponential schedule until the waiter budget runs out. */
 const acquire = (lockPath: string, options: LockOptions): Effect.Effect<number, LockTimeout> =>
   attempt(lockPath, options).pipe(
     Effect.retry({
-      schedule: Schedule.spaced("10 millis").pipe(Schedule.jittered, Schedule.upTo({ duration: options.waitMs ?? LOCK_WAIT_MS })),
+      schedule: Schedule.spaced("10 millis").pipe(
+        Schedule.jittered,
+        Schedule.upTo({ duration: options.waitMs ?? LOCK_WAIT_MS }),
+      ),
       while: (busy: Busy) => busy._tag === "Busy",
     }),
     Effect.catchTag("Busy", () => Effect.fail(timeoutOf(lockPath, options))),
@@ -101,7 +111,11 @@ const release = (lockPath: string, fd: number): Effect.Effect<void> =>
 export class Lock extends Context.Service<
   Lock,
   {
-    withLock<A, E, R>(path: string, effect: Effect.Effect<A, E, R>, options?: LockOptions): Effect.Effect<A, E | LockTimeout, R>;
+    withLock<A, E, R>(
+      path: string,
+      effect: Effect.Effect<A, E, R>,
+      options?: LockOptions,
+    ): Effect.Effect<A, E | LockTimeout, R>;
   }
 >()("blackboard/Lock") {}
 
@@ -110,7 +124,11 @@ export const layer = Layer.succeed(
   Lock.of({
     withLock: (path, effect, options = {}) => {
       const lockPath = `${path}.lock`;
-      return Effect.acquireUseRelease(acquire(lockPath, options), () => effect, (fd) => release(lockPath, fd));
+      return Effect.acquireUseRelease(
+        acquire(lockPath, options),
+        () => effect,
+        (fd) => release(lockPath, fd),
+      );
     },
   }),
 );

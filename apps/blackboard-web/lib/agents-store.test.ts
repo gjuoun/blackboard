@@ -8,7 +8,9 @@ import { AgentsStore, type BindInput } from "./agents-store";
 import { DocumentsRepo } from "./db/repos/documents";
 
 /** The store as the app runs it. Every test here is one process. */
-const withStore = <A>(work: (store: AgentsStore["Service"]) => Effect.Effect<A, { message: string }>): Promise<A> =>
+const withStore = <A>(
+  work: (store: AgentsStore["Service"]) => Effect.Effect<A, { message: string }>,
+): Promise<A> =>
   run(
     Effect.gen(function* () {
       const store = yield* AgentsStore;
@@ -19,10 +21,12 @@ const withStore = <A>(work: (store: AgentsStore["Service"]) => Effect.Effect<A, 
 /** A temp home; the agents table keys on documents, so the sessions are seeded first. */
 const fixture = async (...sessions: string[]) => {
   const home = join(realpathSync(mkdtempSync(join(tmpdir(), "bb-agents-"))), "home");
-  await run(Effect.gen(function* () {
-    const docs = yield* DocumentsRepo;
-    for (const id of sessions) yield* docs.upsert(home, { id, path: `/tmp/${id}.md` });
-  }));
+  await run(
+    Effect.gen(function* () {
+      const docs = yield* DocumentsRepo;
+      for (const id of sessions) yield* docs.upsert(home, { id, path: `/tmp/${id}.md` });
+    }),
+  );
   return { home };
 };
 

@@ -9,13 +9,13 @@ const { cli } = Astro.props;
 
 // The block is a <pre>: its alignment is the artifact, so the rows are one exact string rather
 // than JSX children (whose indentation would land inside the preserved whitespace).
-const escape = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const html = cli.rows
   .map((row) => {
     const comment = row.comment
-      ? '<span class="c"># ' + escape(row.comment) + "</span>"
+      ? '<span class="c"># ' + escapeHtml(row.comment) + "</span>"
       : "";
-    return '<span class="b">blackboard</span> ' + escape(row.command) + comment;
+    return '<span class="b">blackboard</span> ' + escapeHtml(row.command) + comment;
   })
   .join("\n");
 ---

@@ -10,6 +10,6 @@ import type { WorkspaceData } from "@/lib/reading-model";
  */
 
 /** The inbox and its settings read the same assembly, so the repo list can only offer real names. */
-export const loadWorkspace = createServerFn({ method: "GET" }).handler(async (): Promise<WorkspaceData> =>
-  apiGetJson<WorkspaceData>(getHome(), "/api/workspace"),
+export const loadWorkspace = createServerFn({ method: "GET" }).handler(
+  async (): Promise<WorkspaceData> => apiGetJson<WorkspaceData>(getHome(), "/api/workspace"),
 );

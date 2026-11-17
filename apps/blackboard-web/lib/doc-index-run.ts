@@ -1,20 +1,29 @@
-import { Context, Effect } from "effect";
-import { eq, isNull } from "drizzle-orm";
 import { existsSync, statSync } from "node:fs";
+import { eq, isNull } from "drizzle-orm";
+import { type Context, Effect } from "effect";
 import { Db } from "./db/client";
+import { applyReconcile } from "./db/repos/content-blocks";
 import { documents } from "./db/schema";
 import { factsOf, RepoMemo } from "./doc-index";
-import { applyReconcile } from "./db/repos/content-blocks";
-import { errorMessage, IoFailure, type DbFailure } from "./effect/errors";
+import { type DbFailure, errorMessage, IoFailure } from "./errors";
 
 /** What one index run did. `updated` counts rows rewritten; a run over an unchanged database updates none. */
-export type IndexReport = { scanned: number; updated: number; skipped: number; missing: number; gitCommands: number };
+export type IndexReport = {
+  scanned: number;
+  updated: number;
+  skipped: number;
+  missing: number;
+  gitCommands: number;
+};
 
 /** A file that is gone is recorded as missing: no body, and the size column holds this sentinel. */
 const MISSING_SIZE = -1;
 
 /** True when the row must be (re)read: never indexed, or the file is not the one the row was read from. */
-function stale(row: { indexedAt: string | null; srcMtime: number | null; srcSize: number | null }, path: string): boolean {
+function stale(
+  row: { indexedAt: string | null; srcMtime: number | null; srcSize: number | null },
+  path: string,
+): boolean {
   // Never indexed: nothing to trust yet.
   if (row.indexedAt === null) return true;
   // Indexed as missing, and still missing: the recorded state is the current state.
@@ -47,13 +56,24 @@ export function indexRow(
     if (!row.path || (!force && !stale(row, row.path))) {
       // The file is current, but a row that never went through the reconciler still needs its
       // content blocks built once — a no-op on every later run.
-      if (row.bodyRev == null && row.body != null) yield* db.use(home, (d) => void applyReconcile(d, row.id, row.body));
+      if (row.bodyRev == null && row.body != null)
+        yield* db.use(home, (d) => void applyReconcile(d, row.id, row.body));
       return "skipped" as const;
     }
     if (!existsSync(row.path)) {
       const now = new Date().toISOString();
       yield* db.use(home, (d) => {
-        void d.update(documents).set({ body: null, title: row.title ?? null, srcMtime: null, srcSize: MISSING_SIZE, indexedAt: now }).where(eq(documents.id, row.id)).run();
+        void d
+          .update(documents)
+          .set({
+            body: null,
+            title: row.title ?? null,
+            srcMtime: null,
+            srcSize: MISSING_SIZE,
+            indexedAt: now,
+          })
+          .where(eq(documents.id, row.id))
+          .run();
         void applyReconcile(d, row.id, null);
       });
       return "missing" as const;
@@ -64,24 +84,28 @@ export function indexRow(
     });
     const now = new Date().toISOString();
     yield* db.use(home, (d) => {
-      void d.update(documents).set({
-        body: facts.body,
-        title: facts.title,
-        sections: facts.sections,
-        diagrams: facts.diagrams,
-        branch: facts.branch,
-        detached: facts.detached,
-        repoName: facts.repoName,
-        repoRoot: facts.repoRoot,
-        relPath: facts.relPath,
-        worktreeName: facts.worktreeName,
-        worktreePath: facts.worktreePath,
-        projectName: facts.projectName,
-        projectRoot: facts.projectRoot,
-        srcMtime: facts.srcMtime,
-        srcSize: facts.srcSize,
-        indexedAt: now,
-      }).where(eq(documents.id, row.id)).run();
+      void d
+        .update(documents)
+        .set({
+          body: facts.body,
+          title: facts.title,
+          sections: facts.sections,
+          diagrams: facts.diagrams,
+          branch: facts.branch,
+          detached: facts.detached,
+          repoName: facts.repoName,
+          repoRoot: facts.repoRoot,
+          relPath: facts.relPath,
+          worktreeName: facts.worktreeName,
+          worktreePath: facts.worktreePath,
+          projectName: facts.projectName,
+          projectRoot: facts.projectRoot,
+          srcMtime: facts.srcMtime,
+          srcSize: facts.srcSize,
+          indexedAt: now,
+        })
+        .where(eq(documents.id, row.id))
+        .run();
       void applyReconcile(d, row.id, facts.body);
     });
     return "updated" as const;
@@ -89,10 +113,15 @@ export function indexRow(
 }
 
 /** Index every open document whose row is missing or no longer matches its file. Idempotent: a second run updates nothing. */
-export function indexDocuments(home: string, force = false): Effect.Effect<IndexReport, IoFailure | DbFailure, Db> {
+export function indexDocuments(
+  home: string,
+  force = false,
+): Effect.Effect<IndexReport, IoFailure | DbFailure, Db> {
   return Effect.gen(function* () {
     const db = yield* Db;
-    const rows = yield* db.use(home, (d) => d.select().from(documents).where(isNull(documents.closedAt)).all());
+    const rows = yield* db.use(home, (d) =>
+      d.select().from(documents).where(isNull(documents.closedAt)).all(),
+    );
     const memo = new RepoMemo();
     const report: IndexReport = { scanned: rows.length, updated: 0, skipped: 0, missing: 0, gitCommands: 0 };
     for (const row of rows) {

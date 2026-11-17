@@ -6,15 +6,39 @@
 
 /** The shadcn roles a block declares. `radius` is a shape, not a colour, so it lives in styles.css. */
 export const SHADCN_ROLES = [
-  "background", "foreground", "card", "card-foreground", "popover", "popover-foreground",
-  "primary", "primary-foreground", "secondary", "secondary-foreground", "muted", "muted-foreground",
-  "accent", "accent-foreground", "destructive", "border", "input", "ring",
+  "background",
+  "foreground",
+  "card",
+  "card-foreground",
+  "popover",
+  "popover-foreground",
+  "primary",
+  "primary-foreground",
+  "secondary",
+  "secondary-foreground",
+  "muted",
+  "muted-foreground",
+  "accent",
+  "accent-foreground",
+  "destructive",
+  "border",
+  "input",
+  "ring",
 ] as const;
 
 /** Blackboard's own roles: the ones shadcn has no word for. They map in composite.css, not styles.css. */
 export const COMPOSITE_ROLES = [
-  "primary-soft", "code", "mark", "mark-line", "hl", "hl-hover", "hl-active",
-  "warn", "success", "success-soft", "destructive-soft",
+  "primary-soft",
+  "code",
+  "mark",
+  "mark-line",
+  "hl",
+  "hl-hover",
+  "hl-active",
+  "warn",
+  "success",
+  "success-soft",
+  "destructive-soft",
 ] as const;
 
 /** Every role a palette block must define, and the generator enforces exactly this set. */

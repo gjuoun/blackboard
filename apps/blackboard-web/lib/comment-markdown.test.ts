@@ -64,7 +64,17 @@ describe("renderCommentBody", () => {
 
 describe("renderComments", () => {
   test("renders the comment and each reply, keeping raw bodies alongside", () => {
-    const [c] = renderComments([{ id: "c_1", quote: { exact: "q", prefix: "", suffix: "" }, body: "**hi**", author: "jun", createdAt: "t", status: "open", replies: [{ id: "r_1", body: "`yo`", author: "agent", createdAt: "t" }] }]);
+    const [c] = renderComments([
+      {
+        id: "c_1",
+        quote: { exact: "q", prefix: "", suffix: "" },
+        body: "**hi**",
+        author: "jun",
+        createdAt: "t",
+        status: "open",
+        replies: [{ id: "r_1", body: "`yo`", author: "agent", createdAt: "t" }],
+      },
+    ]);
     expect(c.body).toBe("**hi**");
     expect(c.html).toContain("<strong>hi</strong>");
     expect(c.replies[0].body).toBe("`yo`");

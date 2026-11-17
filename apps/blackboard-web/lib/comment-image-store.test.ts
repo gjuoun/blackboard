@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { Effect, Exit } from "effect";
 import { mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Effect, Exit } from "effect";
 import { run } from "../test/app";
 import { readImage, saveImage } from "./comment-image-store";
 

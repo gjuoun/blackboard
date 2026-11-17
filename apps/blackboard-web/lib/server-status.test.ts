@@ -5,13 +5,24 @@ import { join } from "node:path";
 import { formatStatus, probe, readState, status, writeState } from "../lib/server-ctl";
 
 /** A two-process-era record, written as the raw file — writeState only produces the current shape. */
-const writePair = (home: string, ui: { pid: number; url: string; startedAt: string }, api: { pid: number; url: string; startedAt: string }) =>
-  writeFileSync(join(home, "server.json"), JSON.stringify({ ui, api }) + "\n");
+const writePair = (
+  home: string,
+  ui: { pid: number; url: string; startedAt: string },
+  api: { pid: number; url: string; startedAt: string },
+) => writeFileSync(join(home, "server.json"), JSON.stringify({ ui, api }) + "\n");
+
 import { bigHome, slowServer, tmp } from "../test/serve-fixture";
 
 describe("status with a live server", () => {
   test("a Blackboard answering with no state of ours is running but not managed; a stale state is cleared", async () => {
-    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: (req) => (new URL(req.url).pathname === "/api/health" ? Response.json({ app: "blackboard", version: "x" }) : new Response("no", { status: 404 })) });
+    const server = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      fetch: (req) =>
+        new URL(req.url).pathname === "/api/health"
+          ? Response.json({ success: true, data: { app: "blackboard", version: "x" } })
+          : new Response("no", { status: 404 }),
+    });
     const url = `http://127.0.0.1:${server.port}`;
     try {
       const home = tmp();
@@ -26,7 +37,11 @@ describe("status with a live server", () => {
     }
   });
   test("another server on the port is not a Blackboard", async () => {
-    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => new Response("<html>hi</html>") });
+    const server = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      fetch: () => new Response("<html>hi</html>"),
+    });
     try {
       expect(await probe(`http://127.0.0.1:${server.port}`)).toBe(false);
     } finally {
@@ -34,7 +49,11 @@ describe("status with a live server", () => {
     }
   });
   test("a recorded process whose pid is gone reads as not running and keeps its record", async () => {
-    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => Response.json({ app: "blackboard", version: "x" }) });
+    const server = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      fetch: () => Response.json({ success: true, data: { app: "blackboard", version: "x" } }),
+    });
     const url = `http://127.0.0.1:${server.port}`;
     try {
       const home = tmp();
@@ -50,7 +69,11 @@ describe("status with a live server", () => {
   });
 
   test("a two-process record with a live UI reads as running, both pids named", async () => {
-    const server = Bun.serve({ port: 0, hostname: "127.0.0.1", fetch: () => Response.json({ app: "blackboard", version: "x" }) });
+    const server = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      fetch: () => Response.json({ success: true, data: { app: "blackboard", version: "x" } }),
+    });
     const url = `http://127.0.0.1:${server.port}`;
     try {
       const home = tmp();
@@ -127,7 +150,7 @@ describe("a large home: a slow server keeps its record", () => {
     const ui = slowServer(2600);
     try {
       const uiUrl = `http://127.0.0.1:${ui.port}`;
-      const now = new Date().toISOString();
+      const now = "2026-01-01T00:00:00.000Z";
       writeState(home, { ui: { pid: process.pid, url: uiUrl, startedAt: now } });
       const s = await status(home, uiUrl);
       // Answering in 2.6 s is inside the 5 s health budget: the server is running, and the record is kept.
@@ -144,7 +167,7 @@ describe("status states: running, degraded, down", () => {
     const home = tmp();
     const ui = slowServer(6500);
     try {
-      const now = new Date().toISOString();
+      const now = "2026-01-01T00:00:00.000Z";
       writeState(home, {
         ui: { pid: process.pid, url: `http://127.0.0.1:${ui.port}`, startedAt: now },
       });
@@ -161,7 +184,7 @@ describe("status states: running, degraded, down", () => {
   test("a process whose pid is gone is down, and the server is not running", async () => {
     const home = tmp();
     const gone = 2 ** 22 + 12345;
-    const now = new Date().toISOString();
+    const now = "2026-01-01T00:00:00.000Z";
     writeState(home, {
       ui: { pid: gone, url: "http://127.0.0.1:1", startedAt: now },
     });
@@ -175,7 +198,7 @@ describe("status states: running, degraded, down", () => {
     const closed = slowServer(0);
     const port = closed.port;
     closed.stop(true);
-    const now = new Date().toISOString();
+    const now = "2026-01-01T00:00:00.000Z";
     writeState(home, {
       ui: { pid: process.pid, url: `http://127.0.0.1:${port}`, startedAt: now },
     });
@@ -186,16 +209,38 @@ describe("status states: running, degraded, down", () => {
 
 describe("formatStatus names a slow process without calling it down", () => {
   test("a managed server that is degraded says it is slow, and still reads as running", () => {
-    const proc = { pid: 1, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z", log: "/x/server.log" };
-    const text = formatStatus({ running: true, url: "http://127.0.0.1:1", managed: true, degraded: ["ui"], ui: proc });
+    const proc = {
+      pid: 1,
+      url: "http://127.0.0.1:1",
+      startedAt: "2026-01-01T00:00:00.000Z",
+      log: "/x/server.log",
+    };
+    const text = formatStatus({
+      running: true,
+      url: "http://127.0.0.1:1",
+      managed: true,
+      degraded: ["ui"],
+      ui: proc,
+    });
     expect(text.startsWith("running at ")).toBe(true);
     expect(text).toContain("degraded: ui is up but slow");
     expect(text).not.toContain("down");
   });
 
   test("a managed server with nothing degraded prints no degraded line", () => {
-    const proc = { pid: 1, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z", log: "/x/server.log" };
-    const text = formatStatus({ running: true, url: "http://127.0.0.1:1", managed: true, degraded: [], ui: proc });
+    const proc = {
+      pid: 1,
+      url: "http://127.0.0.1:1",
+      startedAt: "2026-01-01T00:00:00.000Z",
+      log: "/x/server.log",
+    };
+    const text = formatStatus({
+      running: true,
+      url: "http://127.0.0.1:1",
+      managed: true,
+      degraded: [],
+      ui: proc,
+    });
     expect(text).not.toContain("degraded");
   });
 });
@@ -205,7 +250,7 @@ describe("a slow server is managed, not down", () => {
     const home = tmp();
     const ui = slowServer(3000);
     try {
-      const now = new Date().toISOString();
+      const now = "2026-01-01T00:00:00.000Z";
       writeState(home, {
         ui: { pid: process.pid, url: `http://127.0.0.1:${ui.port}`, startedAt: now },
       });

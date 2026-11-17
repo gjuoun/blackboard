@@ -5,5 +5,6 @@
  * migration only. `Db` defers `bun:sqlite` to first use, so a Node `next build` can trace the
  * module without resolving `bun:`.
  */
-export { AppLayer as ApiLayer } from "./layers";
+
 export type { AppServices as ApiServices } from "./layers";
+export { AppLayer as ApiLayer } from "./layers";

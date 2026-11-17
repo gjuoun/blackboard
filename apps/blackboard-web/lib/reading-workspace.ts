@@ -2,7 +2,7 @@ import { statSync } from "node:fs";
 
 import { Effect } from "effect";
 import { CommentsStore } from "./comments-store";
-import { errorMessage, IoFailure, sessionNotFound, type ApiFailure } from "./effect/errors";
+import { type ApiFailure, errorMessage, IoFailure, sessionNotFound } from "./errors";
 import { renderMarkdown } from "./markdown";
 import {
   countStatuses,
@@ -19,7 +19,7 @@ import {
 import { ReadingStateStore } from "./reading-state";
 import { relativeTime } from "./relative-time";
 import { docKey } from "./session-model";
-import { servablePath, SessionsStore } from "./sessions";
+import { SessionsStore, servablePath } from "./sessions";
 
 /**
  * The inbox: every registered session with its reading state, sorted by last update. One `stat`
@@ -91,8 +91,20 @@ export const previewDoc = (
     const replies: PreviewReply[] = (commentFile.docs[docKey(session)] ?? [])
       .filter((comment) => comment.general)
       .flatMap((comment) => [
-        { id: comment.id, author: comment.author, body: comment.body, createdAt: comment.createdAt, updated: relativeTime(comment.createdAt) },
-        ...comment.replies.map((reply) => ({ id: reply.id, author: reply.author, body: reply.body, createdAt: reply.createdAt, updated: relativeTime(reply.createdAt) })),
+        {
+          id: comment.id,
+          author: comment.author,
+          body: comment.body,
+          createdAt: comment.createdAt,
+          updated: relativeTime(comment.createdAt),
+        },
+        ...comment.replies.map((reply) => ({
+          id: reply.id,
+          author: reply.author,
+          body: reply.body,
+          createdAt: reply.createdAt,
+          updated: relativeTime(reply.createdAt),
+        })),
       ]);
     return {
       id,
@@ -109,9 +121,10 @@ export const previewDoc = (
 
 /** The doc file's own mtime, or 0 when it cannot be read: the reading state uses it to spot edits. */
 const mtimeOf = (path: string): Effect.Effect<number> =>
-  Effect.try({ try: () => statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? 0, catch: () => "unreadable" as const }).pipe(
-    Effect.catch(() => Effect.succeed(0)),
-  );
+  Effect.try({
+    try: () => statSync(path, { throwIfNoEntry: false })?.mtimeMs ?? 0,
+    catch: () => "unreadable" as const,
+  }).pipe(Effect.catch(() => Effect.succeed(0)));
 
 /** What a workspace write names: one session's read or unread mark. */
 export type ReadingInput = { session?: string; action: ReadingAction };

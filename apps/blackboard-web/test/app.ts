@@ -1,4 +1,4 @@
-import { Cause, Effect, Exit, Result } from "effect";
+import { Cause, type Effect, Exit, Result } from "effect";
 import type { AppServices } from "@/lib/effect/layers";
 import { runtime } from "@/lib/effect/runtime";
 

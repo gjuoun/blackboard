@@ -1,4 +1,4 @@
-import { Layer, ManagedRuntime } from "effect";
+import { type Layer, ManagedRuntime } from "effect";
 import { AppLayer } from "./layers";
 
 /**

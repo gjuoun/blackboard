@@ -1,6 +1,6 @@
-import type { Comment } from "./comments-file";
 import { apiGetJson } from "./api-client";
 import type { RenderedComment } from "./comment-markdown";
+import type { Comment } from "./comments-file";
 import { docKey, type Session } from "./session-model";
 import type { SessionRow } from "./sessions";
 
@@ -15,10 +15,12 @@ export type LoadedSession = {
 
 /** The session from the API; null when the id names no session. */
 export async function loadSession(home: string, id: string): Promise<LoadedSession | null> {
-  const data = await apiGetJson<{ session: Session; row: SessionRow; body: string | null; comments: RenderedComment[] }>(
-    home,
-    `/api/session?id=${encodeURIComponent(id)}`,
-  ).catch(() => null);
+  const data = await apiGetJson<{
+    session: Session;
+    row: SessionRow;
+    body: string | null;
+    comments: RenderedComment[];
+  }>(home, `/api/session?id=${encodeURIComponent(id)}`).catch(() => null);
   if (!data) return null;
   return {
     session: data.session,

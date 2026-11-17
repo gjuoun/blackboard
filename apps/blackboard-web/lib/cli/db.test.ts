@@ -10,7 +10,10 @@ const seedJson = (home: string, docs: string, design: string) => {
   mkdirSync(join(home, "sessions", id), { recursive: true });
   writeFileSync(
     join(home, "sessions.json"),
-    JSON.stringify({ version: 1, sessions: [{ id, path: design, createdAt: "2026-11-10T00:00:00Z", openedAt: "2026-11-10T00:00:00Z" }] }),
+    JSON.stringify({
+      version: 1,
+      sessions: [{ id, path: design, createdAt: "2026-11-10T00:00:00Z", openedAt: "2026-11-10T00:00:00Z" }],
+    }),
   );
   writeFileSync(
     join(home, "sessions", id, "comments.json"),
@@ -18,14 +21,25 @@ const seedJson = (home: string, docs: string, design: string) => {
       version: 1,
       docs: {
         "design.md": [
-          { id: "c_aaaaaaaaaaaa", general: true, body: "a note", author: "agent", createdAt: "2026-11-10T00:00:00Z", status: "open", replies: [] },
+          {
+            id: "c_aaaaaaaaaaaa",
+            general: true,
+            body: "a note",
+            author: "agent",
+            createdAt: "2026-11-10T00:00:00Z",
+            status: "open",
+            replies: [],
+          },
         ],
       },
     }),
   );
   writeFileSync(
     join(home, "reading-state.json"),
-    JSON.stringify({ version: 1, docs: { [id]: { status: "reading", progress: 0.4, readAt: "2026-11-10T00:00:00Z", sourceMtime: 5 } } }),
+    JSON.stringify({
+      version: 1,
+      docs: { [id]: { status: "reading", progress: 0.4, readAt: "2026-11-10T00:00:00Z", sourceMtime: 5 } },
+    }),
   );
   return id;
 };

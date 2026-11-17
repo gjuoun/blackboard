@@ -19,6 +19,9 @@ export function setup() {
 
 /** The real binary, the way a shell runs it. */
 export const runCli = (home: string, args: string[], cwd?: string) => {
-  const p = Bun.spawnSync(["bun", BIN, "--home", home, ...args], { cwd, env: { ...process.env, BLACKBOARD_NO_BROWSER: "1" } });
+  const p = Bun.spawnSync(["bun", BIN, "--home", home, ...args], {
+    cwd,
+    env: { ...process.env, BLACKBOARD_NO_BROWSER: "1" },
+  });
   return { code: p.exitCode, out: p.stdout.toString(), err: p.stderr.toString() };
 };

@@ -78,7 +78,8 @@ export type ReadingPatch = { session?: string; action: ReadingAction; progress?:
 /** What a write answers: the entries that changed, keyed by session id. */
 export type ReadingResult = { docs: Record<string, { status: ReadingStatus; progress: number }> };
 
-export const isReadingStatus = (v: unknown): v is ReadingStatus => typeof v === "string" && (READING_STATUSES as readonly string[]).includes(v);
+export const isReadingStatus = (v: unknown): v is ReadingStatus =>
+  typeof v === "string" && (READING_STATUSES as readonly string[]).includes(v);
 
 /** A scroll ratio from whatever the browser reported: finite, inside 0..1, three decimals. */
 export function clampProgress(v: unknown): number {
@@ -109,7 +110,11 @@ export function markUnread(at: string, sourceMtime: number): ReadingEntry {
  * The entry that applies to a document right now. A record written for a different mtime is stale
  * (the document changed), so the document reads as unread with no progress; nothing is written here.
  */
-export function effectiveEntry(entry: ReadingEntry | undefined, sourceMtime: number, at = new Date().toISOString()): ReadingEntry {
+export function effectiveEntry(
+  entry: ReadingEntry | undefined,
+  sourceMtime: number,
+  at = new Date().toISOString(),
+): ReadingEntry {
   if (!entry) return unreadEntry(at, sourceMtime);
   if (entry.sourceMtime !== sourceMtime) return unreadEntry(at, sourceMtime);
   // Rows written before the third state retired still say "reading"; they read as read now.
@@ -123,17 +128,23 @@ export function countStatuses(docs: readonly { status: ReadingStatus }[]): Works
   return counts;
 }
 
-export function filterDocs<T extends { status: ReadingStatus; title: string; location: string; path: string; branch: string | null; repo: string | null }>(
-  docs: readonly T[],
-  filter: ReadingFilter,
-  query = "",
-  repo = "",
-): T[] {
+export function filterDocs<
+  T extends {
+    status: ReadingStatus;
+    title: string;
+    location: string;
+    path: string;
+    branch: string | null;
+    repo: string | null;
+  },
+>(docs: readonly T[], filter: ReadingFilter, query = "", repo = ""): T[] {
   const needle = query.trim().toLowerCase();
   return docs.filter((doc) => {
     if (filter === "unread" && doc.status !== "unread") return false;
     if (repo && doc.repo !== repo) return false;
     if (!needle) return true;
-    return [doc.title, doc.location, doc.path, doc.branch ?? "", doc.repo ?? ""].some((v) => v.toLowerCase().includes(needle));
+    return [doc.title, doc.location, doc.path, doc.branch ?? "", doc.repo ?? ""].some((v) =>
+      v.toLowerCase().includes(needle),
+    );
   });
 }

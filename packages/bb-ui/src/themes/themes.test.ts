@@ -5,13 +5,13 @@ import {
   COMPOSITE_ROLES,
   DEFAULT_THEME,
   MODES,
+  type Mode,
   REQUIRED,
   SHADCN_ROLES,
-  THEMES,
   THEME_IDS,
-  themeById,
-  type Mode,
+  THEMES,
   type ThemeId,
+  themeById,
 } from "./roles";
 
 /**
@@ -47,7 +47,9 @@ const paletteId = (b: Block) => `${b.theme}/${b.mode}`;
 /** WCAG 2.1 relative luminance and contrast for sRGB hex. */
 function lum(hex: string): number {
   const h = hex.replace("#", "");
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const [r, g, b] = [0, 2, 4]
+    .map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 const ratio = (a: string, b: string) => {
@@ -56,7 +58,18 @@ const ratio = (a: string, b: string) => {
 };
 
 /** Tokens used as text or as a text background; rgba() tokens (`--hl`) are decorative and exempt. */
-const GUARDED = ["background", "foreground", "muted-foreground", "primary", "primary-foreground", "warn", "success", "success-soft", "destructive-soft", "code"] as const;
+const GUARDED = [
+  "background",
+  "foreground",
+  "muted-foreground",
+  "primary",
+  "primary-foreground",
+  "warn",
+  "success",
+  "success-soft",
+  "destructive-soft",
+  "code",
+] as const;
 
 test("themes: the registry matches the generated file one-to-one", () => {
   expect(THEMES.map((t) => t.id).sort()).toEqual([...THEME_IDS].sort());
@@ -71,7 +84,11 @@ test("themes: every block carries a complete role set and no class-based overrid
   // No token may live in a .dark-class override: data-mode must replace everything.
   expect(GENERATED).not.toMatch(/\.dark\s*\{/);
   const reference = [...REQUIRED].sort();
-  for (const b of BLOCKS) expect({ id: paletteId(b), keys: [...b.tokens.keys()].sort() }).toEqual({ id: paletteId(b), keys: reference });
+  for (const b of BLOCKS)
+    expect({ id: paletteId(b), keys: [...b.tokens.keys()].sort() }).toEqual({
+      id: paletteId(b),
+      keys: reference,
+    });
   // Every guarded token is a plain sRGB hex, so the gate below cannot be fooled by color-mix/rgba.
   for (const b of BLOCKS) for (const key of GUARDED) expect(b.tokens.get(key)).toMatch(/^#[0-9a-f]{6}$/i);
 });
@@ -85,13 +102,28 @@ test("themes: the role lists split the shadcn vocabulary from ours", () => {
 });
 
 test("themes: diff add/delete backgrounds keep hue and body text at AA", () => {
-  const pairs = [["success", "success-soft"], ["destructive", "destructive-soft"]] as const;
+  const pairs = [
+    ["success", "success-soft"],
+    ["destructive", "destructive-soft"],
+  ] as const;
   for (const b of BLOCKS) {
     for (const [hue, soft] of pairs) {
       const bg = b.tokens.get(soft)!;
-      expect({ id: paletteId(b), soft, min: ratio(b.tokens.get(hue)!, bg) }).toEqual({ id: paletteId(b), soft, min: expect.any(Number) });
-      expect({ id: paletteId(b), soft, hue: ratio(b.tokens.get(hue)!, bg) >= 4.5 }).toEqual({ id: paletteId(b), soft, hue: true });
-      expect({ id: paletteId(b), soft, text: ratio(b.tokens.get("foreground")!, bg) >= 4.5 }).toEqual({ id: paletteId(b), soft, text: true });
+      expect({ id: paletteId(b), soft, min: ratio(b.tokens.get(hue)!, bg) }).toEqual({
+        id: paletteId(b),
+        soft,
+        min: expect.any(Number),
+      });
+      expect({ id: paletteId(b), soft, hue: ratio(b.tokens.get(hue)!, bg) >= 4.5 }).toEqual({
+        id: paletteId(b),
+        soft,
+        hue: true,
+      });
+      expect({ id: paletteId(b), soft, text: ratio(b.tokens.get("foreground")!, bg) >= 4.5 }).toEqual({
+        id: paletteId(b),
+        soft,
+        text: true,
+      });
     }
   }
 });
@@ -117,7 +149,8 @@ test("themes: a family shares one hue and the two modes share one set of shapes"
   expect(token("warm", "dark", "primary")).toBe("#e0805a");
   // Each block declares the scheme its mode implies, so the browser paints its own scrollbars and
   // form controls in that mode rather than the platform default.
-  for (const b of BLOCKS) expect({ id: paletteId(b), scheme: b.scheme }).toEqual({ id: paletteId(b), scheme: b.mode });
+  for (const b of BLOCKS)
+    expect({ id: paletteId(b), scheme: b.scheme }).toEqual({ id: paletteId(b), scheme: b.mode });
 });
 
 test("themes: every palette passes the contrast gate", () => {
@@ -133,12 +166,29 @@ test("themes: every palette passes the contrast gate", () => {
       code: ratio(t("foreground"), t("code")),
     };
     console.log(
-      paletteId(b) + " fg " + r.fg.toFixed(2) + " muted " + r.muted.toFixed(2) + " primary " + r.primary.toFixed(2) +
-      " onPrimary " + r.onPrimary.toFixed(2) + " warn " + r.warn.toFixed(2) + " success " + r.success.toFixed(2) + " code " + r.code.toFixed(2),
+      paletteId(b) +
+        " fg " +
+        r.fg.toFixed(2) +
+        " muted " +
+        r.muted.toFixed(2) +
+        " primary " +
+        r.primary.toFixed(2) +
+        " onPrimary " +
+        r.onPrimary.toFixed(2) +
+        " warn " +
+        r.warn.toFixed(2) +
+        " success " +
+        r.success.toFixed(2) +
+        " code " +
+        r.code.toFixed(2),
     );
     expect({ id: paletteId(b), fg: r.fg >= 7 }).toEqual({ id: paletteId(b), fg: true });
     for (const k of ["muted", "primary", "onPrimary", "warn", "success", "code"] as const) {
-      expect({ id: paletteId(b), token: k, ok: r[k] >= 4.5 }).toEqual({ id: paletteId(b), token: k, ok: true });
+      expect({ id: paletteId(b), token: k, ok: r[k] >= 4.5 }).toEqual({
+        id: paletteId(b),
+        token: k,
+        ok: true,
+      });
     }
   }
 });
@@ -147,9 +197,13 @@ test("themes: switching theme or mode replaces the whole palette", () => {
   const colour = [...BLOCKS[0].tokens.keys()];
   for (let i = 0; i < BLOCKS.length; i++) {
     for (let j = i + 1; j < BLOCKS.length; j++) {
-      const a = BLOCKS[i], b = BLOCKS[j];
+      const a = BLOCKS[i],
+        b = BLOCKS[j];
       const differ = colour.filter((k) => a.tokens.get(k) !== b.tokens.get(k)).length;
-      expect({ pair: paletteId(a) + "/" + paletteId(b), differ: differ >= 10 }).toEqual({ pair: paletteId(a) + "/" + paletteId(b), differ: true });
+      expect({ pair: paletteId(a) + "/" + paletteId(b), differ: differ >= 10 }).toEqual({
+        pair: paletteId(a) + "/" + paletteId(b),
+        differ: true,
+      });
     }
   }
 });

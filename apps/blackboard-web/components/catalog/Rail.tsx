@@ -11,9 +11,7 @@ import { CATEGORIES, ORDER, TOP_SECTIONS } from "./catalog-data";
 function useActive(ids: string[]): string {
   const [active, setActive] = useState(ids[0] ?? "");
   useEffect(() => {
-    const els = ids
-      .map((id) => document.getElementById(id))
-      .filter((el): el is HTMLElement => el !== null);
+    const els = ids.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => el !== null);
     let frame = 0;
     const update = () => {
       frame = 0;
@@ -82,7 +80,12 @@ export function Rail() {
       <aside className="hidden lg:sticky lg:top-[calc(var(--bar-h)+16px)] lg:block lg:max-h-[calc(100vh-var(--bar-h)-2rem)] lg:w-[13rem] lg:shrink-0 lg:self-start lg:overflow-y-auto lg:pb-16">
         <nav aria-label="Catalogue sections" className="flex flex-col gap-3 text-sm">
           {TOP_SECTIONS.map((s) => (
-            <a key={s.id} href={"#" + s.id} aria-current={active === s.id ? "location" : undefined} className={item(active === s.id)}>
+            <a
+              key={s.id}
+              href={"#" + s.id}
+              aria-current={active === s.id ? "location" : undefined}
+              className={item(active === s.id)}
+            >
               {s.title}
             </a>
           ))}
@@ -98,7 +101,11 @@ export function Rail() {
               <ul className="ml-3 flex flex-col gap-0.5 border-l border-border pl-2">
                 {c.components.map((k) => (
                   <li key={k.id}>
-                    <a href={"#" + k.id} aria-current={active === k.id ? "location" : undefined} className={item(active === k.id)}>
+                    <a
+                      href={"#" + k.id}
+                      aria-current={active === k.id ? "location" : undefined}
+                      className={item(active === k.id)}
+                    >
                       {k.title}
                     </a>
                   </li>

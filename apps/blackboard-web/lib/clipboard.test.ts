@@ -8,14 +8,32 @@ const g = globalThis as unknown as Record<string, unknown>;
 function stub({ secure, writeText }: Stubs) {
   const written: string[] = [];
   const copied: { value: string; command?: string }[] = [];
-  const area = { value: "", style: {} as Record<string, string>, setAttribute() {}, select() {}, setSelectionRange() {} };
+  const area = {
+    value: "",
+    style: {} as Record<string, string>,
+    setAttribute() {},
+    select() {},
+    setSelectionRange() {},
+  };
   g.window = { isSecureContext: secure };
-  g.navigator = { clipboard: writeText ? { writeText: async (t: string) => { written.push(t); await writeText(t); } } : undefined };
+  g.navigator = {
+    clipboard: writeText
+      ? {
+          writeText: async (t: string) => {
+            written.push(t);
+            await writeText(t);
+          },
+        }
+      : undefined,
+  };
   g.document = {
     getSelection: () => null,
     createElement: () => area,
     body: { appendChild: () => {}, removeChild: () => {} },
-    execCommand: (command: string) => { copied.push({ value: area.value, command }); return true; },
+    execCommand: (command: string) => {
+      copied.push({ value: area.value, command });
+      return true;
+    },
   };
   return { written, copied };
 }
@@ -35,7 +53,12 @@ describe("copyText", () => {
   });
 
   test("a refused Clipboard API call falls back to textarea + execCommand", async () => {
-    const { written, copied } = stub({ secure: true, writeText: async () => { throw new Error("not focused"); } });
+    const { written, copied } = stub({
+      secure: true,
+      writeText: async () => {
+        throw new Error("not focused");
+      },
+    });
     expect(await copyText("feat/colors")).toBe(true);
     expect(written).toEqual(["feat/colors"]);
     expect(copied).toEqual([{ value: "feat/colors", command: "copy" }]);

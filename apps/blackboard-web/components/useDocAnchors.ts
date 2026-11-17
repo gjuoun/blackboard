@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { anchor, makeSelector, type QuoteSelector, type TextRange } from "@/lib/anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
 import { buildTextMap, offsetOf, rangeOf, type TextMap } from "@/lib/text-map";
@@ -22,7 +22,19 @@ export type VirtMapSource = { textMap(): TextMap | null };
  * (snapshotted before any block was unmounted), so selectors and ordering mean exactly what
  * they mean on a plain doc; only highlight painting is limited to mounted blocks.
  */
-export function useDocAnchors({ comments, html, bodyRef, virt, virtVersion }: { comments: RenderedComment[]; html: string; bodyRef: RefObject<HTMLElement | null>; virt: VirtMapSource; virtVersion: number }) {
+export function useDocAnchors({
+  comments,
+  html,
+  bodyRef,
+  virt,
+  virtVersion,
+}: {
+  comments: RenderedComment[];
+  html: string;
+  bodyRef: RefObject<HTMLElement | null>;
+  virt: VirtMapSource;
+  virtVersion: number;
+}) {
   const mainRef = useRef<HTMLElement>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -84,7 +96,11 @@ export function useDocAnchors({ comments, html, bodyRef, virt, virtVersion }: { 
       if (end <= start || !map.text.slice(start, end).trim()) return setDraft(null);
       const rect = range.getBoundingClientRect();
       const box = main.getBoundingClientRect();
-      setDraft({ selector: makeSelector(map.text, start, end), top: rect.bottom - box.top + 6, left: Math.max(0, rect.left - box.left) });
+      setDraft({
+        selector: makeSelector(map.text, start, end),
+        top: rect.bottom - box.top + 6,
+        left: Math.max(0, rect.left - box.left),
+      });
     };
     document.addEventListener("selectionchange", onChange);
     return () => document.removeEventListener("selectionchange", onChange);
@@ -158,7 +174,8 @@ export function useDocAnchors({ comments, html, bodyRef, virt, virtVersion }: { 
     if (!body || !r || !map) return;
     const range = rangeOf(map, r.start, r.end);
     const rect = range?.getBoundingClientRect();
-    if (rect && (rect.top < 100 || rect.bottom > innerHeight)) scrollBy({ top: rect.top - innerHeight / 3, behavior: "smooth" });
+    if (rect && (rect.top < 100 || rect.bottom > innerHeight))
+      scrollBy({ top: rect.top - innerHeight / 3, behavior: "smooth" });
   };
 
   // Anchored passages keep their reading order; an anchor the text no longer holds keeps its slot,
@@ -177,5 +194,16 @@ export function useDocAnchors({ comments, html, bodyRef, virt, virtVersion }: { 
     });
   }, [comments, anchors]);
 
-  return { mainRef, draft, setDraft, activeId, flashId, onDocMove, onDocLeave, onDocClick, activate, panelComments };
+  return {
+    mainRef,
+    draft,
+    setDraft,
+    activeId,
+    flashId,
+    onDocMove,
+    onDocLeave,
+    onDocClick,
+    activate,
+    panelComments,
+  };
 }

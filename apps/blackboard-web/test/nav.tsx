@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { NavProvider, type Nav } from "@/components/nav";
+import { type Nav, NavProvider } from "@/components/nav";
 
 /**
  * A Nav for tests: the app's components read `pathname`, three ways to move and a `Link`, so a test

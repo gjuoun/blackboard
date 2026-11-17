@@ -6,11 +6,23 @@
  * through them). Heights come from a ResizeObserver per mounted block; a late change above the
  * viewport is paid back to the scroll position; jumps to unmounted ids land with a settle
  * loop. The pure window math is `lib/virtualize.ts`; the mechanism is ported from the approved
- * sketch (`sketches/virtualized-doc/virtualizer.js`).
+ * prototype that preceded it.
  */
 import type { TextMap } from "./text-map";
-import { anchorAdjust, bottomSpacerHeight, computeRange, heightAt, landingOffset, pinnedIndices, rebuildOffsets, topSpacerHeight, wantedIndices, type VDelta, type VPlan } from "./virtualize";
-import { unchunkDocBody, type Chunked } from "./virtualize-chunk";
+import {
+  anchorAdjust,
+  bottomSpacerHeight,
+  computeRange,
+  heightAt,
+  landingOffset,
+  pinnedIndices,
+  rebuildOffsets,
+  topSpacerHeight,
+  type VDelta,
+  type VPlan,
+  wantedIndices,
+} from "./virtualize";
+import { type Chunked, unchunkDocBody } from "./virtualize-chunk";
 
 export type VirtualDocOpts = {
   overscan?: number;
@@ -45,7 +57,14 @@ export class VirtualDoc {
   private ro: ResizeObserver;
   private raf = 0;
   private suspendAnchor = false;
-  private jump: { i: number; within: number; id: string; tick: number; stable: number; lastY: number | null } | null = null;
+  private jump: {
+    i: number;
+    within: number;
+    id: string;
+    tick: number;
+    stable: number;
+    lastY: number | null;
+  } | null = null;
 
   constructor(body: HTMLElement, chunked: Chunked, opts: VirtualDocOpts = {}) {
     this.body = body;
@@ -121,7 +140,11 @@ export class VirtualDoc {
       this.placeSpacers();
       // The first real measurement is a height change the reader can see above the viewport;
       // pay it back exactly like a late resize.
-      const adjust = this.suspendAnchor ? 0 : anchorAdjust(this.offsets, Math.max(0, this.viewTop()), [{ i, from: this.plan.blocks[i].estimated ?? 0, to: h }]);
+      const adjust = this.suspendAnchor
+        ? 0
+        : anchorAdjust(this.offsets, Math.max(0, this.viewTop()), [
+            { i, from: this.plan.blocks[i].estimated ?? 0, to: h },
+          ]);
       if (adjust) scrollBy({ top: adjust, behavior: "instant" });
     }
     this.schedule();
@@ -256,7 +279,12 @@ export class VirtualDoc {
     // While jumping, the window lives around the target, not around the current scroll: a
     // block pinned outside the window would otherwise flow in adjacent to it (in-flow model)
     // instead of at its offset, and the landing scroll would clamp against a short page.
-    const range = computeRange(this.offsets, this.jump ? this.offsets[this.jump.i] : this.viewTop(), innerHeight, this.overscan);
+    const range = computeRange(
+      this.offsets,
+      this.jump ? this.offsets[this.jump.i] : this.viewTop(),
+      innerHeight,
+      this.overscan,
+    );
     const wanted = new Set(wantedIndices(n, range));
     // Block 0 stays mounted: it is the body's `:first-child`, whose margin-top the app CSS
     // zeroes — as the window slides, any other block becoming the DOM-first element would pick
@@ -265,14 +293,16 @@ export class VirtualDoc {
     if (this.jump) wanted.add(this.jump.i);
     let changed = force && this.mounted.size > 0;
     if (force) for (const el of [...this.mounted.values()]) this.unmount(el);
-    for (const [i, el] of [...this.mounted]) if (!wanted.has(i)) {
-      this.unmount(el);
-      changed = true;
-    }
-    for (const i of wanted) if (!this.mounted.has(i)) {
-      this.mount(i);
-      changed = true;
-    }
+    for (const [i, el] of [...this.mounted])
+      if (!wanted.has(i)) {
+        this.unmount(el);
+        changed = true;
+      }
+    for (const i of wanted)
+      if (!this.mounted.has(i)) {
+        this.mount(i);
+        changed = true;
+      }
     this.placeSpacers();
     this.opts.onWanted?.([...wanted]);
     if (changed) this.opts.onWindowChange?.();
@@ -299,7 +329,8 @@ export class VirtualDoc {
       // the spacer fills only what is missing.
       let mountedFlow = 0;
       for (const i of this.mounted.keys()) {
-        if (i > 0 && i < last) mountedFlow += heightAt(this.heights, this.plan.blocks, i) + this.plan.blocks[i].gapAfter;
+        if (i > 0 && i < last)
+          mountedFlow += heightAt(this.heights, this.plan.blocks, i) + this.plan.blocks[i].gapAfter;
       }
       topH = Math.max(0, topH - mountedFlow);
     }

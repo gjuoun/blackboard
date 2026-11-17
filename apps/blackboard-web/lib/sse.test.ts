@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { Cause, Context, Effect, Queue, Stream, type FileSystem } from "effect";
-import { HEARTBEAT_MS, commentChanges, docChanges, watchEvents } from "./sse";
+import { type Cause, Context, Effect, type FileSystem, Queue, Stream } from "effect";
+import { commentChanges, docChanges, HEARTBEAT_MS, watchEvents } from "./sse";
 
 type WatchEvent = FileSystem.WatchEvent;
 
@@ -42,8 +42,17 @@ function fakeWatch() {
 const save = (path: string): WatchEvent => ({ _tag: "Update", path });
 
 /** The SSE body for a doc and its comments folder, with the same abort wiring the route uses. */
-function bodyFor(doc: ReturnType<typeof fakeWatch>, comments: ReturnType<typeof fakeWatch>, signal: AbortSignal, heartbeatMs = HEARTBEAT_MS) {
-  const events = watchEvents(docChanges(doc.stream, "design.md"), commentChanges(comments.stream), heartbeatMs);
+function bodyFor(
+  doc: ReturnType<typeof fakeWatch>,
+  comments: ReturnType<typeof fakeWatch>,
+  signal: AbortSignal,
+  heartbeatMs = HEARTBEAT_MS,
+) {
+  const events = watchEvents(
+    docChanges(doc.stream, "design.md"),
+    commentChanges(comments.stream),
+    heartbeatMs,
+  );
   return Stream.toReadableStreamWith(events, Context.empty(), { signal });
 }
 
@@ -60,7 +69,10 @@ async function nextEvent(reader: ReadableStreamDefaultReader<Uint8Array>): Promi
  * The first chunk is the preamble - byte for byte what the route has always sent. The next pull is
  * what starts the watchers behind the merge, so this waits for them and hands back that read.
  */
-async function started(reader: ReadableStreamDefaultReader<Uint8Array>, ...watchers: ReturnType<typeof fakeWatch>[]) {
+async function started(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  ...watchers: ReturnType<typeof fakeWatch>[]
+) {
   expect(decoder.decode((await reader.read()).value)).toBe(": connected\n\n");
   const pending = reader.read();
   await Promise.all(watchers.map((watcher) => watcher.ready));
@@ -85,11 +97,15 @@ describe("the watch event stream", () => {
     const { pending } = await started(reader, doc, comments);
 
     await doc.emit(save("design.md"));
-    expect(decoder.decode((await pending).value)).toBe('event: changed\ndata: {"doc":true,"comments":false}\n\n');
+    expect(decoder.decode((await pending).value)).toBe(
+      'event: changed\ndata: {"doc":true,"comments":false}\n\n',
+    );
 
     const later = reader.read();
     await comments.emit(save("design.md.c_0123456789ab.json"));
-    expect(decoder.decode((await later).value)).toBe('event: changed\ndata: {"doc":false,"comments":true}\n\n');
+    expect(decoder.decode((await later).value)).toBe(
+      'event: changed\ndata: {"doc":false,"comments":true}\n\n',
+    );
 
     await reader.cancel();
   });
@@ -106,7 +122,9 @@ describe("the watch event stream", () => {
     await comments.emit(save("comments.json.1.2.tmp"));
     await doc.emit(save("design.md"));
     // Only the doc save is left pending, so the batch names the doc and nothing else.
-    expect(decoder.decode((await pending).value)).toBe('event: changed\ndata: {"doc":true,"comments":false}\n\n');
+    expect(decoder.decode((await pending).value)).toBe(
+      'event: changed\ndata: {"doc":true,"comments":false}\n\n',
+    );
 
     await reader.cancel();
   });
@@ -114,12 +132,17 @@ describe("the watch event stream", () => {
   test("a doc folder that is already gone is an empty watch, not a failed request", async () => {
     const comments = fakeWatch();
     const abort = new AbortController();
-    const events = watchEvents(docChanges(Stream.fail("ENOENT"), "design.md"), commentChanges(comments.stream));
+    const events = watchEvents(
+      docChanges(Stream.fail("ENOENT"), "design.md"),
+      commentChanges(comments.stream),
+    );
     const reader = Stream.toReadableStreamWith(events, Context.empty(), { signal: abort.signal }).getReader();
     const { pending } = await started(reader, comments);
 
     await comments.emit(save("comments.json"));
-    expect(decoder.decode((await pending).value)).toBe('event: changed\ndata: {"doc":false,"comments":true}\n\n');
+    expect(decoder.decode((await pending).value)).toBe(
+      'event: changed\ndata: {"doc":false,"comments":true}\n\n',
+    );
 
     await reader.cancel();
   });

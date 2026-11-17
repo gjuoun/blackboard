@@ -1,7 +1,7 @@
 import { useState } from "react";
+import { DocSim } from "./DocSim";
 import type { DemoDict } from "./data";
 import { InboxSim } from "./InboxSim";
-import { DocSim } from "./DocSim";
 
 interface Props {
   dict: DemoDict;

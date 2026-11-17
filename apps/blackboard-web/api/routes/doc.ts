@@ -1,10 +1,9 @@
-
 import { Effect } from "effect";
 import { Hono } from "hono";
 import { renderComments } from "../../lib/comment-markdown";
 import { CommentsStore } from "../../lib/comments-store";
-import { InvalidInput, sessionNotFound } from "../../lib/effect/errors";
 import { jsonBody } from "../../lib/effect/schema";
+import { InvalidInput, sessionNotFound } from "../../lib/errors";
 import { getHome } from "../../lib/home";
 import { workspaceDocs } from "../../lib/reading-workspace";
 import { docKey } from "../../lib/session-model";
@@ -71,11 +70,18 @@ doc.post("/open", (c) =>
     Effect.gen(function* () {
       const sessions = yield* SessionsStore;
       const raw = yield* jsonBody(c.req.raw);
-      const path = raw && typeof raw === "object" && typeof (raw as Record<string, unknown>).path === "string" ? ((raw as Record<string, unknown>).path as string) : null;
-      if (!path) return yield* Effect.fail(new InvalidInput({ message: "path is required", status: 400, field: "path" }));
+      const path =
+        raw && typeof raw === "object" && typeof (raw as Record<string, unknown>).path === "string"
+          ? ((raw as Record<string, unknown>).path as string)
+          : null;
+      if (!path)
+        return yield* Effect.fail(
+          new InvalidInput({ message: "path is required", status: 400, field: "path" }),
+        );
       const real = yield* Effect.try({
         try: () => realDoc(path),
-        catch: (error) => new InvalidInput({ message: error instanceof Error ? error.message : String(error), status: 400 }),
+        catch: (error) =>
+          new InvalidInput({ message: error instanceof Error ? error.message : String(error), status: 400 }),
       });
       const session = yield* sessions.open(getHome(), real);
       return { session };
@@ -90,7 +96,10 @@ doc.post("/close", (c) =>
     Effect.gen(function* () {
       const sessions = yield* SessionsStore;
       const raw = yield* jsonBody(c.req.raw);
-      const ref = raw && typeof raw === "object" && typeof (raw as Record<string, unknown>).session === "string" ? ((raw as Record<string, unknown>).session as string) : "";
+      const ref =
+        raw && typeof raw === "object" && typeof (raw as Record<string, unknown>).session === "string"
+          ? ((raw as Record<string, unknown>).session as string)
+          : "";
       const session = yield* sessions.resolve(getHome(), ref);
       if (!session) return yield* Effect.fail(sessionNotFound(400));
       const closed = yield* sessions.close(getHome(), session.id);

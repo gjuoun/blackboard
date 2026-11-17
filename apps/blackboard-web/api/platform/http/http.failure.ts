@@ -1,0 +1,54 @@
+import { HTTPException } from "hono/http-exception";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+import type { EnvelopeFailure, ErrorEnvelope } from "./envelope";
+
+/**
+ * The one place a failure becomes a response body. A variant whose status is 5xx says `code` and
+ * `message` only: whatever explains it (a SQLite message, a thrown value) belongs in the log, not
+ * on the wire.
+ */
+export function errorEnvelope(failure: EnvelopeFailure): ErrorEnvelope {
+  const [code, payload] = Object.entries(failure)[0] as [
+    string,
+    { status: number; message: string } & Record<string, unknown>,
+  ];
+  const { status, message, ...rest } = payload;
+  const details = Object.fromEntries(Object.entries(rest));
+  const error =
+    status >= 500 || Object.keys(details).length === 0 ? { code, message } : { code, message, details };
+  return { success: false, error };
+}
+
+/** The status a variant answers with, read off its catalog entry. */
+export function statusOf(failure: EnvelopeFailure): ContentfulStatusCode {
+  const [, payload] = Object.entries(failure)[0] as [string, { status: ContentfulStatusCode }];
+  return payload.status;
+}
+
+/** Last resort for anything that was never classified: one 500, one code, no internals. */
+export const INTERNAL_ERROR: EnvelopeFailure = {
+  INTERNAL_ERROR: { status: 500, message: "internal error" },
+};
+
+/** The value → throw bridge. `app.onError` is the only other half: nothing else builds a failure body. */
+export class HttpFailure extends HTTPException {
+  readonly failure: EnvelopeFailure;
+
+  constructor(failure: EnvelopeFailure) {
+    const status = statusOf(failure);
+    super(status, {
+      message: (Object.values(failure)[0] as { message: string }).message,
+      res: new Response(JSON.stringify(errorEnvelope(failure)), {
+        status,
+        headers: { "content-type": "application/json" },
+      }),
+    });
+    this.failure = failure;
+  }
+
+  /** A defect or an interrupt: same 500 exit as a classified failure, with the detail logged. */
+  static defect(defect: unknown): HttpFailure {
+    console.error(defect);
+    return new HttpFailure(INTERNAL_ERROR);
+  }
+}

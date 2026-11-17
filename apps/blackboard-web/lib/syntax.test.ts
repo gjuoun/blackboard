@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderMarkdown, renderPlainText } from "./markdown";
-import { MODES, THEME_IDS, type Mode, type ThemeId } from "./prefs";
+import { MODES, type Mode, THEME_IDS, type ThemeId } from "./prefs";
 
 const FENCE = "```";
 const ROOT = join(import.meta.dir, "..");
@@ -12,11 +12,13 @@ const read = (rel: string) => readFileSync(join(ROOT, rel), "utf8");
 const SAMPLES: Record<string, string> = {
   ts: "const answer: number = 42; // the answer\nexport function greet(name: string) { return `hi ${name}`; }",
   py: "def add(a, b):\n    return a + b  # sum",
-  bash: "echo \"hello\" && ls -la $HOME",
-  json: "{\"name\": \"x\", \"n\": 3, \"ok\": true}",
+  bash: 'echo "hello" && ls -la $HOME',
+  json: '{"name": "x", "n": 3, "ok": true}',
   md: "# Title\n- *item* and `code`",
 };
-const DOC = Object.entries(SAMPLES).map(([lang, code]) => FENCE + lang + "\n" + code + "\n" + FENCE).join("\n\n");
+const DOC = Object.entries(SAMPLES)
+  .map(([lang, code]) => FENCE + lang + "\n" + code + "\n" + FENCE)
+  .join("\n\n");
 
 /** The inner HTML of the one <code> block a fence of this language renders to. */
 function codeBlock(html: string, lang: string): string {
@@ -36,7 +38,9 @@ describe("renderMarkdown code highlighting", () => {
 
   test("a token span is a plain span, so the block keeps its <pre> and text", async () => {
     const { html } = await renderMarkdown(FENCE + "py\ndef add(a, b):\n    return a + b\n" + FENCE + "\n");
-    expect(html).toContain('<pre><code class="hljs language-py"><span class="hljs-keyword">def</span> <span class="hljs-title function_">add</span>');
+    expect(html).toContain(
+      '<pre><code class="hljs language-py"><span class="hljs-keyword">def</span> <span class="hljs-title function_">add</span>',
+    );
     expect(html).not.toMatch(/<(script|style|link)\b/);
   });
 
@@ -48,33 +52,37 @@ describe("renderMarkdown code highlighting", () => {
 
   test("an unknown language label is left alone, not an error", async () => {
     const { html } = await renderMarkdown(FENCE + "nosuchlang\nlet x = 1;\n" + FENCE + "\n");
-    expect(html).toContain("<pre><code class=\"hljs language-nosuchlang\">let x = 1;");
+    expect(html).toContain('<pre><code class="hljs language-nosuchlang">let x = 1;');
     expect(html).not.toMatch(/hljs-/);
   });
 
   test("the plain text a comment anchors against is unchanged by highlighting", async () => {
     const text = await renderPlainText(DOC);
-    expect(text).toBe([
-      "const answer: number = 42; // the answer",
-      "export function greet(name: string) { return `hi ${name}`; }",
-      "",
-      "def add(a, b):",
-      "    return a + b  # sum",
-      "",
-      "echo \"hello\" && ls -la $HOME",
-      "",
-      "{\"name\": \"x\", \"n\": 3, \"ok\": true}",
-      "",
-      "# Title",
-      "- *item* and `code`",
-    ].join("\n") + "\n");
+    expect(text).toBe(
+      [
+        "const answer: number = 42; // the answer",
+        "export function greet(name: string) { return `hi ${name}`; }",
+        "",
+        "def add(a, b):",
+        "    return a + b  # sum",
+        "",
+        'echo "hello" && ls -la $HOME',
+        "",
+        '{"name": "x", "n": 3, "ok": true}',
+        "",
+        "# Title",
+        "- *item* and `code`",
+      ].join("\n") + "\n",
+    );
   });
 });
 
 /** WCAG 2.1 contrast for sRGB hex, as in lib/theme.test.ts. */
 function lum(hex: string): number {
   const h = hex.replace("#", "");
-  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const [r, g, b] = [0, 2, 4]
+    .map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 const ratio = (a: string, b: string) => {
@@ -90,7 +98,9 @@ const THEME_CSS = read("../../packages/bb-ui/src/themes/blackboard.css").replace
 /** token -> hex for one palette, one mode. */
 function palette(theme: ThemeId, mode: Mode): Map<string, string> {
   const out = new Map<string, string>();
-  const block = new RegExp(`\\[data-theme="${theme}"\\]\\[data-mode="${mode}"\\]\\s*\\{([^}]*)\\}`).exec(THEME_CSS);
+  const block = new RegExp(`\\[data-theme="${theme}"\\]\\[data-mode="${mode}"\\]\\s*\\{([^}]*)\\}`).exec(
+    THEME_CSS,
+  );
   if (!block) throw new Error(`no palette ${theme}/${mode} in the theme package`);
   for (const t of block[1].matchAll(/--theme-([\w-]+)\s*:\s*([^;]+);/g)) out.set(t[1], t[2].trim());
   return out;
@@ -116,7 +126,11 @@ describe("syntax palette mapping", () => {
         for (const t of HUE_TOKENS) {
           const hex = p.get(t)!;
           const r = ratio(hex, card);
-          expect({ id: `${theme}/${mode}`, t, ok: r >= 4.5 }).toEqual({ id: `${theme}/${mode}`, t, ok: true });
+          expect({ id: `${theme}/${mode}`, t, ok: r >= 4.5 }).toEqual({
+            id: `${theme}/${mode}`,
+            t,
+            ok: true,
+          });
         }
       }
     }

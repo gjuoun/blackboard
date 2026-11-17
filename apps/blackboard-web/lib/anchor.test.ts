@@ -4,7 +4,8 @@ import { anchor, makeSelector } from "./anchor";
 const DOC = "The cache is warm. Later text. The cache is warm. End of overview.";
 const second = DOC.lastIndexOf("The cache is warm.");
 const selectSecond = () => makeSelector(DOC, second, second + "The cache is warm.".length);
-const quoted = (text: string, r: { start: number; end: number } | null) => (r ? text.slice(r.start, r.end) : null);
+const quoted = (text: string, r: { start: number; end: number } | null) =>
+  r ? text.slice(r.start, r.end) : null;
 
 describe("makeSelector", () => {
   test("keeps the passage and the text around it", () => {

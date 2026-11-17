@@ -25,11 +25,15 @@ export function checkDoc(file: string, cwd: string): Checked {
   const isLink = entry.isSymbolicLink();
   // Docs live anywhere on disk by design; the ignore comments keep the build from tracing the whole project.
   if (!existsSync(/*turbopackIgnore: true*/ abs)) {
-    return { ok: false, error: new SessionError(isLink ? `dangling symlink: ${abs}` : `no such file: ${abs}`) };
+    return {
+      ok: false,
+      error: new SessionError(isLink ? `dangling symlink: ${abs}` : `no such file: ${abs}`),
+    };
   }
   const real = realpathSync(/*turbopackIgnore: true*/ abs);
   const entryReal = statSync(real, { throwIfNoEntry: false });
-  if (!entryReal || !entryReal.isFile() || !real.toLowerCase().endsWith(".md")) return { ok: false, error: new SessionError(`not a markdown file: ${abs}`) };
+  if (!entryReal || !entryReal.isFile() || !real.toLowerCase().endsWith(".md"))
+    return { ok: false, error: new SessionError(`not a markdown file: ${abs}`) };
   return { ok: true, path: real };
 }
 

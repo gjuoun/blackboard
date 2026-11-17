@@ -1,8 +1,8 @@
-import { Effect, FileSystem } from "effect";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { run } from "./app";
+import { Effect, FileSystem } from "effect";
 import { open } from "../lib/cli/sessions";
+import { run } from "./app";
 
 /**
  * A temp Blackboard home and docs folder for the API route tests. BLACKBOARD_HOME is set here, so

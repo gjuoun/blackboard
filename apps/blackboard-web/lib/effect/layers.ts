@@ -1,5 +1,5 @@
-import { Layer } from "effect";
 import { layer as fileSystemLayer } from "@effect/platform-node/NodeFileSystem";
+import { Layer } from "effect";
 import { layer as agentsLayer } from "../agents-store";
 import { layer as busLayer } from "../change-bus";
 import { layer as commentsLayer } from "../comments-store";
@@ -9,8 +9,8 @@ import { layer as commentsRepoLayer } from "../db/repos/comments";
 import { layer as contentBlocksRepoLayer } from "../db/repos/content-blocks";
 import { layer as documentsRepoLayer } from "../db/repos/documents";
 import { layer as readingRepoLayer } from "../db/repos/reading-state";
-import { layer as readingLayer } from "../reading-state";
 import { layer as lockLayer } from "../lock";
+import { layer as readingLayer } from "../reading-state";
 import { layer as sessionsLayer } from "../sessions";
 
 /**
@@ -25,11 +25,27 @@ const comments = commentsRepoLayer.pipe(Layer.provideMerge(db));
 const agents = agentsRepoLayer.pipe(Layer.provideMerge(db));
 const reading = readingRepoLayer.pipe(Layer.provideMerge(db));
 const contentBlocks = contentBlocksRepoLayer.pipe(Layer.provideMerge(db));
-const commentsStore = commentsLayer.pipe(Layer.provideMerge(Layer.mergeAll(comments, busLayer, contentBlocks)));
+const commentsStore = commentsLayer.pipe(
+  Layer.provideMerge(Layer.mergeAll(comments, busLayer, contentBlocks)),
+);
 const sessions = sessionsLayer.pipe(Layer.provideMerge(Layer.mergeAll(db, documents, commentsStore)));
 const agentsStore = agentsLayer.pipe(Layer.provideMerge(agents));
 const readingStore = readingLayer.pipe(Layer.provideMerge(reading));
-export const AppLayer = Layer.mergeAll(lockLayer, db, busLayer, documents, comments, agents, reading, contentBlocks, commentsStore, sessions, agentsStore, readingStore, fileSystemLayer);
+export const AppLayer = Layer.mergeAll(
+  lockLayer,
+  db,
+  busLayer,
+  documents,
+  comments,
+  agents,
+  reading,
+  contentBlocks,
+  commentsStore,
+  sessions,
+  agentsStore,
+  readingStore,
+  fileSystemLayer,
+);
 
 /** The services AppLayer provides; a program that needs them is runnable by the runtime below. */
 export type AppServices = Layer.Success<typeof AppLayer>;

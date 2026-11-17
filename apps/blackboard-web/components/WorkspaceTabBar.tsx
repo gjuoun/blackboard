@@ -10,14 +10,23 @@ import type { ReadingFilter } from "@/lib/reading-model";
 export const WORKSPACE_VIEWS = ["all", "unread", "settings"] as const;
 export type WorkspaceView = (typeof WORKSPACE_VIEWS)[number];
 
-export const isWorkspaceView = (v: string | null): v is WorkspaceView => WORKSPACE_VIEWS.includes(v as WorkspaceView);
+export const isWorkspaceView = (v: string | null): v is WorkspaceView =>
+  WORKSPACE_VIEWS.includes(v as WorkspaceView);
 
 /** Which views filter the list, and to what. */
 export const VIEW_FILTERS: Partial<Record<WorkspaceView, ReadingFilter>> = { all: "all", unread: "unread" };
 
 const ICONS: Record<WorkspaceView, React.ReactNode> = {
   all: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="M3 12h5l2 3h4l2-3h5" />
     </svg>
@@ -29,7 +38,14 @@ const ICONS: Record<WorkspaceView, React.ReactNode> = {
     </svg>
   ),
   settings: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      aria-hidden
+    >
       <path d="M5 8h10M5 16h3" />
       <circle cx="18" cy="8" r="2.2" />
       <circle cx="11" cy="16" r="2.2" />
@@ -44,7 +60,13 @@ const LABELS: Record<WorkspaceView, string> = { all: "Inbox", unread: "Unread", 
  * accent colour. 56px tall over the safe area, and only ever rendered below 768px — the desktop
  * uses the rail and the toolbar instead.
  */
-export function WorkspaceTabBar({ view, onView }: { view: WorkspaceView; onView: (v: WorkspaceView) => void }) {
+export function WorkspaceTabBar({
+  view,
+  onView,
+}: {
+  view: WorkspaceView;
+  onView: (v: WorkspaceView) => void;
+}) {
   return (
     <nav
       data-testid="rw-tabbar"

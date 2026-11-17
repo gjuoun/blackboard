@@ -17,17 +17,23 @@ const SIZES = [
 
 export function TypeSection() {
   return (
-    <section id="typography" className="flex scroll-mt-6 flex-col gap-5 rounded-xl border border-border bg-card p-5 text-card-foreground">
+    <section
+      id="typography"
+      className="flex scroll-mt-6 flex-col gap-5 rounded-xl border border-border bg-card p-5 text-card-foreground"
+    >
       <header className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold text-foreground">Typography</h2>
         <p className="max-w-[62ch] text-sm text-muted-foreground">
-          Three stacks: the chrome, the document body, and code. The reading stack is what a plan is
-          set in; the interface stack never reaches the prose.
+          Three stacks: the chrome, the document body, and code. The reading stack is what a plan is set in;
+          the interface stack never reaches the prose.
         </p>
       </header>
       <div className="flex flex-col gap-3">
         {STACKS.map((stack) => (
-          <div key={stack.name} className="flex flex-col gap-1 border-b border-border pb-3 last:border-0 last:pb-0">
+          <div
+            key={stack.name}
+            className="flex flex-col gap-1 border-b border-border pb-3 last:border-0 last:pb-0"
+          >
             <p className="font-mono text-[11px] text-muted-foreground">{stack.name}</p>
             <p className={stack.className + " text-lg text-foreground"}>
               {stack.label} — The quick brown fox jumps over the lazy dog, 0123456789.
@@ -39,7 +45,9 @@ export function TypeSection() {
         <p className="font-mono text-[11px] text-muted-foreground">scale</p>
         {SIZES.map((size) => (
           <div key={size.name} className="flex items-baseline gap-3">
-            <code className="w-[5.5rem] shrink-0 font-mono text-[11px] text-muted-foreground">{size.name}</code>
+            <code className="w-[5.5rem] shrink-0 font-mono text-[11px] text-muted-foreground">
+              {size.name}
+            </code>
             <span className="w-[3rem] shrink-0 font-mono text-[11px] text-muted-foreground">{size.px}</span>
             <span className={size.className + " text-foreground"}>Blackboard</span>
           </div>

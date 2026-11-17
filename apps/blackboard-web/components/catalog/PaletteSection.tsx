@@ -1,5 +1,5 @@
+import { type Mode, THEMES, type ThemeId } from "@gjuoun/bb-ui/themes";
 import { BLOCKS, contrast } from "@gjuoun/bb-ui/themes/palette";
-import { THEMES, type Mode, type ThemeId } from "@gjuoun/bb-ui/themes";
 
 /**
  * Blackboard's own tokens, and only those. The nine shadcn names that merely copy one of these
@@ -109,9 +109,9 @@ export function PaletteSection({ theme, mode }: { theme: ThemeId; mode: Mode }) 
       <header className="flex flex-col gap-1">
         <h2 className="text-lg font-semibold text-foreground">Colour</h2>
         <p className="max-w-[62ch] text-sm text-muted-foreground">
-          {label} · {mode}. Blackboard&rsquo;s own tokens: {NATIVE.length}, of which {authored} are
-          written by hand and {NATIVE.length - authored} are derived from them. Every swatch is painted
-          with its own token, so a swatch that disagrees with the hex beside it is a real drift.
+          {label} · {mode}. Blackboard&rsquo;s own tokens: {NATIVE.length}, of which {authored} are written by
+          hand and {NATIVE.length - authored} are derived from them. Every swatch is painted with its own
+          token, so a swatch that disagrees with the hex beside it is a real drift.
         </p>
       </header>
 
@@ -137,7 +137,10 @@ export function PaletteSection({ theme, mode }: { theme: ThemeId; mode: Mode }) 
             const ratio = contrast(values[pair.text], values[pair.on]);
             const verdict = ratio >= pair.min ? "AA" : ratio >= 3 ? "large only" : "below AA";
             return (
-              <li key={pair.label} className="flex items-center gap-3 border-t border-border py-1.5 text-sm first:border-0">
+              <li
+                key={pair.label}
+                className="flex items-center gap-3 border-t border-border py-1.5 text-sm first:border-0"
+              >
                 <span
                   aria-hidden
                   className="inline-flex h-6 min-w-9 shrink-0 items-center justify-center rounded-md px-2 text-sm leading-none font-medium"
@@ -156,7 +159,9 @@ export function PaletteSection({ theme, mode }: { theme: ThemeId; mode: Mode }) 
                 </span>
                 <span className="ml-auto shrink-0 font-mono text-[11px]">
                   {ratio.toFixed(2) + ":1 "}
-                  <span className={verdict === "AA" ? "text-muted-foreground" : "text-destructive"}>{verdict}</span>
+                  <span className={verdict === "AA" ? "text-muted-foreground" : "text-destructive"}>
+                    {verdict}
+                  </span>
                 </span>
               </li>
             );

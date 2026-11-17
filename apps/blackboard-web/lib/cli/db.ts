@@ -1,9 +1,9 @@
 import { Effect } from "effect";
-import { cliFailure, CliError } from "../cli";
-import { migrate, stats, type MigrateReport } from "../db/migrate";
-import { indexDocuments, type IndexReport } from "../doc-index-run";
-import { Db } from "../db/client";
-import { Lock } from "../lock";
+import { CliError, cliFailure } from "../cli";
+import type { Db } from "../db/client";
+import { type MigrateReport, migrate, stats } from "../db/migrate";
+import { type IndexReport, indexDocuments } from "../doc-index-run";
+import type { Lock } from "../lock";
 
 /** The db subcommand's services. */
 type Needs = Db | Lock;
@@ -22,7 +22,9 @@ export function migrateCmd(home: string, dry: boolean): Effect.Effect<MigrateRep
 }
 
 /** `db stats`: row counts per table plus the file. */
-export function statsCmd(home: string): Effect.Effect<{ path: string; tables: Record<string, number>; bytes: number }, CliError, Needs> {
+export function statsCmd(
+  home: string,
+): Effect.Effect<{ path: string; tables: Record<string, number>; bytes: number }, CliError, Needs> {
   return stats(home).pipe(Effect.mapError((e) => cliFailure(e)));
 }
 

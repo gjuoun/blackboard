@@ -18,7 +18,11 @@ type Token = { type: string };
 type Effects = { enter(type: string): Token; exit(type: string): Token; consume(code: Code): void };
 type State = (code: Code) => State | undefined;
 type Ctx = { events: [string, Token, unknown][] };
-type Construct = { name: string; tokenize: (this: Ctx, effects: Effects, ok: State, nok: State) => State | undefined; previous: (this: Ctx, code: Code) => boolean };
+type Construct = {
+  name: string;
+  tokenize: (this: Ctx, effects: Effects, ok: State, nok: State) => State | undefined;
+  previous: (this: Ctx, code: Code) => boolean;
+};
 
 const DOLLAR = 36;
 const BACKSLASH = 92;
@@ -98,7 +102,8 @@ function tokenizeSingleDollar(this: Ctx, effects: Effects, ok: State, nok: State
       size++;
       return closeRun;
     }
-    const closes = size === 1 && before !== null && !isBlank(before) && before !== BACKSLASH && !isDigit(code);
+    const closes =
+      size === 1 && before !== null && !isBlank(before) && before !== BACKSLASH && !isDigit(code);
     if (closes) {
       effects.exit("mathTextSequence");
       effects.exit("mathText");

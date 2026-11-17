@@ -14,7 +14,9 @@ describe("comment images", () => {
   });
 
   test("images: svg rejected", () => {
-    const svg = new TextEncoder().encode("<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>");
+    const svg = new TextEncoder().encode(
+      "<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>",
+    );
     expect(acceptImage(svg).ok).toBe(false);
   });
 

@@ -1,28 +1,32 @@
 import { describe, expect, test } from "bun:test";
-import { Effect } from "effect";
 import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Effect } from "effect";
+import { run } from "../test/app";
 import { CommentsStore } from "./comments-store";
 import { DocumentsRepo } from "./db/repos/documents";
-import { run } from "../test/app";
 
 const quote = { exact: "The cache is warm.", prefix: "Later text. ", suffix: " End." };
 /** A temp home; the comment store needs a documents row for its foreign key. */
 const fresh = async () => {
   const home = realpathSync(mkdtempSync(join(tmpdir(), "bb-store-")));
-  await run(Effect.gen(function* () {
-    const docs = yield* DocumentsRepo;
-    yield* docs.upsert(home, { id: "testsession", path: join(home, "design.md") });
-  }));
+  await run(
+    Effect.gen(function* () {
+      const docs = yield* DocumentsRepo;
+      yield* docs.upsert(home, { id: "testsession", path: join(home, "design.md") });
+    }),
+  );
   return { home, sid: "testsession", doc: "design.md" };
 };
 
 const store = <A>(work: (s: CommentsStore["Service"]) => Effect.Effect<A, { message: string }>): Promise<A> =>
-  run(Effect.gen(function* () {
-    const s = yield* CommentsStore;
-    return yield* work(s);
-  }));
+  run(
+    Effect.gen(function* () {
+      const s = yield* CommentsStore;
+      return yield* work(s);
+    }),
+  );
 
 describe("comments through the store", () => {
   test("reads as empty when there are no comments yet", async () => {
@@ -58,7 +62,9 @@ describe("comments through the store", () => {
 
   test("errors on an unknown comment id instead of creating one", async () => {
     const { home, doc } = await fresh();
-    await expect(store((s) => s.reply(home, "c_missing", doc, { body: "x", author: "jun" }))).rejects.toThrow(/not found/);
+    await expect(store((s) => s.reply(home, "c_missing", doc, { body: "x", author: "jun" }))).rejects.toThrow(
+      /not found/,
+    );
   });
 
   test("edits a comment and a reply, stamping editedAt", async () => {
@@ -91,9 +97,13 @@ describe("comments through the store", () => {
     const { home, sid, doc } = await fresh();
     const c = await store((s) => s.add(home, sid, doc, { quote, body: "x", author: "jun" }));
     const first = await store((s) => s.reply(home, c.id, doc, { body: "one", author: "a" }));
-    const joined = await store((s) => s.reply(home, c.id, doc, { body: "two", author: "b", joinReplyId: first.replies[0].id }));
+    const joined = await store((s) =>
+      s.reply(home, c.id, doc, { body: "two", author: "b", joinReplyId: first.replies[0].id }),
+    );
     expect(joined.replies).toHaveLength(2);
-    await expect(store((s) => s.reply(home, c.id, doc, { body: "bad", author: "a", joinReplyId: "r_missing" }))).rejects.toThrow(/not found/);
+    await expect(
+      store((s) => s.reply(home, c.id, doc, { body: "bad", author: "a", joinReplyId: "r_missing" })),
+    ).rejects.toThrow(/not found/);
   });
 
   test("open count tracks status changes", async () => {

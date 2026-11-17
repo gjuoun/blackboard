@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { LOCAL, fixture, register } from "../../test/api-fixture";
+import { fixture, LOCAL, register } from "../../test/api-fixture";
 import { app } from "../app";
 
 /**
@@ -9,7 +9,17 @@ import { app } from "../app";
  * refuses connections, changes nothing the submitter sees: same 201, same body.
  */
 
-type Payload = { kind: string; session: string; doc: string; commentId: string; anchor: Record<string, unknown>; body: string; author: string; at: string; pageUrl: string };
+type Payload = {
+  kind: string;
+  session: string;
+  doc: string;
+  commentId: string;
+  anchor: Record<string, unknown>;
+  body: string;
+  author: string;
+  at: string;
+  pageUrl: string;
+};
 
 function listener() {
   const received: Payload[] = [];
@@ -46,11 +56,25 @@ const json = (payload: unknown, method = "POST"): RequestInit => ({
   headers: { ...LOCAL, "content-type": "application/json" },
   body: JSON.stringify(payload),
 });
-const comment = (session: string) => app.request("http://127.0.0.1/api/comments", json({ session, general: true, body: "**first** note", author: "jun" }));
-const reply = (session: string, id: string) => app.request("http://127.0.0.1/api/comments", json({ session, id, action: "reply", body: "answered", author: "agent" }, "PATCH"));
-const edit = (session: string, id: string, body: string) => app.request("http://127.0.0.1/api/comments", json({ session, id, action: "edit", body }, "PATCH"));
-const resolve = (session: string, id: string) => app.request("http://127.0.0.1/api/comments", json({ session, id, action: "resolve", author: "jun" }, "PATCH"));
-const bind = (session: string, url: string) => app.request("http://127.0.0.1/api/bind", json({ session, piSession: "pi-abc123", url }));
+const comment = (session: string) =>
+  app.request(
+    "http://127.0.0.1/api/comments",
+    json({ session, general: true, body: "**first** note", author: "jun" }),
+  );
+const reply = (session: string, id: string) =>
+  app.request(
+    "http://127.0.0.1/api/comments",
+    json({ session, id, action: "reply", body: "answered", author: "agent" }, "PATCH"),
+  );
+const edit = (session: string, id: string, body: string) =>
+  app.request("http://127.0.0.1/api/comments", json({ session, id, action: "edit", body }, "PATCH"));
+const resolve = (session: string, id: string) =>
+  app.request(
+    "http://127.0.0.1/api/comments",
+    json({ session, id, action: "resolve", author: "jun" }, "PATCH"),
+  );
+const bind = (session: string, url: string) =>
+  app.request("http://127.0.0.1/api/bind", json({ session, piSession: "pi-abc123", url }));
 
 async function setup() {
   const { home, docs } = await fixture("bb-notify-", { "design.md": "# Design\n\nLater text. More text.\n" });
@@ -85,7 +109,10 @@ describe("a submitted comment reaches the bound listener", () => {
     const { session } = await setup();
     const fake = start();
     await bind(session, fake.url);
-    await app.request("http://127.0.0.1/api/comments", { ...json({ session, general: true, body: "via ui", author: "jun" }), headers: { ...LOCAL, "content-type": "application/json", "x-forwarded-host": "127.0.0.1:38770" } });
+    await app.request("http://127.0.0.1/api/comments", {
+      ...json({ session, general: true, body: "via ui", author: "jun" }),
+      headers: { ...LOCAL, "content-type": "application/json", "x-forwarded-host": "127.0.0.1:38770" },
+    });
     const [payload] = await until(fake.received, 1);
     expect(payload.pageUrl).toBe(`http://127.0.0.1:38770/s/${session}`);
   });
@@ -106,7 +133,9 @@ describe("only a submit wakes the session", () => {
     await Bun.sleep(200);
     expect(fake.received).toHaveLength(1);
 
-    const list = await (await app.request(`http://127.0.0.1/api/comments?session=${session}`, { headers: LOCAL })).json();
+    const list = await (
+      await app.request(`http://127.0.0.1/api/comments?session=${session}`, { headers: LOCAL })
+    ).json();
     expect(list.comments).toHaveLength(1);
     expect(list.comments[0].replies).toHaveLength(1);
     expect(list.comments[0].replies[0].body).toBe("answered");
@@ -123,7 +152,9 @@ describe("an unbound or unreachable session changes nothing", () => {
     expect(res.status).toBe(201);
     await Bun.sleep(100);
     expect(fake.received).toHaveLength(0);
-    const list = await (await app.request(`http://127.0.0.1/api/comments?session=${session}`, { headers: LOCAL })).json();
+    const list = await (
+      await app.request(`http://127.0.0.1/api/comments?session=${session}`, { headers: LOCAL })
+    ).json();
     expect(list.comments).toHaveLength(1);
   });
 

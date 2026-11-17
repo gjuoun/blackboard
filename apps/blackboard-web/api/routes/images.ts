@@ -1,13 +1,19 @@
 import { Effect } from "effect";
 import { Hono } from "hono";
 import { readImage, saveImage } from "../../lib/comment-image-store";
-import { errorMessage, IoFailure, type ApiFailure } from "../../lib/effect/errors";
+import { type ApiFailure, errorMessage, IoFailure } from "../../lib/errors";
 import { getHome } from "../../lib/home";
 import { respond, respondRaw } from "../respond";
 
-const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
+const MIME: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+};
 
-const notFound = (): Effect.Effect<never, ApiFailure> => Effect.fail(new IoFailure({ message: "not found", status: 404 }));
+const notFound = (): Effect.Effect<never, ApiFailure> =>
+  Effect.fail(new IoFailure({ message: "not found", status: 404 }));
 
 export const images = new Hono();
 
@@ -33,7 +39,11 @@ images.get("/:id", (c) =>
       if (!bytes) return yield* notFound();
       const ext = c.req.param("id").slice(c.req.param("id").lastIndexOf(".") + 1);
       return new Response(new Uint8Array(bytes), {
-        headers: { "content-type": MIME[ext], "x-content-type-options": "nosniff", "cache-control": "public, max-age=31536000, immutable" },
+        headers: {
+          "content-type": MIME[ext],
+          "x-content-type-options": "nosniff",
+          "cache-control": "public, max-age=31536000, immutable",
+        },
       });
     }),
   ),
