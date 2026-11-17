@@ -1,5 +1,5 @@
 import { Data, Effect } from "effect";
-import { readState } from "./server-ctl";
+import { apiOrigin, apiUrl } from "./api-origin";
 
 /** No API URL for this home: nothing answers for it, so nothing was written. */
 export class ApiUnreachable extends Data.TaggedError("ApiUnreachable")<{ readonly message: string }> {}
@@ -12,26 +12,23 @@ export type ApiFailure = ApiUnreachable | ApiRefused;
 const NOT_RUNNING = "the API is not running — start it with: blackboard serve start";
 
 /**
- * Where the API for this home answers: $BLACKBOARD_API_URL, else the URL the running `serve` recorded
- * in this home's server.json. There is no default port: a test or a second home must never reach
- * an API that belongs to some other home.
+ * The reason a refused call carries. Two shapes reach here: the old `{error:"…"}` text and the
+ * envelope's `{success:false,error:{code,message}}`, because routes move over one at a time.
  */
-export function apiUrl(home: string): string | null {
-  const env = process.env.BLACKBOARD_API_URL;
-  if (env) return env.replace(/\/+$/, "");
-  const st = readState(home);
-  // One process: the API shares the app's port. A two-process record names its own API URL; a
-  // pre-split record names none — no URL beats guessing another home's port.
-  return st && "api" in st ? st.api.url.replace(/\/+$/, "") : st && "ui" in st ? st.ui.url.replace(/\/+$/, "") : null;
-}
-
 const messageOf = (data: unknown, fallback: string): string => {
   const e = data && typeof data === "object" ? (data as { error?: unknown }).error : undefined;
-  return typeof e === "string" ? e : fallback;
+  if (typeof e === "string") return e;
+  const message = e && typeof e === "object" ? (e as { message?: unknown }).message : undefined;
+  return typeof message === "string" ? message : fallback;
 };
 
 /** One request to the API for this home. A connection failure is ApiUnreachable; an HTTP error is ApiRefused. */
-export function apiRequest(home: string, method: "GET" | "POST" | "PATCH" | "DELETE", path: string, body?: unknown): Effect.Effect<unknown, ApiFailure> {
+export function apiRequest(
+  home: string,
+  method: "GET" | "POST" | "PATCH" | "DELETE",
+  path: string,
+  body?: unknown,
+): Effect.Effect<unknown, ApiFailure> {
   return Effect.gen(function* () {
     const base = apiUrl(home);
     if (!base) return yield* Effect.fail(new ApiUnreachable({ message: NOT_RUNNING }));
@@ -62,15 +59,12 @@ export const apiGet = (home: string, path: string) => apiRequest(home, "GET", pa
 export const apiPost = (home: string, path: string, body: unknown) => apiRequest(home, "POST", path, body);
 export const apiPatch = (home: string, path: string, body: unknown) => apiRequest(home, "PATCH", path, body);
 
-/** The API origin a server component talks to: the home's recorded server, else the app's own port. */
-const apiOrigin = (home: string): string => apiUrl(home) ?? (process.env.BLACKBOARD_URL ?? "http://127.0.0.1:38770").replace(/\/+$/, "");
-
 /** A GET from the API for a server component. A failed call throws, so the page shows its error boundary. */
 export async function apiGetJson<T>(home: string, path: string): Promise<T> {
   const res = await fetch(`${apiOrigin(home)}${path}`, { cache: "no-store" });
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(body?.error ?? `API ${path} answered ${res.status}`);
+    const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
+    throw new Error(messageOf(body, `API ${path} answered ${res.status}`));
   }
   return (await res.json()) as T;
 }
