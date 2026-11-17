@@ -1,20 +1,16 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { Context, Effect, Layer } from "effect";
-import { ReadingStateRepo, type ReadingStateRow } from "./db/repos/reading-state";
+import { Safe } from "@gjuoun/safe-ts";
+import type { ReadingStateRepo, ReadingStateRow } from "./db/repos/reading-state";
 import type { DbFailure } from "./errors";
 import { clampProgress, isReadingStatus, type ReadingEntry } from "./reading-model";
 
 /**
  * Reading state lived in `~/.blackboard/reading-state.json`; since the data-layer round it is the
  * `reading_state` table, one row per document id. The JSON file is only migration input. The
- * `ReadingFile`/`ReadingEntry` shapes stay — `effectiveEntry` and the workspace model consume
- * them unchanged.
+ * `ReadingFile`/`ReadingEntry` shapes stay — `effectiveEntry` and the workspace model consume them
+ * unchanged.
  */
 export type ReadingFile = { version: 1; docs: Record<string, ReadingEntry> };
-
-/** `<home>/reading-state.json` — the migration source only. */
-export const readingStatePath = (home: string) => join(home, "reading-state.json");
 
 const isTime = (v: unknown): v is string => typeof v === "string" && Number.isFinite(Date.parse(v));
 
@@ -22,8 +18,8 @@ const isTime = (v: unknown): v is string => typeof v === "string" && Number.isFi
 function entryOf(v: unknown): ReadingEntry | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
-  // A record written before the third state retired still says "reading": migrate it as read,
-  // never drop it, or a reader loses every document they had started.
+  // A record written before the third state retired still says "reading": migrate it as read, never
+  // drop it, or a reader loses every document they had started.
   const status = o.status === "reading" ? "read" : o.status;
   if (!isReadingStatus(status)) return null;
   return {
@@ -34,7 +30,7 @@ function entryOf(v: unknown): ReadingEntry | null {
   };
 }
 
-/** The state file as a value — migration source; a missing file is empty, a file that does not parse is an error. */
+/** The state file as a value — migration source; a missing file is empty, one that does not parse is an error. */
 export function readReadingState(p: string): ReadingFile {
   if (!existsSync(p)) return { version: 1, docs: {} };
   const data = JSON.parse(readFileSync(p, "utf8"));
@@ -65,30 +61,25 @@ const toEntry = (r: ReadingStateRow): ReadingEntry => ({
 });
 
 /** The reading state store, backed by the reading_state table. */
-export class ReadingStateStore extends Context.Service<
-  ReadingStateStore,
-  {
-    /** Every stored entry as a ReadingFile-shaped map. */
-    read(home: string): Effect.Effect<ReadingFile, DbFailure>;
-    /** Upsert one document's entry. */
-    set(home: string, documentId: string, entry: ReadingEntry): Effect.Effect<void, DbFailure>;
-  }
->()("blackboard/ReadingStateStore") {}
+export class ReadingStateStore {
+  constructor(private readonly repo: ReadingStateRepo) {}
 
-export const layer = Layer.effect(
-  ReadingStateStore,
-  Effect.gen(function* () {
-    const repo = yield* ReadingStateRepo;
-    return ReadingStateStore.of({
-      read: (home) =>
-        repo.list(home).pipe(
-          Effect.map((rows) => {
-            const docs: Record<string, ReadingEntry> = {};
-            for (const r of rows) docs[r.documentId] = toEntry(r);
-            return { version: 1 as const, docs };
-          }),
-        ),
-      set: (home, documentId, entry) => repo.set(home, toRow(documentId, entry)).pipe(Effect.asVoid),
+  /** Every stored entry as a ReadingFile-shaped map. */
+  read(home: string): Safe<ReadingFile, DbFailure> {
+    const repo = this.repo;
+    return Safe.try(function* () {
+      const rows = (yield repo.list(home)) as ReadingStateRow[];
+      const docs: Record<string, ReadingEntry> = {};
+      for (const r of rows) docs[r.documentId] = toEntry(r);
+      return { version: 1 as const, docs };
     });
-  }),
-);
+  }
+
+  /** Upsert one document's entry. */
+  set(home: string, documentId: string, entry: ReadingEntry): Safe<void, DbFailure> {
+    const repo = this.repo;
+    return Safe.try(function* () {
+      yield repo.set(home, toRow(documentId, entry));
+    });
+  }
+}
