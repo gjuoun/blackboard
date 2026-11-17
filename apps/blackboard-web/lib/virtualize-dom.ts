@@ -6,7 +6,7 @@
  * through them). Heights come from a ResizeObserver per mounted block; a late change above the
  * viewport is paid back to the scroll position; jumps to unmounted ids land with a settle
  * loop. The pure window math is `lib/virtualize.ts`; the mechanism is ported from the approved
- * sketch (`sketches/virtualized-doc/virtualizer.js`).
+ * prototype that preceded it.
  */
 import type { TextMap } from "./text-map";
 import {

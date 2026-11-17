@@ -11,7 +11,7 @@ export const OG_TYPE = "image/png";
 export const drawable = (s: string) => /^[\x20-\x7E\u00A0-\u024F\u2010-\u2027]+$/.test(s);
 
 /**
- * satori draws text, so it needs a font file. `next/og` shipped one; here the first face that exists
+ * satori draws text, so it needs a font file. Nothing ships one; here the first face that exists
  * on this machine is used, because Blackboard runs locally. A missing face degrades to a card with
  * no words rather than a 500 — the palette and the mark are still correct.
  */

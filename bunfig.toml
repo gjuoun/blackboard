@@ -4,7 +4,7 @@ linker = "hoisted"
 [test]
 # Build products, not sources: the assembled server and the bundled CLI are copies of what the
 # tests already cover where they live.
-pathIgnorePatterns = ["apps/*/server/**", "apps/*/dist/**", "apps/*/.next/**", "node_modules/**"]
+pathIgnorePatterns = ["apps/*/server/**", "apps/*/dist/**", "node_modules/**"]
 
 # Deliberately NOT `linker = "isolated"`. Next's standalone trace follows the hoisted node_modules
 # into real directories, and npm refuses to pack a symlink — with the isolated linker every traced

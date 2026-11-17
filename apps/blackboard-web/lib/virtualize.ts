@@ -2,7 +2,8 @@
  * The pure model of the virtualized doc body: how the rendered top-level elements chunk into
  * blocks, how heights (measured or estimated) become offsets, which blocks the viewport wants,
  * and how a late height change above the viewport is paid back to the scroll position. Ported
- * from the approved sketch (`sketches/virtualized-doc/virtualizer.js`, the design record); the
+ * from the virtualizer prototype this project settled on in 2026-10 (its design record left the tree
+ * with `sketches/`); the
  * DOM half that mounts blocks between spacers lives in `lib/virtualize-dom.ts`. No DOM here, so
  * everything is testable outside a browser.
  */

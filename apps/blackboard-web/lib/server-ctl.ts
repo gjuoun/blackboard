@@ -57,7 +57,7 @@ export async function probe(url: string, timeoutMs = 1500): Promise<boolean> {
   }
 }
 
-/** The package folder: where `.next` and `node_modules/next` live. Same for the built CLI and the source. */
+/** The package folder: where the built app (`server/`) and `node_modules` live. Same for the built CLI and the source. */
 function appRoot(from: string = import.meta.url): string {
   return dirname(dirname(fileURLToPath(from)));
 }

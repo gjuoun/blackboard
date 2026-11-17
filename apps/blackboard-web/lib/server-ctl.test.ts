@@ -113,18 +113,18 @@ describe("prepareServer", () => {
     const server = join(root, "server");
     // The tree build:server produces from Nitro's node-server output: dependencies at both levels,
     // and the entry under server/.
-    mkdirSync(join(server, "modules", "next"), { recursive: true });
-    mkdirSync(join(app(server), "modules", "next"), { recursive: true });
+    mkdirSync(join(server, "modules", "dep"), { recursive: true });
+    mkdirSync(join(app(server), "modules", "dep"), { recursive: true });
     writeFileSync(join(app(server), "index.mjs"), "// app");
-    writeFileSync(join(server, "modules", "next", "index.js"), "// next");
-    writeFileSync(join(app(server), "modules", "next", "index.js"), "// app next");
+    writeFileSync(join(server, "modules", "dep", "index.js"), "// dep");
+    writeFileSync(join(app(server), "modules", "dep", "index.js"), "// app dep");
     return { server, home: join(root, "home") };
   };
   test("renames modules to node_modules at both levels, once", () => {
     const { server, home } = fixture();
     expect(prepareServer(server, home, "1.0.0")).toBe(server);
-    expect(existsSync(join(server, "node_modules", "next", "index.js"))).toBe(true);
-    expect(existsSync(join(app(server), "node_modules", "next", "index.js"))).toBe(true);
+    expect(existsSync(join(server, "node_modules", "dep", "index.js"))).toBe(true);
+    expect(existsSync(join(app(server), "node_modules", "dep", "index.js"))).toBe(true);
     expect(existsSync(join(server, "modules"))).toBe(false);
     expect(existsSync(join(app(server), "modules"))).toBe(false);
     expect(prepareServer(server, home, "1.0.0")).toBe(server);
@@ -136,9 +136,9 @@ describe("prepareServer", () => {
     };
     const dir = prepareServer(server, home, "1.0.0", readOnly);
     expect(dir).toBe(join(home, "runtime", "1.0.0"));
-    expect(readFileSync(join(dir, "node_modules", "next", "index.js"), "utf8")).toBe("// next");
-    expect(readFileSync(join(app(dir), "node_modules", "next", "index.js"), "utf8")).toBe("// app next");
-    expect(existsSync(join(server, "modules", "next"))).toBe(true);
+    expect(readFileSync(join(dir, "node_modules", "dep", "index.js"), "utf8")).toBe("// dep");
+    expect(readFileSync(join(app(dir), "node_modules", "dep", "index.js"), "utf8")).toBe("// app dep");
+    expect(existsSync(join(server, "modules", "dep"))).toBe(true);
     expect(prepareServer(server, home, "1.0.0", readOnly)).toBe(dir);
   });
 });
