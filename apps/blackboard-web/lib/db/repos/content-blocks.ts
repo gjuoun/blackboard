@@ -1,10 +1,10 @@
+import { Safe } from "@gjuoun/safe-ts";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { Context, Effect, Layer } from "effect";
 import { anchor } from "../../anchor";
 import { contentBlockId, reconcileBlocks } from "../../content-reconcile";
 import type { DbFailure } from "../../errors";
-import { Db } from "../client";
+import type { Db } from "../client";
 import { comments, contentBlockRevs, contentBlocks, documents } from "../schema";
 
 /**
@@ -142,85 +142,72 @@ export function applyReconcile(
   };
 }
 
-export class ContentBlocksRepo extends Context.Service<
-  ContentBlocksRepo,
-  {
-    /** Live blocks of the document, in order. */
-    list(home: string, documentId: string): Effect.Effect<ContentBlockRow[], DbFailure>;
-    /** One block by id, or null. */
-    get(home: string, blockId: string): Effect.Effect<ContentBlockRow | null, DbFailure>;
-    /** The text a block carried at `rev` (current rev reads the row, older ones the rev table). */
-    revText(home: string, blockId: string, rev: number): Effect.Effect<string | null, DbFailure>;
-    /**
-     * Fold a new body into the document's blocks: stable ids, +1 rev per rewrite, soft delete,
-     * `documents.body_rev` bumps, and `comments.block_id` is backfilled for quotes that still
-     * resolve. A null body (file gone) removes every block.
-     */
-    reconcile(
-      home: string,
-      documentId: string,
-      body: string | null,
-    ): Effect.Effect<ReconcileReport, DbFailure>;
-    /** The live block a quote selector lands on, or null. */
-    resolveQuote(
-      home: string,
-      documentId: string,
-      quote: { exact: string; prefix: string; suffix: string },
-    ): Effect.Effect<QuoteResolution | null, DbFailure>;
+/** The content_block tables: live paragraphs, their revisions, and quote resolution. */
+export class ContentBlocksRepo {
+  constructor(private readonly db: Db) {}
+
+  /** Live blocks of the document, in order. */
+  list(home: string, documentId: string): Safe<ContentBlockRow[], DbFailure> {
+    return this.db.use(home, (d) =>
+      d
+        .select()
+        .from(contentBlocks)
+        .where(and(eq(contentBlocks.documentId, documentId), isNull(contentBlocks.deletedAt)))
+        .orderBy(asc(contentBlocks.n))
+        .all(),
+    );
   }
->()("blackboard/ContentBlocksRepo") {}
 
-export const layer = Layer.effect(
-  ContentBlocksRepo,
-  Effect.gen(function* () {
-    const db = yield* Db;
+  /** One block by id, or null. */
+  get(home: string, blockId: string): Safe<ContentBlockRow | null, DbFailure> {
+    return this.db.use(
+      home,
+      (d) => d.select().from(contentBlocks).where(eq(contentBlocks.id, blockId)).get() ?? null,
+    );
+  }
 
-    return ContentBlocksRepo.of({
-      list: (home, documentId) =>
-        db.use(home, (d) =>
-          d
-            .select()
-            .from(contentBlocks)
-            .where(and(eq(contentBlocks.documentId, documentId), isNull(contentBlocks.deletedAt)))
-            .orderBy(asc(contentBlocks.n))
-            .all(),
-        ),
-
-      get: (home, blockId) =>
-        db.use(
-          home,
-          (d) => d.select().from(contentBlocks).where(eq(contentBlocks.id, blockId)).get() ?? null,
-        ),
-
-      revText: (home, blockId, rev) =>
-        db.use(home, (d) => {
-          const row = d.select().from(contentBlocks).where(eq(contentBlocks.id, blockId)).get();
-          if (!row) return null;
-          if (row.rev === rev) return row.text;
-          return (
-            d
-              .select()
-              .from(contentBlockRevs)
-              .where(and(eq(contentBlockRevs.blockId, blockId), eq(contentBlockRevs.rev, rev)))
-              .get()?.text ?? null
-          );
-        }),
-
-      resolveQuote: (home, documentId, quote) =>
-        db.use(home, (d) => {
-          const rows = d
-            .select()
-            .from(contentBlocks)
-            .where(and(eq(contentBlocks.documentId, documentId), isNull(contentBlocks.deletedAt)))
-            .orderBy(asc(contentBlocks.n))
-            .all();
-          for (const b of rows) {
-            if (anchor(b.plain, quote) !== null) return { blockId: b.id, blockRev: b.rev } as QuoteResolution;
-          }
-          return null;
-        }),
-
-      reconcile: (home, documentId, body) => db.use(home, (d) => applyReconcile(d, documentId, body)),
+  /** The text a block carried at `rev` (current rev reads the row, older ones the rev table). */
+  revText(home: string, blockId: string, rev: number): Safe<string | null, DbFailure> {
+    return this.db.use(home, (d) => {
+      const row = d.select().from(contentBlocks).where(eq(contentBlocks.id, blockId)).get();
+      if (!row) return null;
+      if (row.rev === rev) return row.text;
+      return (
+        d
+          .select()
+          .from(contentBlockRevs)
+          .where(and(eq(contentBlockRevs.blockId, blockId), eq(contentBlockRevs.rev, rev)))
+          .get()?.text ?? null
+      );
     });
-  }),
-);
+  }
+
+  /**
+   * Fold a new body into the document's blocks: stable ids, +1 rev per rewrite, soft delete,
+   * `documents.body_rev` bumps, and `comments.block_id` is backfilled for quotes that still
+   * resolve. A null body (file gone) removes every block.
+   */
+  reconcile(home: string, documentId: string, body: string | null): Safe<ReconcileReport, DbFailure> {
+    return this.db.use(home, (d) => applyReconcile(d, documentId, body));
+  }
+
+  /** The live block a quote selector lands on, or null. */
+  resolveQuote(
+    home: string,
+    documentId: string,
+    quote: { exact: string; prefix: string; suffix: string },
+  ): Safe<QuoteResolution | null, DbFailure> {
+    return this.db.use(home, (d) => {
+      const rows = d
+        .select()
+        .from(contentBlocks)
+        .where(and(eq(contentBlocks.documentId, documentId), isNull(contentBlocks.deletedAt)))
+        .orderBy(asc(contentBlocks.n))
+        .all();
+      for (const b of rows) {
+        if (anchor(b.plain, quote) !== null) return { blockId: b.id, blockRev: b.rev } as QuoteResolution;
+      }
+      return null;
+    });
+  }
+}
