@@ -17,6 +17,9 @@ export type StatusOf<E> = E extends unknown
     : never
   : never;
 
+/** 旧形态：store 交出的 WireFailure 实例（_tag + message + status），由 http.failure 归一成 catalog。 */
+export type WireLike = { readonly _tag: string; readonly status: ContentfulStatusCode; readonly message: string };
+
 // 失败域的形状 = 单键 catalog 变体：`{ TAG: { status, message, ...details } }`。
 // 桥（HttpFailure）与 json 都靠它收窄：tag 是键，其余字段是 details。
 export type EnvelopeFailure = Record<
@@ -56,7 +59,7 @@ export type JsonResponse<T, S extends ContentfulStatusCode> = Response &
   TypedResponse<JSONParsed<T>, S, "json">;
 
 // 失败按自带 status 进 handler 的联合：路由漏声明任一状态码就不可赋值（棘轮）。
-export type JsonExit<A, E extends EnvelopeFailure> =
+export type JsonExit<A, E extends EnvelopeFailure | WireLike> =
   | JsonResponse<SuccessEnvelope<A>, 200>
   | JsonResponse<ErrorEnvelope, StatusOf<E>>;
 
@@ -65,7 +68,7 @@ export type JsonExit<A, E extends EnvelopeFailure> =
  * success → 成功信封；fail → 抛 HttpFailure 交 app.onError；die / interrupt → 同一个 500 出口。
  * 服务在组合根用构造函数装配，所以这里 `R = never`：没有运行时解析，只有一次 Safe 执行。
  */
-export async function json<A, E extends EnvelopeFailure>(
+export async function json<A, E extends EnvelopeFailure | WireLike>(
   c: Context,
   safe: Safe<A, E>,
 ): Promise<JsonExit<A, E>> {
@@ -73,6 +76,21 @@ export async function json<A, E extends EnvelopeFailure>(
   const exit = await Runtime.run(safe, { signal: c.req.raw.signal });
   if (exit._tag === "success") return c.json(success(exit.value), 200);
   const label = `${c.req.method} ${new URL(c.req.url).pathname}`;
-  if (exit._tag === "fail") throw new HttpFailure(exit.error, label);
+  if (exit._tag === "fail") throw new HttpFailure(exit.error as EnvelopeFailure, label);
+  throw HttpFailure.defect(exit._tag === "die" ? exit.defect : "safe-ts: run was interrupted", label);
+}
+
+/**
+ * The same exit for a handler whose success is a whole `Response` (bytes, an event stream): the value
+ * goes out untouched, and a failure takes the identical `HttpFailure` path as `json`.
+ */
+export async function raw<A, E extends EnvelopeFailure | WireLike>(
+  c: Context,
+  safe: Safe<A, E>,
+): Promise<Response> {
+  const exit = await Runtime.run(safe, { signal: c.req.raw.signal });
+  if (exit._tag === "success") return exit.value as unknown as Response;
+  const label = `${c.req.method} ${new URL(c.req.url).pathname}`;
+  if (exit._tag === "fail") throw new HttpFailure(exit.error as EnvelopeFailure, label);
   throw HttpFailure.defect(exit._tag === "die" ? exit.defect : "safe-ts: run was interrupted", label);
 }

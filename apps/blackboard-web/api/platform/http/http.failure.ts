@@ -7,8 +7,20 @@ import type { EnvelopeFailure, ErrorEnvelope } from "./envelope";
  * `message` only: whatever explains it (a SQLite message, a thrown value) belongs in the log, not
  * on the wire.
  */
+/**
+ * A failure as the single-key catalog record the wire wants. The stores still hand out `WireFailure`
+ * instances (`_tag` + `message` + `status`); their tag becomes the code and the rest the payload, so
+ * this file stays the only place a failure body is built while the catalog refactor is still ahead.
+ */
+export function asCatalog(failure: EnvelopeFailure | { readonly _tag: string }): EnvelopeFailure {
+  if (!("_tag" in failure)) return failure;
+  const { _tag, ...rest } = failure as unknown as { _tag: string } & Record<string, unknown>;
+  return { [_tag]: rest } as EnvelopeFailure;
+}
+
 export function errorEnvelope(failure: EnvelopeFailure): ErrorEnvelope {
-  const [code, payload] = Object.entries(failure)[0] as [
+  const catalog = asCatalog(failure);
+  const [code, payload] = Object.entries(catalog)[0] as [
     string,
     { status: number; message: string } & Record<string, unknown>,
   ];
@@ -21,7 +33,7 @@ export function errorEnvelope(failure: EnvelopeFailure): ErrorEnvelope {
 
 /** The status a variant answers with, read off its catalog entry. */
 export function statusOf(failure: EnvelopeFailure): ContentfulStatusCode {
-  const [, payload] = Object.entries(failure)[0] as [string, { status: ContentfulStatusCode }];
+  const [, payload] = Object.entries(asCatalog(failure))[0] as [string, { status: ContentfulStatusCode }];
   return payload.status;
 }
 
@@ -38,7 +50,7 @@ export class HttpFailure extends HTTPException {
   constructor(failure: EnvelopeFailure, label?: string) {
     const status = statusOf(failure);
     super(status, {
-      message: (Object.values(failure)[0] as { message: string }).message,
+      message: (Object.values(asCatalog(failure))[0] as { message: string }).message,
       res: new Response(JSON.stringify(errorEnvelope(failure)), {
         status,
         headers: { "content-type": "application/json" },
