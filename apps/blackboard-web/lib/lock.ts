@@ -1,6 +1,6 @@
 import { closeSync, openSync, readFileSync, rmSync, statSync, writeSync } from "node:fs";
 import { Context, Effect, Layer, Schedule } from "effect";
-import { LockTimeout } from "./effect/errors";
+import { LockTimeout } from "./errors";
 
 const LOCK_WAIT_MS = 5_000;
 export const STALE_MS = 10_000;

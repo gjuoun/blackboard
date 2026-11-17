@@ -7,7 +7,7 @@ import { Db } from "./db/client";
 import { type DocRow, DocumentsRepo } from "./db/repos/documents";
 import type { DocMeta } from "./doc-meta";
 import { docMetaFromRow, indexedBody, indexIfNeeded, latestOf } from "./doc-read";
-import { type DbFailure, errorMessage, IoFailure, type LockTimeout } from "./effect/errors";
+import { type DbFailure, errorMessage, IoFailure, type LockTimeout } from "./errors";
 import { checkDoc, realDoc, type Session, SessionError, tildify } from "./session-model";
 
 export { realDoc, type Session, SessionError, servablePath, tildify } from "./session-model";

@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { type ApiFailure, apiGet, apiPost } from "../api-client";
 import { apiUrl } from "../api-origin";
 import { CliError, cliFailure, find } from "../cli";
-import { errorMessage } from "../effect/errors";
+import { errorMessage } from "../errors";
 import { realDoc, type Session, type SessionRow, SessionsStore, toWire } from "../sessions";
 
 const DEFAULT_URL = "http://127.0.0.1:38770";

@@ -7,14 +7,6 @@ import { IMAGE_ID } from "../../lib/comment-images";
 import { type RenderedComment, renderComments } from "../../lib/comment-markdown";
 import { type Comment, CommentsStore } from "../../lib/comments-store";
 import {
-  type ApiFailure,
-  bodyRequired,
-  CommentNotFound,
-  InvalidInput,
-  ReplyNotFound,
-  sessionNotFound,
-} from "../../lib/effect/errors";
-import {
   CommentPatchBody,
   CommentPostBody,
   decodeBody,
@@ -22,6 +14,14 @@ import {
   patchReject,
   postReject,
 } from "../../lib/effect/schema";
+import {
+  type ApiFailure,
+  bodyRequired,
+  CommentNotFound,
+  InvalidInput,
+  ReplyNotFound,
+  sessionNotFound,
+} from "../../lib/errors";
 import { getHome } from "../../lib/home";
 import { docKey } from "../../lib/session-model";
 import { type Session, SessionsStore, servablePath } from "../../lib/sessions";

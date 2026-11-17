@@ -2,7 +2,7 @@ import { basename, dirname } from "node:path";
 import { Effect, FileSystem, Stream } from "effect";
 import { Hono } from "hono";
 import { ChangeBus } from "../../lib/change-bus";
-import { type ApiFailure, sessionNotFound } from "../../lib/effect/errors";
+import { type ApiFailure, sessionNotFound } from "../../lib/errors";
 import { getHome } from "../../lib/home";
 import { SessionsStore } from "../../lib/sessions";
 import { docChanges, watchEvents } from "../../lib/sse";

@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { Hono } from "hono";
 import { readImage, saveImage } from "../../lib/comment-image-store";
-import { type ApiFailure, errorMessage, IoFailure } from "../../lib/effect/errors";
+import { type ApiFailure, errorMessage, IoFailure } from "../../lib/errors";
 import { getHome } from "../../lib/home";
 import { respond, respondRaw } from "../respond";
 

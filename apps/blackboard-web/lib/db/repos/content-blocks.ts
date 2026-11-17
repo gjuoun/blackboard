@@ -3,7 +3,7 @@ import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { Context, Effect, Layer } from "effect";
 import { anchor } from "../../anchor";
 import { contentBlockId, reconcileBlocks } from "../../content-reconcile";
-import type { DbFailure } from "../../effect/errors";
+import type { DbFailure } from "../../errors";
 import { Db } from "../client";
 import { comments, contentBlockRevs, contentBlocks, documents } from "../schema";
 

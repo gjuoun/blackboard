@@ -4,7 +4,7 @@ import { ChangeBus } from "./change-bus";
 import { type Comment, type CommentFile, commentId, replyId } from "./comments-file";
 import { type CommentRow, CommentsRepo } from "./db/repos/comments";
 import { ContentBlocksRepo } from "./db/repos/content-blocks";
-import { type ApiFailure, IoFailure } from "./effect/errors";
+import { type ApiFailure, IoFailure } from "./errors";
 
 export type { Comment, CommentFile, Reply } from "./comments-file";
 export { readComments } from "./comments-file";

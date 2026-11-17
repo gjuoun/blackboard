@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
-import type { DbFailure } from "../../effect/errors";
+import type { DbFailure } from "../../errors";
 import { Db } from "../client";
 import { readingState } from "../schema";
 

@@ -5,7 +5,7 @@ import { comments, documents } from "./db/schema";
 import { RepoMemo } from "./doc-index";
 import { indexRow } from "./doc-index-run";
 import type { DocMeta } from "./doc-meta";
-import type { DbFailure, IoFailure } from "./effect/errors";
+import type { DbFailure, IoFailure } from "./errors";
 import type { Session } from "./session-model";
 
 /** The Db service instance, as the layer provides it. */

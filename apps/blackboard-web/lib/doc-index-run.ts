@@ -5,7 +5,7 @@ import { Db } from "./db/client";
 import { applyReconcile } from "./db/repos/content-blocks";
 import { documents } from "./db/schema";
 import { factsOf, RepoMemo } from "./doc-index";
-import { type DbFailure, errorMessage, IoFailure } from "./effect/errors";
+import { type DbFailure, errorMessage, IoFailure } from "./errors";
 
 /** What one index run did. `updated` counts rows rewritten; a run over an unchanged database updates none. */
 export type IndexReport = {

@@ -1,7 +1,7 @@
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { ByteSize, Effect, FileSystem } from "effect";
 import { Hono } from "hono";
-import { type ApiFailure, errorMessage, IoFailure, SessionNotFound } from "../../lib/effect/errors";
+import { type ApiFailure, errorMessage, IoFailure, SessionNotFound } from "../../lib/errors";
 import { getHome } from "../../lib/home";
 import { SessionsStore, servablePath } from "../../lib/sessions";
 import { respondRaw } from "../respond";

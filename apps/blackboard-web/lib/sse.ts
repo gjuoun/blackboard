@@ -1,5 +1,5 @@
 import { type FileSystem, Schedule, Stream } from "effect";
-import { type ApiFailure, errorMessage, IoFailure } from "./effect/errors";
+import { type ApiFailure, errorMessage, IoFailure } from "./errors";
 
 const DEBOUNCE_MS = 100;
 /** An idle watch connection says something this often: the browser ignores a comment line, and a

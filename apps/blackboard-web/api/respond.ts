@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { type ApiFailure, errorMessage } from "../lib/effect/errors";
+import { type ApiFailure, errorMessage } from "../lib/errors";
 import { runtime } from "./runtime";
 
 /** Every way a program can end, settled into a value so nothing escapes as a rejection. */

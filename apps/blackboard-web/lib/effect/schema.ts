@@ -1,5 +1,5 @@
 import { Effect, Schema, type SchemaIssue } from "effect";
-import { type ApiFailure, bodyRequired, InvalidInput, sessionNotFound } from "./errors";
+import { type ApiFailure, bodyRequired, InvalidInput, sessionNotFound } from "../errors";
 
 /**
  * The request bodies the routes accept, decoded at the boundary. A field is typed only where the

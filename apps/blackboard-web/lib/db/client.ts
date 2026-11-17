@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { Context, Effect, Layer } from "effect";
-import { DbFailure, errorMessage } from "../effect/errors";
+import { DbFailure, errorMessage } from "../errors";
 
 /**
  * The one SQLite database for Blackboard: `<home>/blackboard.db`, WAL mode, foreign keys on.

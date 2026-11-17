@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import type { Comment, CommentFile } from "../comments-file";
-import { type DbFailure, errorMessage, IoFailure, type LockTimeout } from "../effect/errors";
+import { type DbFailure, errorMessage, IoFailure, type LockTimeout } from "../errors";
 import {
   commentFiles,
   readAgentsFile,

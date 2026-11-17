@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Context, Effect, Layer } from "effect";
 import { ReadingStateRepo, type ReadingStateRow } from "./db/repos/reading-state";
-import type { DbFailure } from "./effect/errors";
+import type { DbFailure } from "./errors";
 import { clampProgress, isReadingStatus, type ReadingEntry } from "./reading-model";
 
 /**

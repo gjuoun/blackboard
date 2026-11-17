@@ -2,7 +2,7 @@ import { statSync } from "node:fs";
 
 import { Effect } from "effect";
 import { CommentsStore } from "./comments-store";
-import { type ApiFailure, errorMessage, IoFailure, sessionNotFound } from "./effect/errors";
+import { type ApiFailure, errorMessage, IoFailure, sessionNotFound } from "./errors";
 import { renderMarkdown } from "./markdown";
 import {
   countStatuses,

@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 import { Hono } from "hono";
 import { AgentsStore, type BindInput } from "../../lib/agents-store";
-import { type ApiFailure, InvalidInput, sessionNotFound } from "../../lib/effect/errors";
 import { BindPostBody, bindReject, decodeBody, jsonBody } from "../../lib/effect/schema";
+import { type ApiFailure, InvalidInput, sessionNotFound } from "../../lib/errors";
 import { getHome } from "../../lib/home";
 import { type Session, SessionsStore } from "../../lib/sessions";
 import { respond } from "../respond";

@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { Hono } from "hono";
-import { InvalidInput, sessionNotFound } from "../../lib/effect/errors";
 import { decodeBody, jsonBody, ReadingPostBody, readingReject } from "../../lib/effect/schema";
+import { InvalidInput, sessionNotFound } from "../../lib/errors";
 import { getHome } from "../../lib/home";
 import { applyReading, previewDoc } from "../../lib/reading-workspace";
 import { respond } from "../respond";

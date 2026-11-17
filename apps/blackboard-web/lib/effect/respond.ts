@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { type ApiFailure, errorMessage } from "./errors";
+import { type ApiFailure, errorMessage } from "../errors";
 import type { AppServices } from "./layers";
 import { runtime } from "./runtime";
 
