@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { LOCAL, fixture, register } from "../../test/api-fixture";
+import { fixture, LOCAL, register } from "../../test/api-fixture";
 import { app } from "../app";
 
 /**
@@ -15,8 +15,10 @@ const json = (payload: unknown): RequestInit => ({
   body: typeof payload === "string" ? payload : JSON.stringify(payload),
 });
 const bind = (payload: unknown) => app.request("http://127.0.0.1/api/bind", json(payload));
-const get = (session: string) => app.request(`http://127.0.0.1/api/bind?session=${session}`, { headers: LOCAL });
-const remove = (session: string) => app.request(`http://127.0.0.1/api/bind?session=${session}`, { method: "DELETE", headers: LOCAL });
+const get = (session: string) =>
+  app.request(`http://127.0.0.1/api/bind?session=${session}`, { headers: LOCAL });
+const remove = (session: string) =>
+  app.request(`http://127.0.0.1/api/bind?session=${session}`, { method: "DELETE", headers: LOCAL });
 
 async function setup() {
   const { base, home, docs } = await fixture("bb-bind-", { "design.md": "# Design\n\nLater text.\n" });
@@ -46,7 +48,13 @@ describe("POST /api/bind", () => {
 
   test("only a loopback http url is accepted", async () => {
     const { session } = await setup();
-    for (const url of ["http://10.1.2.3:5000", "https://127.0.0.1:5000", "http://example.com:5000", "not a url", ""]) {
+    for (const url of [
+      "http://10.1.2.3:5000",
+      "https://127.0.0.1:5000",
+      "http://example.com:5000",
+      "not a url",
+      "",
+    ]) {
       const res = await bind({ session, piSession: "pi-1", url });
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({ error: "url must be a loopback http url" });
@@ -64,7 +72,11 @@ describe("POST /api/bind", () => {
     expect(binding.url).toBe("http://127.0.0.1:40000");
 
     // The record the route stored, read back through the same API.
-    expect((await (await get(session)).json()).binding).toMatchObject({ session, piSession: "pi-1", url: "http://127.0.0.1:40000" });
+    expect((await (await get(session)).json()).binding).toMatchObject({
+      session,
+      piSession: "pi-1",
+      url: "http://127.0.0.1:40000",
+    });
 
     await bind({ session, piSession: "pi-2", url: "http://localhost:40001" });
     expect((await get(session)).status).toBe(200);

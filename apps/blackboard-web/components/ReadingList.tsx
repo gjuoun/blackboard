@@ -1,8 +1,8 @@
 "use client";
 
-import { useNav } from "./nav";
 import { cn } from "@gjuoun/bb-ui/lib/utils";
 import type { WorkspaceDoc } from "@/lib/reading-model";
+import { useNav } from "./nav";
 
 /** The 9px state dot: solid for unread, invisible once read — two states, the mail model's whole vocabulary. */
 function StateDot({ status }: { status: WorkspaceDoc["status"] }) {
@@ -23,10 +23,21 @@ function StateDot({ status }: { status: WorkspaceDoc["status"] }) {
  * meta column the hover actions replace. Selection is a tinted background only. No progress is
  * shown anywhere; the stored position is only used to resume.
  */
-function Row({ doc, selected, onSelect, onMark }: { doc: WorkspaceDoc; selected: boolean; onSelect: (id: string) => void; onMark: (id: string, action: "read" | "unread") => void }) {
+function Row({
+  doc,
+  selected,
+  onSelect,
+  onMark,
+}: {
+  doc: WorkspaceDoc;
+  selected: boolean;
+  onSelect: (id: string) => void;
+  onMark: (id: string, action: "read" | "unread") => void;
+}) {
   const { Link } = useNav();
   const unread = doc.status === "unread";
-  const act = "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary rounded-[7px] border text-[11.5px] whitespace-nowrap";
+  const act =
+    "border-border bg-card text-muted-foreground hover:border-primary hover:text-primary rounded-[7px] border text-[11.5px] whitespace-nowrap";
   return (
     <article
       data-testid="rw-row"
@@ -44,9 +55,14 @@ function Row({ doc, selected, onSelect, onMark }: { doc: WorkspaceDoc; selected:
       <StateDot status={doc.status} />
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
-          <span className={cn("truncate text-[14.5px] leading-[1.35]", unread ? "font-bold" : "font-medium")}>{doc.title}</span>
+          <span className={cn("truncate text-[14.5px] leading-[1.35]", unread ? "font-bold" : "font-medium")}>
+            {doc.title}
+          </span>
           {doc.open > 0 ? (
-            <span data-testid="rw-open-count" className="bg-primary-soft text-primary shrink-0 rounded-full px-1.5 font-mono text-[10.5px] leading-[17px]">
+            <span
+              data-testid="rw-open-count"
+              className="bg-primary-soft text-primary shrink-0 rounded-full px-1.5 font-mono text-[10.5px] leading-[17px]"
+            >
               {doc.open}
             </span>
           ) : null}
@@ -76,7 +92,12 @@ function Row({ doc, selected, onSelect, onMark }: { doc: WorkspaceDoc; selected:
         >
           {unread ? "Mark read" : "Mark unread"}
         </button>
-        <Link href={`/s/${doc.id}`} onClick={(e) => e.stopPropagation()} title="Open the document" className={cn(act, "grid size-6 place-items-center")}>
+        <Link
+          href={`/s/${doc.id}`}
+          onClick={(e) => e.stopPropagation()}
+          title="Open the document"
+          className={cn(act, "grid size-6 place-items-center")}
+        >
           ↗
         </Link>
       </div>
@@ -85,13 +106,25 @@ function Row({ doc, selected, onSelect, onMark }: { doc: WorkspaceDoc; selected:
 }
 
 /** The middle column: the flat, newest-first list of documents in the current view. */
-export function ReadingList({ docs, selected, onSelect, onMark }: { docs: WorkspaceDoc[]; selected: string | null; onSelect: (id: string) => void; onMark: (id: string, action: "read" | "unread") => void }) {
+export function ReadingList({
+  docs,
+  selected,
+  onSelect,
+  onMark,
+}: {
+  docs: WorkspaceDoc[];
+  selected: string | null;
+  onSelect: (id: string) => void;
+  onMark: (id: string, action: "read" | "unread") => void;
+}) {
   return (
     <div className="px-[18px] pt-1.5 pb-16" data-testid="rw-list">
       {docs.map((doc) => (
         <Row key={doc.id} doc={doc} selected={doc.id === selected} onSelect={onSelect} onMark={onMark} />
       ))}
-      {docs.length === 0 ? <p className="text-muted-foreground px-2.5 pt-6 text-[13px]">No documents in this view.</p> : null}
+      {docs.length === 0 ? (
+        <p className="text-muted-foreground px-2.5 pt-6 text-[13px]">No documents in this view.</p>
+      ) : null}
     </div>
   );
 }

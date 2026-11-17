@@ -24,7 +24,16 @@ const noop = () => {};
 function render() {
   return renderToStaticMarkup(
     <TestNav pathname="/inbox">
-      <ReadingPreview doc={DOC} preview={null} loading={false} error={null} resume={false} onClose={noop} onMark={noop} onReply={async () => true} />
+      <ReadingPreview
+        doc={DOC}
+        preview={null}
+        loading={false}
+        error={null}
+        resume={false}
+        onClose={noop}
+        onMark={noop}
+        onReply={async () => true}
+      />
     </TestNav>,
   );
 }

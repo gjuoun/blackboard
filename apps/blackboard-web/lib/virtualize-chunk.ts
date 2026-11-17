@@ -6,9 +6,15 @@
  * `lib/virtualize.ts`.
  */
 import { buildTextMap, type TextMap } from "./text-map";
-import { planChunks, type ChunkInput, type VAnchor, type VPlan } from "./virtualize";
+import { type ChunkInput, planChunks, type VAnchor, type VPlan } from "./virtualize";
 
-export type Chunked = { plan: VPlan; map: TextMap; blocks: HTMLElement[]; top: HTMLElement; bottom: HTMLElement };
+export type Chunked = {
+  plan: VPlan;
+  map: TextMap;
+  blocks: HTMLElement[];
+  top: HTMLElement;
+  bottom: HTMLElement;
+};
 
 const spacer = (name: string): HTMLElement => {
   const el = document.createElement("div");
@@ -25,7 +31,8 @@ const spacer = (name: string): HTMLElement => {
  * plain path rather than losing text nodes from the flow.
  */
 export function chunkDocBody(body: HTMLElement): Chunked | null {
-  for (const n of body.childNodes) if (n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").trim()) return null;
+  for (const n of body.childNodes)
+    if (n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").trim()) return null;
   const map = buildTextMap(body);
   const kids = [...body.children] as HTMLElement[];
   const inputs: ChunkInput[] = [];
@@ -40,7 +47,12 @@ export function chunkDocBody(body: HTMLElement): Chunked | null {
       const within = h.getBoundingClientRect().top - top;
       if (within >= 0) anchors.push({ id: h.id, within });
     }
-    inputs.push({ kind: el.tagName.toLowerCase(), marginTop: parseFloat(cs.marginTop) || 0, marginBottom: parseFloat(cs.marginBottom) || 0, anchors });
+    inputs.push({
+      kind: el.tagName.toLowerCase(),
+      marginTop: parseFloat(cs.marginTop) || 0,
+      marginBottom: parseFloat(cs.marginBottom) || 0,
+      anchors,
+    });
   }
   const plan = planChunks(inputs);
   const top = spacer("top");
@@ -56,7 +68,12 @@ export function chunkDocBody(body: HTMLElement): Chunked | null {
 }
 
 /** Undo the chunking exactly: put every block back in document order, drop the spacers. */
-export function unchunkDocBody(body: HTMLElement, blocks: readonly HTMLElement[], top: HTMLElement, bottom: HTMLElement): void {
+export function unchunkDocBody(
+  body: HTMLElement,
+  blocks: readonly HTMLElement[],
+  top: HTMLElement,
+  bottom: HTMLElement,
+): void {
   for (const el of blocks) body.appendChild(el);
   body.style.overflowAnchor = "";
   for (const el of blocks) el.style.overflowAnchor = "";
@@ -64,4 +81,3 @@ export function unchunkDocBody(body: HTMLElement, blocks: readonly HTMLElement[]
   bottom.remove();
   body.removeAttribute("data-virt");
 }
-

@@ -1,7 +1,7 @@
 "use client";
 
-import { useNav } from "./nav";
 import { useEffect } from "react";
+import { useNav } from "./nav";
 
 /**
  * Refresh the page when the session's doc changes on disk (re-render the server page: doc, TOC,

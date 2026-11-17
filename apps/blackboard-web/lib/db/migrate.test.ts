@@ -3,8 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
+import { type Lock, layer as lockLayer } from "../lock";
 import { Db, layer as dbLayer } from "./client";
-import { layer as lockLayer, Lock } from "../lock";
 import { migrate, stats } from "./migrate";
 
 const fresh = () => realpathSync(mkdtempSync(join(tmpdir(), "bb-mig-")));
@@ -20,8 +20,18 @@ const seed = (home: string) => {
     JSON.stringify({
       version: 1,
       sessions: [
-        { id: "abc123", path: "/docs/a.md", createdAt: "2026-11-01T00:00:00Z", openedAt: "2026-11-02T00:00:00Z" },
-        { id: "def456", path: "/docs/b.md", createdAt: "2026-11-01T00:00:00Z", openedAt: "2026-11-01T00:00:00Z" },
+        {
+          id: "abc123",
+          path: "/docs/a.md",
+          createdAt: "2026-11-01T00:00:00Z",
+          openedAt: "2026-11-02T00:00:00Z",
+        },
+        {
+          id: "def456",
+          path: "/docs/b.md",
+          createdAt: "2026-11-01T00:00:00Z",
+          openedAt: "2026-11-01T00:00:00Z",
+        },
       ],
     }),
   );
@@ -32,8 +42,26 @@ const seed = (home: string) => {
       version: 1,
       docs: {
         "a.md": [
-          { id: "c_1", quote: { exact: "e", prefix: "p", suffix: "s" }, body: "q?", author: "jun", createdAt: "2026-11-02T00:00:00Z", status: "open", replies: [{ id: "r_1", body: "a!", author: "agent", createdAt: "2026-11-02T01:00:00Z" }] },
-          { id: "c_2", general: true, body: "g", author: "jun", createdAt: "2026-11-02T02:00:00Z", status: "resolved", resolvedAt: "2026-11-02T03:00:00Z", resolvedBy: "jun", replies: [] },
+          {
+            id: "c_1",
+            quote: { exact: "e", prefix: "p", suffix: "s" },
+            body: "q?",
+            author: "jun",
+            createdAt: "2026-11-02T00:00:00Z",
+            status: "open",
+            replies: [{ id: "r_1", body: "a!", author: "agent", createdAt: "2026-11-02T01:00:00Z" }],
+          },
+          {
+            id: "c_2",
+            general: true,
+            body: "g",
+            author: "jun",
+            createdAt: "2026-11-02T02:00:00Z",
+            status: "resolved",
+            resolvedAt: "2026-11-02T03:00:00Z",
+            resolvedBy: "jun",
+            replies: [],
+          },
         ],
       },
     }),
@@ -44,18 +72,42 @@ const seed = (home: string) => {
     join(home, "sessions", "dead999", "comments.json"),
     JSON.stringify({
       version: 1,
-      docs: { "gone.md": [{ id: "c_3", general: true, body: "left", author: "jun", createdAt: "2026-11-01T00:00:00Z", status: "open", replies: [] }] },
+      docs: {
+        "gone.md": [
+          {
+            id: "c_3",
+            general: true,
+            body: "left",
+            author: "jun",
+            createdAt: "2026-11-01T00:00:00Z",
+            status: "open",
+            replies: [],
+          },
+        ],
+      },
     }),
   );
   writeFileSync(
     join(home, "reading-state.json"),
-    JSON.stringify({ version: 1, docs: { abc123: { status: "reading", progress: 0.4, readAt: "2026-11-02T00:00:00Z", sourceMtime: 5 } } }),
+    JSON.stringify({
+      version: 1,
+      docs: { abc123: { status: "reading", progress: 0.4, readAt: "2026-11-02T00:00:00Z", sourceMtime: 5 } },
+    }),
   );
   writeFileSync(
     join(home, "agents.json"),
     JSON.stringify({
       version: 1,
-      agents: [{ session: "def456", path: "/docs/b.md", piSession: "pi-1", url: "http://127.0.0.1:9", boundAt: "2026-11-01T00:00:00Z", lastSeenAt: "2026-11-01T00:00:00Z" }],
+      agents: [
+        {
+          session: "def456",
+          path: "/docs/b.md",
+          piSession: "pi-1",
+          url: "http://127.0.0.1:9",
+          boundAt: "2026-11-01T00:00:00Z",
+          lastSeenAt: "2026-11-01T00:00:00Z",
+        },
+      ],
     }),
   );
 };
@@ -109,7 +161,9 @@ describe("migrate", () => {
     const home = fresh();
     mkdirSync(home, { recursive: true });
     writeFileSync(join(home, "sessions.json"), "{not json");
-    const exit = await Effect.runPromiseExit(migrate(home).pipe(Effect.provide(dbLayer), Effect.provide(lockLayer)));
+    const exit = await Effect.runPromiseExit(
+      migrate(home).pipe(Effect.provide(dbLayer), Effect.provide(lockLayer)),
+    );
     expect(exit._tag).toBe("Failure");
     expect(existsSync(join(home, "sessions.json.migrated"))).toBe(false);
     expect(existsSync(join(home, "sessions.json"))).toBe(true);

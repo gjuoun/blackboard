@@ -1,8 +1,8 @@
-import { Context, Effect, Layer } from "effect";
 import { eq } from "drizzle-orm";
+import { Context, Effect, Layer } from "effect";
+import type { DbFailure } from "../../effect/errors";
 import { Db } from "../client";
 import { agents } from "../schema";
-import type { DbFailure } from "../../effect/errors";
 
 /** A doc-to-pi-session binding (the old agents.json record). */
 export type AgentRow = typeof agents.$inferSelect;
@@ -27,7 +27,8 @@ export const layer = Layer.effect(
   Effect.gen(function* () {
     const db = yield* Db;
     return AgentsRepo.of({
-      get: (home, session) => db.use(home, (d) => d.select().from(agents).where(eq(agents.session, session)).get() ?? null),
+      get: (home, session) =>
+        db.use(home, (d) => d.select().from(agents).where(eq(agents.session, session)).get() ?? null),
       bind: (home, input) =>
         db.use(home, (d) => {
           const row: AgentRow = { ...input, boundAt: now(), lastSeenAt: now() };
@@ -40,7 +41,11 @@ export const layer = Layer.effect(
           if (found) d.delete(agents).where(eq(agents.session, session)).run();
           return found;
         }),
-      touch: (home, session) => db.use(home, (d) => void d.update(agents).set({ lastSeenAt: now() }).where(eq(agents.session, session)).run()),
+      touch: (home, session) =>
+        db.use(
+          home,
+          (d) => void d.update(agents).set({ lastSeenAt: now() }).where(eq(agents.session, session)).run(),
+        ),
       list: (home) => db.use(home, (d) => d.select().from(agents).all()),
     });
   }),

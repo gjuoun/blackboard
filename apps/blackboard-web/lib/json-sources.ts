@@ -1,9 +1,9 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { AgentsFile } from "./agents-store";
-import { readComments, type CommentFile } from "./comments-store";
-import { readReadingState, type ReadingFile } from "./reading-state";
-import { SessionError, sessionCommentsPath, type Registry } from "./sessions";
+import { type CommentFile, readComments } from "./comments-store";
+import { type ReadingFile, readReadingState } from "./reading-state";
+import { type Registry, SessionError, sessionCommentsPath } from "./sessions";
 
 /**
  * The four JSON-era stores as plain file reads. Nothing in the app reads these any more — the
@@ -18,7 +18,8 @@ export function readRegistryFile(home: string): Registry {
   const p = join(home, "sessions.json");
   if (!existsSync(p)) return { version: 1, sessions: [] };
   const data = JSON.parse(readFileSync(p, "utf8"));
-  if (data?.version !== 1 || !Array.isArray(data.sessions)) throw new SessionError(`unsupported session registry: ${p}`);
+  if (data?.version !== 1 || !Array.isArray(data.sessions))
+    throw new SessionError(`unsupported session registry: ${p}`);
   return data as Registry;
 }
 

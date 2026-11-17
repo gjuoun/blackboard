@@ -20,7 +20,9 @@ export function PassageComposer({
   if (!composing) return null;
   return (
     <div className="border-primary mb-3 rounded-xl border p-2.5">
-      <blockquote className="bg-background text-muted-foreground m-0 mb-2 line-clamp-3 rounded-lg px-2.5 py-1 text-[12.5px]">{composing.exact.replace(/\s+/g, " ").trim()}</blockquote>
+      <blockquote className="bg-background text-muted-foreground m-0 mb-2 line-clamp-3 rounded-lg px-2.5 py-1 text-[12.5px]">
+        {composing.exact.replace(/\s+/g, " ").trim()}
+      </blockquote>
       <textarea
         className="border-input bg-background focus-visible:ring-ring/40 w-full resize-y rounded-lg border p-2 text-[13.5px] outline-none focus-visible:ring-[3px]"
         data-testid="comment-input"

@@ -1,12 +1,12 @@
 "use client";
 
-import { Check, Palette } from "lucide-react";
-import { useEffect, useState } from "react";
 import { Button } from "@gjuoun/bb-ui/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@gjuoun/bb-ui/components/ui/popover";
-import { CJK_FONTS, LATIN_FONTS, MONO_FONTS, type FontEntry } from "@/lib/fonts";
-import { MODES, THEMES } from "@gjuoun/bb-ui/themes";
 import { cn } from "@gjuoun/bb-ui/lib/utils";
+import { MODES, THEMES } from "@gjuoun/bb-ui/themes";
+import { Check, Palette } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CJK_FONTS, type FontEntry, LATIN_FONTS, MONO_FONTS } from "@/lib/fonts";
 import { resetReading, setChrome, useChrome } from "./chrome";
 
 /**
@@ -26,7 +26,11 @@ export function ReadingSettings() {
     let alive = true;
     (async () => {
       const out: Record<string, boolean> = {};
-      for (const [slot, list] of [["latin", LATIN_FONTS], ["cjk", CJK_FONTS], ["mono", MONO_FONTS]] as const) {
+      for (const [slot, list] of [
+        ["latin", LATIN_FONTS],
+        ["cjk", CJK_FONTS],
+        ["mono", MONO_FONTS],
+      ] as const) {
         for (const f of list) {
           if (!f.postscript?.length) continue;
           out[slot + ":" + f.id] = false;
@@ -52,13 +56,22 @@ export function ReadingSettings() {
     const known = installed[slot + ":" + f.id];
     if (known === undefined) return null;
     return (
-      <span className={cn("ml-1 text-[11px]", known ? "text-success" : "text-muted-foreground")} title={known ? "installed" : "not installed — falls back"}>
+      <span
+        className={cn("ml-1 text-[11px]", known ? "text-success" : "text-muted-foreground")}
+        title={known ? "installed" : "not installed — falls back"}
+      >
         {known ? "✓" : "—"}
       </span>
     );
   };
 
-  const picker = (slot: "latin" | "cjk" | "mono", label: string, list: { id: string; label: string }[], value: string, onChange: (v: string) => void) => (
+  const picker = (
+    slot: "latin" | "cjk" | "mono",
+    label: string,
+    list: { id: string; label: string }[],
+    value: string,
+    onChange: (v: string) => void,
+  ) => (
     <label className="grid grid-cols-[44px_minmax(0,1fr)] items-center gap-2 text-[13px]">
       <span className="text-muted-foreground">{label}</span>
       <select
@@ -80,7 +93,14 @@ export function ReadingSettings() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label="Reading settings" title="Reading settings" data-testid="open-reading-settings" className="shrink-0">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Reading settings"
+          title="Reading settings"
+          data-testid="open-reading-settings"
+          className="shrink-0"
+        >
           <Palette />
         </Button>
       </PopoverTrigger>
@@ -106,7 +126,11 @@ export function ReadingSettings() {
                   )}
                 >
                   {/* The swatch carries its own data-theme + data-mode, so it reads that palette's tokens. */}
-                  <span data-theme={t.id} data-mode={chrome.mode} className="bg-background border-border mb-1 flex h-7 items-center gap-1 rounded-md border px-1.5">
+                  <span
+                    data-theme={t.id}
+                    data-mode={chrome.mode}
+                    className="bg-background border-border mb-1 flex h-7 items-center gap-1 rounded-md border px-1.5"
+                  >
                     <span className="bg-foreground size-1.5 rounded-full" />
                     <span className="bg-primary size-1.5 rounded-full" />
                     <span className="bg-muted-foreground size-1.5 rounded-full opacity-60" />
@@ -146,26 +170,57 @@ export function ReadingSettings() {
 
         <section aria-label="Reading fonts" className="mt-3 flex flex-col gap-1.5">
           <h3 className="text-muted-foreground text-xs font-semibold">Reading fonts</h3>
-          {picker("latin", "Latin", LATIN_FONTS.map((f) => ({ id: f.id, label: f.label })), chrome.fontLatin, (v) => setChrome({ fontLatin: v as never }))}
-          {picker("cjk", "中文", CJK_FONTS.map((f) => ({ id: f.id, label: f.label })), chrome.fontCjk, (v) => setChrome({ fontCjk: v as never }))}
-          {picker("mono", "等宽", MONO_FONTS.map((f) => ({ id: f.id, label: f.label + (f.aligned ? "" : " (Latin only)") })), chrome.fontMono, (v) => setChrome({ fontMono: v as never }))}
+          {picker(
+            "latin",
+            "Latin",
+            LATIN_FONTS.map((f) => ({ id: f.id, label: f.label })),
+            chrome.fontLatin,
+            (v) => setChrome({ fontLatin: v as never }),
+          )}
+          {picker(
+            "cjk",
+            "中文",
+            CJK_FONTS.map((f) => ({ id: f.id, label: f.label })),
+            chrome.fontCjk,
+            (v) => setChrome({ fontCjk: v as never }),
+          )}
+          {picker(
+            "mono",
+            "等宽",
+            MONO_FONTS.map((f) => ({ id: f.id, label: f.label + (f.aligned ? "" : " (Latin only)") })),
+            chrome.fontMono,
+            (v) => setChrome({ fontMono: v as never }),
+          )}
           <p className="text-muted-foreground mt-0.5 flex flex-wrap gap-x-2 gap-0.5 text-[11px]">
             {LATIN_FONTS.filter((f) => f.postscript?.length).map((f) => (
-              <span key={"l" + f.id}>{f.label}{hint("latin", f)}</span>
+              <span key={"l" + f.id}>
+                {f.label}
+                {hint("latin", f)}
+              </span>
             ))}
             {CJK_FONTS.filter((f) => f.postscript?.length).map((f) => (
-              <span key={"c" + f.id}>{f.label}{hint("cjk", f)}</span>
+              <span key={"c" + f.id}>
+                {f.label}
+                {hint("cjk", f)}
+              </span>
             ))}
             {MONO_FONTS.filter((f) => f.postscript?.length).map((f) => (
-              <span key={"m" + f.id}>{f.label}{hint("mono", f)}</span>
+              <span key={"m" + f.id}>
+                {f.label}
+                {hint("mono", f)}
+              </span>
             ))}
           </p>
         </section>
 
         <section className="border-border mt-3 border-t pt-2.5">
           <h3 className="text-muted-foreground mb-1 text-xs font-semibold">Specimen</h3>
-          <div data-testid="font-specimen" className="reading-specimen bg-background border-border rounded-lg border px-2.5 py-2 text-[13.5px] leading-relaxed">
-            The quick brown fox jumps over 0123456789 · 中文阅读体验，标点“引号”与《书名》 · <code>const 常量 = 1;</code>
+          <div
+            data-testid="font-specimen"
+            className="reading-specimen bg-background border-border rounded-lg border px-2.5 py-2 text-[13.5px] leading-relaxed"
+          >
+            The quick brown fox jumps over 0123456789 · 中文阅读体验，标点“引号”与《书名》 ·{" "}
+            <code>const 常量 = 1;</code>
           </div>
         </section>
 

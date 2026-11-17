@@ -1,14 +1,13 @@
 "use client";
 
-import { useNav } from "./nav";
-import { ChevronDown, Search, Settings } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@gjuoun/bb-ui/components/ui/popover";
+import { ChevronDown, Search, Settings } from "lucide-react";
+import { useNav } from "./nav";
 import { useWorkspaceBar } from "./workspace-bar";
 
 const FILTERS = [
   { key: "all", label: "All documents" },
   { key: "unread", label: "Unread" },
-
 ] as const;
 
 /**
@@ -25,7 +24,10 @@ export function WorkspaceBarControls() {
 
   const input = (
     <label className="relative min-w-0">
-      <Search aria-hidden className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+      <Search
+        aria-hidden
+        className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2"
+      />
       <input
         value={bar.query}
         onChange={(e) => bar.onQuery(e.target.value)}
@@ -76,11 +78,17 @@ export function WorkspaceBarControls() {
             </option>
           ))}
         </select>
-        <ChevronDown aria-hidden className="text-muted-foreground pointer-events-none absolute top-1/2 right-2.5 size-3 -translate-y-1/2" />
+        <ChevronDown
+          aria-hidden
+          className="text-muted-foreground pointer-events-none absolute top-1/2 right-2.5 size-3 -translate-y-1/2"
+        />
       </label>
 
       {/* Counts drop below lg, after the breadcrumb. */}
-      <span data-testid="rw-count-line" className="text-muted-foreground hidden shrink-0 font-mono text-[11.5px] whitespace-nowrap lg:block">
+      <span
+        data-testid="rw-count-line"
+        className="text-muted-foreground hidden shrink-0 font-mono text-[11.5px] whitespace-nowrap lg:block"
+      >
         {bar.counts.unread} unread
       </span>
 
@@ -106,8 +114,13 @@ export function WorkspaceBarControls() {
       </Popover>
 
       {/* The label drops below xl; the count stays. */}
-      <span data-testid="rw-pending" className="border-border bg-card text-muted-foreground inline-flex h-[30px] shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px]">
-        <span className="bg-primary-soft text-primary rounded-full px-1.5 font-mono text-[10.5px] leading-[17px]">{bar.pending}</span>
+      <span
+        data-testid="rw-pending"
+        className="border-border bg-card text-muted-foreground inline-flex h-[30px] shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px]"
+      >
+        <span className="bg-primary-soft text-primary rounded-full px-1.5 font-mono text-[10.5px] leading-[17px]">
+          {bar.pending}
+        </span>
         <span className="hidden whitespace-nowrap xl:inline">awaiting replies</span>
       </span>
 

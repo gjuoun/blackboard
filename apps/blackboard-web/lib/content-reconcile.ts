@@ -1,4 +1,4 @@
-import { parseContentBlocks, blockHash, type BlockSpec } from "./content-blocks";
+import { type BlockSpec, blockHash, parseContentBlocks } from "./content-blocks";
 
 /**
  * Align a doc's new markdown body with the blocks the last version carried. Order-preserving
@@ -7,7 +7,14 @@ import { parseContentBlocks, blockHash, type BlockSpec } from "./content-blocks"
  * caller applies the plan to the store.
  */
 
-export type OldBlock = { id: string; kind: string; text: string; hash: string; rev: number; deletedAt: string | null };
+export type OldBlock = {
+  id: string;
+  kind: string;
+  text: string;
+  hash: string;
+  rev: number;
+  deletedAt: string | null;
+};
 
 export type ReconcilePlan = {
   /** Fresh blocks still alive, in document order: kept (rev as before) and modified (rev+1). */
@@ -18,7 +25,12 @@ export type ReconcilePlan = {
   removed: string[];
 };
 
-const tokens = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
+const tokens = (s: string) =>
+  s
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .match(/[\p{L}\p{N}]+/gu) ?? [];
 
 /** Multiset Dice over word tokens: 1 identical, 0 unrelated. */
 export function similarity(a: string, b: string): number {
@@ -70,7 +82,10 @@ function lcsMatches(oldH: string[], newH: string[]): [number, number][] {
 export function reconcileBlocks(oldBlocks: OldBlock[], newSrc: string): ReconcilePlan {
   const fresh = parseContentBlocks(newSrc);
   const plan: ReconcilePlan = { live: [], added: [], removed: [] };
-  const anchors = lcsMatches(oldBlocks.map((b) => b.hash), fresh.map((s) => s.hash));
+  const anchors = lcsMatches(
+    oldBlocks.map((b) => b.hash),
+    fresh.map((s) => s.hash),
+  );
 
   const take = (oStart: number, oEnd: number, nStart: number, nEnd: number) => {
     const olds = oldBlocks.slice(oStart, oEnd);
@@ -92,7 +107,8 @@ export function reconcileBlocks(oldBlocks: OldBlock[], newSrc: string): Reconcil
       plan.live.push({ id: olds[p.o].id, spec: news[p.n], n: nStart + p.n, modified: true });
     }
     for (let a = 0; a < olds.length; a++) if (!usedOld.has(a)) plan.removed.push(olds[a].id);
-    for (let b = 0; b < news.length; b++) if (!usedNew.has(b)) plan.added.push({ spec: news[b], n: nStart + b });
+    for (let b = 0; b < news.length; b++)
+      if (!usedNew.has(b)) plan.added.push({ spec: news[b], n: nStart + b });
   };
 
   let oi = 0;

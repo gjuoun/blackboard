@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { isWorkspaceView, VIEW_FILTERS, WorkspaceTabBar, WORKSPACE_VIEWS } from "./WorkspaceTabBar";
+import { isWorkspaceView, VIEW_FILTERS, WORKSPACE_VIEWS, WorkspaceTabBar } from "./WorkspaceTabBar";
 
 describe("WorkspaceTabBar", () => {
   test("renders the three tabs in order: inbox filters, then Settings", () => {
@@ -18,8 +18,12 @@ describe("WorkspaceTabBar", () => {
   });
 
   test("the active view carries aria-current", () => {
-    expect(renderToStaticMarkup(<WorkspaceTabBar view="unread" onView={() => {}} />)).toContain('data-tab="unread" aria-current="true"');
-    expect(renderToStaticMarkup(<WorkspaceTabBar view="all" onView={() => {}} />)).toContain('data-tab="unread" aria-current="false"');
+    expect(renderToStaticMarkup(<WorkspaceTabBar view="unread" onView={() => {}} />)).toContain(
+      'data-tab="unread" aria-current="true"',
+    );
+    expect(renderToStaticMarkup(<WorkspaceTabBar view="all" onView={() => {}} />)).toContain(
+      'data-tab="unread" aria-current="false"',
+    );
   });
 
   test("the first two views are the reading filters; settings is a screen", () => {

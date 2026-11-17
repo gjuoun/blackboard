@@ -6,13 +6,18 @@ import {
   filterDocs,
   markRead,
   markUnread,
-  unreadEntry,
   type ReadingEntry,
+  unreadEntry,
   type WorkspaceDoc,
 } from "./reading-model";
 
 const at = "2026-11-08T10:00:00.000Z";
-const entry = (status: ReadingEntry["status"], progress: number, sourceMtime = 100): ReadingEntry => ({ status, progress, readAt: at, sourceMtime });
+const entry = (status: ReadingEntry["status"], progress: number, sourceMtime = 100): ReadingEntry => ({
+  status,
+  progress,
+  readAt: at,
+  sourceMtime,
+});
 
 const doc = (id: string, status: ReadingEntry["status"], over: Partial<WorkspaceDoc> = {}): WorkspaceDoc => ({
   id,
@@ -60,13 +65,22 @@ describe("effective entry", () => {
   });
 
   test("an edited document goes back to unread with no progress", () => {
-    expect(effectiveEntry(entry("read", 0.4, 41), 42, at)).toMatchObject({ status: "unread", progress: 0, sourceMtime: 42 });
+    expect(effectiveEntry(entry("read", 0.4, 41), 42, at)).toMatchObject({
+      status: "unread",
+      progress: 0,
+      sourceMtime: 42,
+    });
     expect(effectiveEntry(entry("read", 1, 41), 42, at).status).toBe("unread");
   });
 });
 
 describe("counts and filters", () => {
-  const docs = [doc("a", "unread"), doc("b", "read", { progress: 0.4 }), doc("c", "read"), doc("d", "unread", { repo: null, branch: null, location: "/notes/d.md" })];
+  const docs = [
+    doc("a", "unread"),
+    doc("b", "read", { progress: 0.4 }),
+    doc("c", "read"),
+    doc("d", "unread", { repo: null, branch: null, location: "/notes/d.md" }),
+  ];
 
   test("counts two states and the total", () => {
     expect(countStatuses(docs)).toEqual({ total: 4, unread: 2, read: 2 });

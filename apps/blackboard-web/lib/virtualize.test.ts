@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   anchorAdjust,
   bottomSpacerHeight,
+  type ChunkInput,
   computeRange,
   estimateFor,
   heightAt,
@@ -13,10 +14,14 @@ import {
   shouldVirtualize,
   topSpacerHeight,
   wantedIndices,
-  type ChunkInput,
 } from "./virtualize";
 
-const block = (kind: string, marginTop: number, marginBottom: number, anchors: ChunkInput["anchors"] = []): ChunkInput => ({ kind, marginTop, marginBottom, anchors });
+const block = (
+  kind: string,
+  marginTop: number,
+  marginBottom: number,
+  anchors: ChunkInput["anchors"] = [],
+): ChunkInput => ({ kind, marginTop, marginBottom, anchors });
 
 describe("planChunks", () => {
   test("one block per element, gapAfter is the collapsed margin to the next, last gap 0", () => {
@@ -77,9 +82,11 @@ describe("height cache and offsets", () => {
     expect(estimateFor("aside")).toBe(estimateFor("p"));
   });
 
-
   test("a server-computed estimate beats the kind estimate until the block is measured", () => {
-    const plan = planChunks([block("p", 10, 10), { kind: "section", marginTop: 10, marginBottom: 10, anchors: [], estimated: 200 }]);
+    const plan = planChunks([
+      block("p", 10, 10),
+      { kind: "section", marginTop: 10, marginBottom: 10, anchors: [], estimated: 200 },
+    ]);
     const heights: (number | null)[] = [null, null];
     expect(heightAt(heights, plan.blocks, 1)).toBe(200);
     heights[1] = 150;
@@ -94,14 +101,24 @@ describe("height cache and offsets", () => {
     expect(est[0]).toBe(0);
     // gapAfter(0) = max(mb 10, mt 20) = 20
     expect(est[1]).toBe(heightAt([null, null, null], plan.blocks, 0) + 20);
-    expect(est[3]).toBe(est[1] + heightAt([null, null, null], plan.blocks, 1) + 10 + heightAt([null, null, null], plan.blocks, 2));
+    expect(est[3]).toBe(
+      est[1] +
+        heightAt([null, null, null], plan.blocks, 1) +
+        10 +
+        heightAt([null, null, null], plan.blocks, 2),
+    );
     const measured = rebuildOffsets([100, null, null], plan.blocks);
     expect(measured[1]).toBe(100 + 20);
     expect(measured[3] - measured[1]).toBe(est[3] - est[1]);
   });
 
   test("the spacers hold the window's true place; hidden when flow is already contiguous", () => {
-    const plan = planChunks([block("h1", 0, 17.76), block("p", 9.6, 9.6), block("p", 9.6, 9.6), block("p", 9.6, 9.6)]);
+    const plan = planChunks([
+      block("h1", 0, 17.76),
+      block("p", 9.6, 9.6),
+      block("p", 9.6, 9.6),
+      block("p", 9.6, 9.6),
+    ]);
     const heights: (number | null)[] = [38, null, null, null];
     const offsets = rebuildOffsets(heights, plan.blocks);
     // window at the top: nothing to bridge
@@ -112,7 +129,10 @@ describe("height cache and offsets", () => {
     expect(s).toBeCloseTo(offsets[2] - 9.6 - (38 + 17.76), 5);
     // window ending at the last block: the bottom spacer steps aside for the escaping margin
     expect(bottomSpacerHeight(offsets, plan.blocks, heights, 3)).toBeNull();
-    expect(bottomSpacerHeight(offsets, plan.blocks, heights, 2)).toBeCloseTo(offsets[4] - (offsets[2] + heightAt(heights, plan.blocks, 2) + 9.6), 5);
+    expect(bottomSpacerHeight(offsets, plan.blocks, heights, 2)).toBeCloseTo(
+      offsets[4] - (offsets[2] + heightAt(heights, plan.blocks, 2) + 9.6),
+      5,
+    );
   });
 });
 
@@ -157,7 +177,13 @@ describe("anchorAdjust", () => {
 
   test("a batch sums its above-viewport deltas only", () => {
     // Blocks 0 and 1 sit above viewTop 1000; block 2 starts exactly at it and never counts.
-    expect(anchorAdjust(offsets, 1000, [{ i: 0, from: 500, to: 400 }, { i: 1, from: 500, to: 650 }, { i: 2, from: 500, to: 999 }])).toBe(50);
+    expect(
+      anchorAdjust(offsets, 1000, [
+        { i: 0, from: 500, to: 400 },
+        { i: 1, from: 500, to: 650 },
+        { i: 2, from: 500, to: 999 },
+      ]),
+    ).toBe(50);
   });
 });
 

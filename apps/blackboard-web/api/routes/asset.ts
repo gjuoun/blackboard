@@ -1,9 +1,9 @@
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { ByteSize, Effect, FileSystem } from "effect";
 import { Hono } from "hono";
-import { errorMessage, IoFailure, SessionNotFound, type ApiFailure } from "../../lib/effect/errors";
+import { type ApiFailure, errorMessage, IoFailure, SessionNotFound } from "../../lib/effect/errors";
 import { getHome } from "../../lib/home";
-import { servablePath, SessionsStore } from "../../lib/sessions";
+import { SessionsStore, servablePath } from "../../lib/sessions";
 import { respondRaw } from "../respond";
 
 /**
@@ -23,7 +23,8 @@ const TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
 };
 
-const missing = (message: string): Effect.Effect<never, ApiFailure> => Effect.fail(new IoFailure({ message, status: 404 }));
+const missing = (message: string): Effect.Effect<never, ApiFailure> =>
+  Effect.fail(new IoFailure({ message, status: 404 }));
 
 const sizeOf = (fs: FileSystem.FileSystem, path: string): Effect.Effect<number, ApiFailure> =>
   fs.stat(path).pipe(
@@ -60,9 +61,9 @@ asset.get("/:id", (c) =>
       const size = yield* sizeOf(fs, target);
       if (size === 0) return yield* missing("empty file");
 
-      const body = yield* fs.readFile(target).pipe(
-        Effect.mapError((error) => new IoFailure({ message: errorMessage(error), status: 500 })),
-      );
+      const body = yield* fs
+        .readFile(target)
+        .pipe(Effect.mapError((error) => new IoFailure({ message: errorMessage(error), status: 500 })));
       // SVG can carry scripts; a CSP header keeps it inert even though it is same-origin.
       const headers: Record<string, string> = {
         "content-type": type,
@@ -70,7 +71,8 @@ asset.get("/:id", (c) =>
         "cache-control": "private, max-age=300",
         "x-content-type-options": "nosniff",
       };
-      if (type === "image/svg+xml") headers["content-security-policy"] = "default-src 'none'; style-src 'unsafe-inline'";
+      if (type === "image/svg+xml")
+        headers["content-security-policy"] = "default-src 'none'; style-src 'unsafe-inline'";
       return new Response(new Uint8Array(body), { headers });
     }),
   ),

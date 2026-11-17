@@ -56,12 +56,8 @@
           "name": "agents_session_documents_id_fk",
           "tableFrom": "agents",
           "tableTo": "documents",
-          "columnsFrom": [
-            "session"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["session"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -140,9 +136,7 @@
       "indexes": {
         "blocks_document_id": {
           "name": "blocks_document_id",
-          "columns": [
-            "document_id"
-          ],
+          "columns": ["document_id"],
           "isUnique": false
         }
       },
@@ -151,12 +145,8 @@
           "name": "blocks_document_id_documents_id_fk",
           "tableFrom": "blocks",
           "tableTo": "documents",
-          "columnsFrom": [
-            "document_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["document_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -298,17 +288,12 @@
       "indexes": {
         "comments_document_id_doc": {
           "name": "comments_document_id_doc",
-          "columns": [
-            "document_id",
-            "doc"
-          ],
+          "columns": ["document_id", "doc"],
           "isUnique": false
         },
         "comments_status": {
           "name": "comments_status",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         }
       },
@@ -317,12 +302,8 @@
           "name": "comments_document_id_documents_id_fk",
           "tableFrom": "comments",
           "tableTo": "documents",
-          "columnsFrom": [
-            "document_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["document_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -373,9 +354,7 @@
       "indexes": {
         "content_block_revs_block": {
           "name": "content_block_revs_block",
-          "columns": [
-            "block_id"
-          ],
+          "columns": ["block_id"],
           "isUnique": false
         }
       },
@@ -384,12 +363,8 @@
           "name": "content_block_revs_block_id_content_blocks_id_fk",
           "tableFrom": "content_block_revs",
           "tableTo": "content_blocks",
-          "columnsFrom": [
-            "block_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["block_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -489,9 +464,7 @@
       "indexes": {
         "content_blocks_document_id": {
           "name": "content_blocks_document_id",
-          "columns": [
-            "document_id"
-          ],
+          "columns": ["document_id"],
           "isUnique": false
         }
       },
@@ -500,12 +473,8 @@
           "name": "content_blocks_document_id_documents_id_fk",
           "tableFrom": "content_blocks",
           "tableTo": "documents",
-          "columnsFrom": [
-            "document_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["document_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -730,12 +699,8 @@
           "name": "reading_state_document_id_documents_id_fk",
           "tableFrom": "reading_state",
           "tableTo": "documents",
-          "columnsFrom": [
-            "document_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["document_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -807,9 +772,7 @@
       "indexes": {
         "reviews_document_id": {
           "name": "reviews_document_id",
-          "columns": [
-            "document_id"
-          ],
+          "columns": ["document_id"],
           "isUnique": false
         }
       },
@@ -818,12 +781,8 @@
           "name": "reviews_document_id_documents_id_fk",
           "tableFrom": "reviews",
           "tableTo": "documents",
-          "columnsFrom": [
-            "document_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["document_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

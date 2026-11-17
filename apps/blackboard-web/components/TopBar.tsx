@@ -1,8 +1,5 @@
 "use client";
 
-import { ChevronDown, ListTree, MessageSquare, MoreHorizontal } from "lucide-react";
-import { useNav } from "./nav";
-import { useEffect, useState } from "react";
 import { Button } from "@gjuoun/bb-ui/components/ui/button";
 import {
   DropdownMenu,
@@ -13,10 +10,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@gjuoun/bb-ui/components/ui/dropdown-menu";
-import { copyText } from "@/lib/clipboard";
 import { cn } from "@gjuoun/bb-ui/lib/utils";
+import { ChevronDown, ListTree, MessageSquare, MoreHorizontal } from "lucide-react";
+import { useEffect, useState } from "react";
+import { copyText } from "@/lib/clipboard";
 import { sessionIdOf } from "@/lib/session-id";
 import { setChrome, togglePanel, useChrome, useIsDesktop } from "./chrome";
+import { useNav } from "./nav";
 import { ReadingSettings } from "./ReadingSettings";
 import { WorkspaceBarControls } from "./WorkspaceBarControls";
 
@@ -47,7 +47,10 @@ export function TopBar() {
   };
   const docToggles = (
     <>
-      <DropdownMenuCheckboxItem checked={chrome.showResolved} onCheckedChange={(v) => setChrome({ showResolved: v })}>
+      <DropdownMenuCheckboxItem
+        checked={chrome.showResolved}
+        onCheckedChange={(v) => setChrome({ showResolved: v })}
+      >
         Show resolved comments
       </DropdownMenuCheckboxItem>
       <DropdownMenuCheckboxItem checked={chrome.wrapCode} onCheckedChange={(v) => setChrome({ wrapCode: v })}>
@@ -57,16 +60,29 @@ export function TopBar() {
   );
 
   return (
-    <header className="bg-background/90 border-border sticky top-0 z-30 flex h-[var(--bar-h)] items-center gap-1.5 border-b px-2 max-md:contents md:px-3 md:backdrop-blur" data-testid={onInbox ? "rw-header" : "top-bar"}>
-      <Link href="/inbox" className="hidden items-center gap-2 px-1.5 text-[15px] font-bold md:flex" aria-label="Blackboard inbox">
+    <header
+      className="bg-background/90 border-border sticky top-0 z-30 flex h-[var(--bar-h)] items-center gap-1.5 border-b px-2 max-md:contents md:px-3 md:backdrop-blur"
+      data-testid={onInbox ? "rw-header" : "top-bar"}
+    >
+      <Link
+        href="/inbox"
+        className="hidden items-center gap-2 px-1.5 text-[15px] font-bold md:flex"
+        aria-label="Blackboard inbox"
+      >
         <span className="bg-primary size-2.5 rotate-45 rounded-[2px]" />
         Blackboard
       </Link>
 
       {/* The inbox merges its workspace controls into this bar on desktop; other pages get a
           back link — a mail client has no tabs: open a row, read, go back. */}
-      {onInbox ? <WorkspaceBarControls /> : (
-        <Link href="/inbox" data-testid="back-to-inbox" className="text-muted-foreground hover:text-foreground inline-flex h-9 items-center gap-1 px-2 text-sm">
+      {onInbox ? (
+        <WorkspaceBarControls />
+      ) : (
+        <Link
+          href="/inbox"
+          data-testid="back-to-inbox"
+          className="text-muted-foreground hover:text-foreground inline-flex h-9 items-center gap-1 px-2 text-sm"
+        >
           ← Inbox
         </Link>
       )}
@@ -83,74 +99,116 @@ export function TopBar() {
           onWorkspace && "max-md:hidden",
         )}
       >
-        <div data-testid="bar-tools" data-expanded={expanded} className="md:contents max-md:flex max-md:flex-1 max-md:items-center max-md:justify-around max-md:gap-1 max-md:data-[expanded=false]:hidden">
-        {doc?.readable ? (
-          <>
-            <span className="bg-border hidden h-5 w-px shrink-0 md:block" aria-hidden />
-            {doc.hasToc ? (
-              <Button variant="ghost" size="icon-sm" aria-pressed={desktop ? chrome.tocOpen : chrome.sheet === "toc"} aria-label="Contents" title="Contents" data-testid="toggle-toc" onClick={() => togglePanel("toc", desktop)} className={cn("shrink-0", (desktop ? chrome.tocOpen : chrome.sheet === "toc") && "bg-card border-border border")}>
-                <ListTree />
-              </Button>
-            ) : null}
-          </>
-        ) : null}
-        {/* Every session kind carries comments, so the comments toggle is not gated on readability.
+        <div
+          data-testid="bar-tools"
+          data-expanded={expanded}
+          className="md:contents max-md:flex max-md:flex-1 max-md:items-center max-md:justify-around max-md:gap-1 max-md:data-[expanded=false]:hidden"
+        >
+          {doc?.readable ? (
+            <>
+              <span className="bg-border hidden h-5 w-px shrink-0 md:block" aria-hidden />
+              {doc.hasToc ? (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-pressed={desktop ? chrome.tocOpen : chrome.sheet === "toc"}
+                  aria-label="Contents"
+                  title="Contents"
+                  data-testid="toggle-toc"
+                  onClick={() => togglePanel("toc", desktop)}
+                  className={cn(
+                    "shrink-0",
+                    (desktop ? chrome.tocOpen : chrome.sheet === "toc") && "bg-card border-border border",
+                  )}
+                >
+                  <ListTree />
+                </Button>
+              ) : null}
+            </>
+          ) : null}
+          {/* Every session kind carries comments, so the comments toggle is not gated on readability.
             A code file (readable=false) still has no TOC button above. */}
-        {doc ? (
-          <Button variant="ghost" size="sm" aria-pressed={desktop ? chrome.cmOpen : chrome.sheet === "cm"} aria-label="Comments" title="Comments" data-testid="toggle-comments" onClick={() => togglePanel("cm", desktop)} className={cn("shrink-0 gap-1.5 px-2", (desktop ? chrome.cmOpen : chrome.sheet === "cm") && "bg-card border-border border")}>
-            <MessageSquare />
-            {doc.open > 0 ? <span className="bg-primary-soft text-primary rounded-full px-1.5 text-xs leading-[18px] font-semibold">{doc.open}</span> : null}
-          </Button>
-        ) : null}
-
-        {/* Reading settings live in the bar at every width: one icon keeps the palette and font
-            controls one click away on a phone without a duplicate entry in the ⋯ menu. */}
-        <ReadingSettings />
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon-sm" aria-label="More" title="More" data-testid="bar-menu" className={cn("shrink-0", !doc && "max-md:hidden")}>
-              <MoreHorizontal />
+          {doc ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-pressed={desktop ? chrome.cmOpen : chrome.sheet === "cm"}
+              aria-label="Comments"
+              title="Comments"
+              data-testid="toggle-comments"
+              onClick={() => togglePanel("cm", desktop)}
+              className={cn(
+                "shrink-0 gap-1.5 px-2",
+                (desktop ? chrome.cmOpen : chrome.sheet === "cm") && "bg-card border-border border",
+              )}
+            >
+              <MessageSquare />
+              {doc.open > 0 ? (
+                <span className="bg-primary-soft text-primary rounded-full px-1.5 text-xs leading-[18px] font-semibold">
+                  {doc.open}
+                </span>
+              ) : null}
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-          {/* Phone: the document title heads the menu, and the menu holds only what a phone reader needs. */}
-          <div className="md:hidden">
-            {doc ? (
-              <>
-                <DropdownMenuLabel className="text-foreground line-clamp-2 py-1.5 text-sm leading-snug font-semibold whitespace-normal" data-testid="menu-title">
-                  {doc.title}
-                </DropdownMenuLabel>
-                <DropdownMenuItem asChild>
-                  <Link href="/inbox">← Inbox</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => copy(window.location.href)}>Copy link</DropdownMenuItem>
-                <DropdownMenuItem onSelect={copyTitle}>Copy title</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {docToggles}
-              </>
-            ) : null}
-          </div>
-          {/* Desktop: the menu as it was. */}
-          <div className="max-md:hidden">
-            {doc ? (
-              <>
-                <DropdownMenuLabel>This document</DropdownMenuLabel>
-                <DropdownMenuItem inset onSelect={() => copy(doc.path)}>
-                  Copy file path
-                </DropdownMenuItem>
-                <DropdownMenuItem inset onSelect={copyTitle}>
-                  Copy title
-                </DropdownMenuItem>
-                {docToggles}
-                <DropdownMenuSeparator />
-              </>
-            ) : null}
-            <DropdownMenuItem onSelect={() => history.back()}>Back</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => history.forward()}>Forward</DropdownMenuItem>
-          </div>
-        </DropdownMenuContent>
-        </DropdownMenu>
+          ) : null}
+
+          {/* Reading settings live in the bar at every width: one icon keeps the palette and font
+            controls one click away on a phone without a duplicate entry in the ⋯ menu. */}
+          <ReadingSettings />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="More"
+                title="More"
+                data-testid="bar-menu"
+                className={cn("shrink-0", !doc && "max-md:hidden")}
+              >
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              {/* Phone: the document title heads the menu, and the menu holds only what a phone reader needs. */}
+              <div className="md:hidden">
+                {doc ? (
+                  <>
+                    <DropdownMenuLabel
+                      className="text-foreground line-clamp-2 py-1.5 text-sm leading-snug font-semibold whitespace-normal"
+                      data-testid="menu-title"
+                    >
+                      {doc.title}
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem asChild>
+                      <Link href="/inbox">← Inbox</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => copy(window.location.href)}>Copy link</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={copyTitle}>Copy title</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {docToggles}
+                  </>
+                ) : null}
+              </div>
+              {/* Desktop: the menu as it was. */}
+              <div className="max-md:hidden">
+                {doc ? (
+                  <>
+                    <DropdownMenuLabel>This document</DropdownMenuLabel>
+                    <DropdownMenuItem inset onSelect={() => copy(doc.path)}>
+                      Copy file path
+                    </DropdownMenuItem>
+                    <DropdownMenuItem inset onSelect={copyTitle}>
+                      Copy title
+                    </DropdownMenuItem>
+                    {docToggles}
+                    <DropdownMenuSeparator />
+                  </>
+                ) : null}
+                <DropdownMenuItem onSelect={() => history.back()}>Back</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => history.forward()}>Forward</DropdownMenuItem>
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <Button
           variant="ghost"
@@ -162,7 +220,11 @@ export function TopBar() {
           onClick={() => setExpanded((v) => !v)}
           className={cn("md:hidden shrink-0", !expanded && "h-8 w-14 rounded-full")}
         >
-          {expanded ? <ChevronDown /> : <span className="bg-muted-foreground/50 h-1 w-8 rounded-full" aria-hidden />}
+          {expanded ? (
+            <ChevronDown />
+          ) : (
+            <span className="bg-muted-foreground/50 h-1 w-8 rounded-full" aria-hidden />
+          )}
         </Button>
       </div>
     </header>

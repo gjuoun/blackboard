@@ -25,9 +25,17 @@ export const layer = Layer.effect(
         if (held) return Effect.succeed(held);
         // replay: 1 — a watch that subscribes just after a mutation still gets that mark; the
         // cost is at most one stale "changed" at connect, which only makes the page re-read.
-        return PubSub.unbounded<"comments">({ replay: 1 }).pipe(Effect.tap((made) => Effect.sync(() => channels.set(id, made))));
+        return PubSub.unbounded<"comments">({ replay: 1 }).pipe(
+          Effect.tap((made) => Effect.sync(() => channels.set(id, made))),
+        );
       });
-    const send = (id: string) => channel(id).pipe(Effect.flatMap((ch) => PubSub.publish(ch, "comments"))).pipe(Effect.asVoid, Effect.catch(() => Effect.void));
+    const send = (id: string) =>
+      channel(id)
+        .pipe(Effect.flatMap((ch) => PubSub.publish(ch, "comments")))
+        .pipe(
+          Effect.asVoid,
+          Effect.catch(() => Effect.void),
+        );
     return ChangeBus.of({
       publish: send,
       events: (id) => channel(id).pipe(Effect.map((ch) => Stream.fromPubSub(ch))),

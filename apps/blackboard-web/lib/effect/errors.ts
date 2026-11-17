@@ -50,10 +50,13 @@ export type ApiFailure =
   | DbFailure;
 
 /** The one string every face uses for an id that names no session. */
-export const sessionNotFound = (status: WireStatus): SessionNotFound => new SessionNotFound({ message: "unknown session", status });
+export const sessionNotFound = (status: WireStatus): SessionNotFound =>
+  new SessionNotFound({ message: "unknown session", status });
 
 /** A thrown value as the message a response carries. */
-export const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+export const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
 /** A mutation that arrived without its body. */
-export const bodyRequired = (): InvalidInput => new InvalidInput({ message: "body is required", status: 400, field: "body" });
+export const bodyRequired = (): InvalidInput =>
+  new InvalidInput({ message: "body is required", status: 400, field: "body" });

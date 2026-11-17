@@ -1,7 +1,7 @@
-import { Context, Effect } from "effect";
 import { eq, sql } from "drizzle-orm";
-import { Db } from "./db/client";
-import { documents, comments } from "./db/schema";
+import { type Context, Effect } from "effect";
+import type { Db } from "./db/client";
+import { comments, documents } from "./db/schema";
 import { RepoMemo } from "./doc-index";
 import { indexRow } from "./doc-index-run";
 import type { DocMeta } from "./doc-meta";
@@ -17,14 +17,18 @@ export type IndexedRow = typeof documents.$inferSelect & { latestCommentAt: stri
 /** The row for one session. Null when the id names no row. */
 export function readRow(db: Service, home: string, id: string): Effect.Effect<IndexedRow | null, DbFailure> {
   return db.use(home, (d) => {
-      const row = d.select().from(documents).where(eq(documents.id, id)).get();
-      if (!row) return null;
-      const latest = d
-        .select({ at: sql<string | null>`max(max(${comments.createdAt}), coalesce(max(${comments.editedAt}), ''), coalesce(max(${comments.resolvedAt}), ''), coalesce(max(${comments.reopenedAt}), ''))` })
-        .from(comments)
-        .where(eq(comments.documentId, id))
-        .get();
-      return { ...row, latestCommentAt: latest?.at ?? null };
+    const row = d.select().from(documents).where(eq(documents.id, id)).get();
+    if (!row) return null;
+    const latest = d
+      .select({
+        at: sql<
+          string | null
+        >`max(max(${comments.createdAt}), coalesce(max(${comments.editedAt}), ''), coalesce(max(${comments.resolvedAt}), ''), coalesce(max(${comments.reopenedAt}), ''))`,
+      })
+      .from(comments)
+      .where(eq(comments.documentId, id))
+      .get();
+    return { ...row, latestCommentAt: latest?.at ?? null };
   });
 }
 
@@ -41,7 +45,11 @@ export function indexedBody(db: Service, home: string, id: string): Effect.Effec
  * re-read (plus git, plus the block reconcile) only when the file's mtime or size moved. The disk
  * file is the source of truth; the row is the cache a read refreshes.
  */
-export function indexIfNeeded(db: Service, home: string, session: Session): Effect.Effect<IndexedRow, IoFailure | DbFailure> {
+export function indexIfNeeded(
+  db: Service,
+  home: string,
+  session: Session,
+): Effect.Effect<IndexedRow, IoFailure | DbFailure> {
   return Effect.gen(function* () {
     const first = yield* readRow(db, home, session.id);
     yield* indexRow(db, home, first ?? (yield* insertStub(db, home, session)), new RepoMemo());
@@ -52,9 +60,19 @@ export function indexIfNeeded(db: Service, home: string, session: Session): Effe
 }
 
 /** A row for a session that the database does not hold yet (a registry entry predating the table). */
-function insertStub(db: Service, home: string, session: Session): Effect.Effect<typeof documents.$inferSelect, DbFailure> {
+function insertStub(
+  db: Service,
+  home: string,
+  session: Session,
+): Effect.Effect<typeof documents.$inferSelect, DbFailure> {
   return Effect.gen(function* () {
-    const row = { id: session.id, path: session.path, createdAt: session.createdAt, openedAt: session.openedAt, closedAt: null } as typeof documents.$inferSelect;
+    const row = {
+      id: session.id,
+      path: session.path,
+      createdAt: session.createdAt,
+      openedAt: session.openedAt,
+      closedAt: null,
+    } as typeof documents.$inferSelect;
     yield* db.use(home, (d) => void d.insert(documents).values(row).onConflictDoNothing().run());
     return row;
   });

@@ -24,9 +24,26 @@ cpSync(src, "server", { recursive: true });
 // previous build's leftovers. Strip them at both levels so the npm pack ships only what the server
 // runs.
 const JUNK = [
-  "sketches", "test", "docs", "scripts", "packages", "lib", "api", "bin", "dist", "bun.lock",
-  "eslint.config.mjs", "components.json", "drizzle.config.ts", "proxy.ts", "bunfig.toml", "tsconfig.json",
-  "postcss.config.mjs", "README.md", "LICENSE", "vite.config.mts", "tsr.config.json",
+  "sketches",
+  "test",
+  "docs",
+  "scripts",
+  "packages",
+  "lib",
+  "api",
+  "bin",
+  "dist",
+  "bun.lock",
+  "components.json",
+  "drizzle.config.ts",
+  "proxy.ts",
+  "bunfig.toml",
+  "tsconfig.json",
+  "postcss.config.mjs",
+  "README.md",
+  "LICENSE",
+  "vite.config.mts",
+  "tsr.config.json",
 ];
 for (const base of ["server", join("server", "server")]) {
   if (!existsSync(base)) continue;

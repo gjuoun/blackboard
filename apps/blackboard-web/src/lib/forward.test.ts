@@ -41,13 +41,18 @@ describe("the /api forwarder", () => {
 
     const res = await forward(new Request("http://127.0.0.1/api/health"));
     expect(res.status).toBe(503);
-    expect(await res.json()).toEqual({ error: "the API is not running — start it with: blackboard serve start" });
+    expect(await res.json()).toEqual({
+      error: "the API is not running — start it with: blackboard serve start",
+    });
   });
 
   test("a streamed body ends when the browser leaves instead of failing the pipe", async () => {
     const frame = new TextEncoder().encode(": connected\n\n");
-    process.env.BLACKBOARD_API_URL = upstream(() =>
-      new Response(new ReadableStream({ start: (controller) => controller.enqueue(frame) }), { headers: { "content-type": "text/event-stream" } }),
+    process.env.BLACKBOARD_API_URL = upstream(
+      () =>
+        new Response(new ReadableStream({ start: (controller) => controller.enqueue(frame) }), {
+          headers: { "content-type": "text/event-stream" },
+        }),
     );
     const ac = new AbortController();
     const res = await forward(new Request("http://127.0.0.1:1/api/watch?session=x", { signal: ac.signal }));

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { BLOCKS } from "./palette";
-import { MODES, REQUIRED, THEME_IDS, type Mode, type ThemeId } from "./roles";
+import { MODES, type Mode, REQUIRED, THEME_IDS, type ThemeId } from "./roles";
 
 /** The palette as data must equal the palette as CSS — the catalogue reads one, the app paints the other. */
 const css = readFileSync(join(import.meta.dir, "blackboard.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
@@ -37,7 +37,18 @@ test("palette: the data equals the generated stylesheet", () => {
         values++;
         if (BLOCKS[theme][mode][role] !== shipped[role]) {
           bad++;
-          console.log("mismatch " + theme + "/" + mode + " " + role + ": data " + BLOCKS[theme][mode][role] + " css " + shipped[role]);
+          console.log(
+            "mismatch " +
+              theme +
+              "/" +
+              mode +
+              " " +
+              role +
+              ": data " +
+              BLOCKS[theme][mode][role] +
+              " css " +
+              shipped[role],
+          );
         }
       }
     }

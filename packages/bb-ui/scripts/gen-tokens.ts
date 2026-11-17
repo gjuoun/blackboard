@@ -10,7 +10,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expand, validateBlock, type Block } from "../src/themes/derive";
+import { type Block, expand, validateBlock } from "../src/themes/derive";
 import { DEFAULT_THEME, MODES, REQUIRED, THEMES } from "../src/themes/roles";
 
 const PKG = join(dirname(fileURLToPath(import.meta.url)), "..");

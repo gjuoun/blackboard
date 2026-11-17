@@ -27,7 +27,9 @@ export async function restart(
   const stopped = await stop(home, resolveUrl({ port }));
   // `nothing` means nothing was running anywhere: a fresh start, not a failed stop — proceed.
   if (!stopped.stopped && !stopped.nothing) {
-    throw new ServerError(`cannot restart: the running server was not stopped${stopped.note ? ` — ${stopped.note}` : ""}`);
+    throw new ServerError(
+      `cannot restart: the running server was not stopped${stopped.note ? ` — ${stopped.note}` : ""}`,
+    );
   }
   const run = impl.start ?? start;
   const r = await run(home, { port });

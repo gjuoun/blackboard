@@ -126,7 +126,8 @@ export function validateBlock(id: string, block: Block): string[] {
   const noRatio = RATIO_ROLES.filter((role) => !stated.includes(role));
   const extraRatio = stated.filter((role) => !(RATIO_ROLES as readonly string[]).includes(role));
   if (noRatio.length) problems.push(id + " is missing ratios for " + noRatio.join(", "));
-  if (extraRatio.length) problems.push(id + " has ratios for roles that are not mixes: " + extraRatio.join(", "));
+  if (extraRatio.length)
+    problems.push(id + " has ratios for roles that are not mixes: " + extraRatio.join(", "));
   for (const role of RATIO_ROLES) {
     const ratio = ratios[role];
     if (!(RATIO_GRID as readonly number[]).includes(ratio)) {

@@ -3,14 +3,32 @@
 import { useState } from "react";
 
 const REPLY_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="size-[15px] shrink-0 opacity-75" aria-hidden>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="size-[15px] shrink-0 opacity-75"
+    aria-hidden
+  >
     <path d="M9 7 4 12l5 5" />
     <path d="M4 12h9a6 6 0 0 1 6 6v1" />
   </svg>
 );
 
 const SEND_ICON = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4" aria-hidden>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="size-4"
+    aria-hidden
+  >
     <path d="M12 19V5" />
     <path d="m5 12 7-7 7 7" />
   </svg>
@@ -40,7 +58,10 @@ export function PreviewReplyBar({ onReply }: { onReply: (text: string) => Promis
   };
 
   return (
-    <div data-testid="rw-replybar" className="border-border bg-card flex-none border-t px-2.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:hidden">
+    <div
+      data-testid="rw-replybar"
+      className="border-border bg-card flex-none border-t px-2.5 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] md:hidden"
+    >
       {open ? (
         <div className="p-0.5">
           <textarea
@@ -54,7 +75,12 @@ export function PreviewReplyBar({ onReply }: { onReply: (text: string) => Promis
           />
           <div className="mt-1.5 flex items-center gap-1.5">
             <span className="flex-1" />
-            <button type="button" data-testid="rw-composer-cancel" onClick={() => setOpen(false)} className="text-muted-foreground h-7 rounded-lg px-2.5 text-xs">
+            <button
+              type="button"
+              data-testid="rw-composer-cancel"
+              onClick={() => setOpen(false)}
+              className="text-muted-foreground h-7 rounded-lg px-2.5 text-xs"
+            >
               Cancel
             </button>
             <button

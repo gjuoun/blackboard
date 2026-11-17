@@ -1,5 +1,5 @@
-import { Effect, Schema, SchemaIssue } from "effect";
-import { bodyRequired, InvalidInput, sessionNotFound, type ApiFailure } from "./errors";
+import { Effect, Schema, type SchemaIssue } from "effect";
+import { type ApiFailure, bodyRequired, InvalidInput, sessionNotFound } from "./errors";
 
 /**
  * The request bodies the routes accept, decoded at the boundary. A field is typed only where the
@@ -7,7 +7,15 @@ import { bodyRequired, InvalidInput, sessionNotFound, type ApiFailure } from "./
  * quote, general) stay Unknown, so a value the old hand-written check accepted is still accepted
  * and the JSON on the wire does not move.
  */
-export const ACTIONS = ["reply", "resolve", "reopen", "edit", "delete", "edit-reply", "delete-reply"] as const;
+export const ACTIONS = [
+  "reply",
+  "resolve",
+  "reopen",
+  "edit",
+  "delete",
+  "edit-reply",
+  "delete-reply",
+] as const;
 
 /** POST /api/comments: one new comment on a passage, or on nothing. */
 export const CommentPostBody = Schema.Struct({
@@ -91,23 +99,28 @@ export const postReject = (key: string): ApiFailure =>
 
 /** POST /api/bind: a missing session is an unknown document; every other key names its own message. */
 export const bindReject = (key: string): ApiFailure => {
-  if (key === "piSession") return new InvalidInput({ message: "piSession is required", status: 400, field: "piSession" });
-  if (key === "url") return new InvalidInput({ message: "url must be a loopback http url", status: 400, field: "url" });
+  if (key === "piSession")
+    return new InvalidInput({ message: "piSession is required", status: 400, field: "piSession" });
+  if (key === "url")
+    return new InvalidInput({ message: "url must be a loopback http url", status: 400, field: "url" });
   return sessionNotFound(400);
 };
 
 /** PATCH: replyId is named by two different messages, so the action picks which one. */
-export const patchReject = (action: unknown) => (key: string): ApiFailure => {
-  if (key === "id") return new InvalidInput({ message: "id is required", status: 400, field: "id" });
-  if (key === "action") return new InvalidInput({ message: "unknown action", status: 400, field: "action" });
-  if (key === "body") return bodyRequired();
-  if (key === "replyId") {
-    return action === "reply"
-      ? new InvalidInput({ message: "replyId must be a reply id", status: 400, field: "replyId" })
-      : new InvalidInput({ message: "replyId is required", status: 400, field: "replyId" });
-  }
-  return sessionNotFound(400);
-};
+export const patchReject =
+  (action: unknown) =>
+  (key: string): ApiFailure => {
+    if (key === "id") return new InvalidInput({ message: "id is required", status: 400, field: "id" });
+    if (key === "action")
+      return new InvalidInput({ message: "unknown action", status: 400, field: "action" });
+    if (key === "body") return bodyRequired();
+    if (key === "replyId") {
+      return action === "reply"
+        ? new InvalidInput({ message: "replyId must be a reply id", status: 400, field: "replyId" })
+        : new InvalidInput({ message: "replyId is required", status: 400, field: "replyId" });
+    }
+    return sessionNotFound(400);
+  };
 
 /** POST /api/reading: a progress field of the wrong type names itself; everything else is an unknown document. */
 export const readingReject = (key: string): ApiFailure =>

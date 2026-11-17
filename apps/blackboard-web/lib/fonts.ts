@@ -1,4 +1,4 @@
-import { CJK_IDS, LATIN_IDS, MONO_IDS, type CjkId, type LatinId, type MonoId } from "./prefs";
+import { CJK_IDS, type CjkId, LATIN_IDS, type LatinId, MONO_IDS, type MonoId } from "./prefs";
 
 /**
  * The pickers' vocabulary. Stacks live in `src/styles/fonts.css` (one `[data-font-*="id"]` rule per entry)
@@ -23,7 +23,12 @@ type MonoEntry = FontEntry<MonoId> & {
 };
 
 export const LATIN_FONTS: FontEntry<LatinId>[] = [
-  { id: "qublack", label: "Qu Black Sans", postscript: ["QuBlackSansVF-Regular", "QuBlackSans-Regular"], note: "ships with the app's Latin subset" },
+  {
+    id: "qublack",
+    label: "Qu Black Sans",
+    postscript: ["QuBlackSansVF-Regular", "QuBlackSans-Regular"],
+    note: "ships with the app's Latin subset",
+  },
   { id: "inter", label: "Inter", note: "installed or system fallback" },
   { id: "charter", label: "Charter", note: "serif, on macOS" },
   { id: "georgia", label: "Georgia", note: "serif, everywhere" },
@@ -31,14 +36,25 @@ export const LATIN_FONTS: FontEntry<LatinId>[] = [
 ];
 
 export const CJK_FONTS: FontEntry<CjkId>[] = [
-  { id: "qublack", label: "Qu Black Sans", postscript: ["QuBlackSansVF-Regular", "QuBlackSans-Regular"], note: "needs Qu Black installed" },
+  {
+    id: "qublack",
+    label: "Qu Black Sans",
+    postscript: ["QuBlackSansVF-Regular", "QuBlackSans-Regular"],
+    note: "needs Qu Black installed",
+  },
   { id: "pingfang", label: "苹方 PingFang SC", postscript: ["PingFangSC-Regular"], note: "macOS system" },
   { id: "songti", label: "宋体 Songti SC", note: "macOS system" },
   { id: "wenkai", label: "霞鹜文楷 LXGW WenKai", note: "install to use" },
 ];
 
 export const MONO_FONTS: MonoEntry[] = [
-  { id: "qublack-mono", label: "Qu Black Mono", postscript: ["QuBlackMonoVF-Regular", "QuBlackMono-Regular", "QuBlackMonoStatic-Regular"], aligned: true, note: "2:1 CJK, the default" },
+  {
+    id: "qublack-mono",
+    label: "Qu Black Mono",
+    postscript: ["QuBlackMonoVF-Regular", "QuBlackMono-Regular", "QuBlackMonoStatic-Regular"],
+    aligned: true,
+    note: "2:1 CJK, the default",
+  },
   { id: "sarasa-mono", label: "Sarasa Mono SC", aligned: true, note: "2:1 CJK, install to use" },
   { id: "jetbrains", label: "JetBrains Mono", aligned: false, note: "Latin only — CJK columns drift" },
   { id: "sf-mono", label: "SF Mono", aligned: false, note: "Latin only — CJK columns drift" },
@@ -48,4 +64,4 @@ export const LATIN_BY_ID = (id: string) => LATIN_FONTS.find((f) => f.id === id) 
 export const CJK_BY_ID = (id: string) => CJK_FONTS.find((f) => f.id === id) ?? CJK_FONTS[0];
 export const MONO_BY_ID = (id: string) => MONO_FONTS.find((f) => f.id === id) ?? MONO_FONTS[0];
 
-export { LATIN_IDS, CJK_IDS, MONO_IDS };
+export { CJK_IDS, LATIN_IDS, MONO_IDS };

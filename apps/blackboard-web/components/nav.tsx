@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, type AnchorHTMLAttributes, type ComponentType, type ReactNode } from "react";
+import {
+  type AnchorHTMLAttributes,
+  type ComponentType,
+  createContext,
+  type ReactNode,
+  useContext,
+} from "react";
 
 /** A link that takes a plain URL, so a component never names the router it is rendered under. */
 export type NavLinkProps = { href: string } & AnchorHTMLAttributes<HTMLAnchorElement>;

@@ -1,4 +1,4 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { WorkspaceSettings } from "@/components/WorkspaceSettings";
 import { loadWorkspace } from "~/lib/api";
 import pkg from "../../../package.json";
@@ -19,7 +19,12 @@ function WorkspaceSettingsPage() {
   return (
     <div className="mx-auto min-h-[calc(100dvh-var(--bar-h))] max-w-[560px] pb-8">
       <div className="flex h-[52px] items-center gap-2 px-3.5">
-        <Link to="/inbox" aria-label="Back to the inbox" title="Back" className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-[34px] place-items-center rounded-[9px] pb-1 text-[22px] md:hidden">
+        <Link
+          to="/inbox"
+          aria-label="Back to the inbox"
+          title="Back"
+          className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-[34px] place-items-center rounded-[9px] pb-1 text-[22px] md:hidden"
+        >
           ‹
         </Link>
         <Link to="/inbox" className="flex items-center gap-2 text-[15px] font-bold">

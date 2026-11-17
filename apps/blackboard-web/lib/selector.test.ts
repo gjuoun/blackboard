@@ -14,7 +14,10 @@ describe("selectorFor", () => {
   });
 
   test("missing quote is an error", async () => {
-    expect(selectorFor(await renderPlainText(DOC), "not there")).toEqual({ ok: false, error: 'quote not found in the doc: "not there"' });
+    expect(selectorFor(await renderPlainText(DOC), "not there")).toEqual({
+      ok: false,
+      error: 'quote not found in the doc: "not there"',
+    });
   });
 
   test("an out-of-range occurrence says how many there are", async () => {

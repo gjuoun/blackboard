@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
 import type { Mode, ThemeId } from "@gjuoun/bb-ui/themes";
+import type { ReactNode } from "react";
 
 interface Props {
   theme?: ThemeId;

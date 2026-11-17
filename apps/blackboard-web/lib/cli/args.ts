@@ -15,7 +15,6 @@ export function decodeArgs<T>(schema: Schema.Codec<T, unknown>, input: unknown):
   );
 }
 
-
 /** A whole number written as text, which is how every numeric option arrives. */
 const WholeNumber = Schema.NumberFromString.pipe(
   Schema.check(Schema.isInt({ message: "--occurrence must be a whole number" })),
@@ -51,10 +50,12 @@ export const CommentArgs = Schema.Struct({
   )
   .pipe(
     Schema.refine(
-      (args): args is
+      (
+        args,
+      ): args is
         | { readonly general: true; readonly quote?: undefined; readonly occurrence?: number }
         | { readonly general?: undefined; readonly quote: string; readonly occurrence?: number } =>
-        Boolean(args.general) ? !args.quote : Boolean(args.quote),
+        args.general ? !args.quote : Boolean(args.quote),
       { message: "comment needs --quote <passage> or --general" },
     ),
   );

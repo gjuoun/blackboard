@@ -2,15 +2,15 @@ import { expect, test } from "bun:test";
 import {
   applyPrefs,
   bootScript,
-  clampPanel,
   clampInbox,
+  clampPanel,
   clampPanels,
   DEFAULT_CHROME,
   DEFAULT_PREFS,
   PANEL_LIMITS,
   parsePrefs,
-  serializePrefs,
   type StoredChrome,
+  serializePrefs,
 } from "./prefs";
 
 function fakeRoot() {
@@ -29,7 +29,10 @@ function fakeRoot() {
 /** Run the pre-paint body exactly as the browser would: in the page, with storage and <html>. */
 function runBoot(raw: string | null) {
   const root = fakeRoot();
-  new Function("localStorage", "document", bootScript())({ getItem: () => raw }, { documentElement: root.el });
+  new Function("localStorage", "document", bootScript())(
+    { getItem: () => raw },
+    { documentElement: root.el },
+  );
   return root;
 }
 
@@ -42,8 +45,16 @@ test("parse: corrupt JSON gives the defaults", () => {
 });
 
 test("parse: legacy chrome payload keeps its booleans and gains the new defaults", () => {
-  const got = parsePrefs(JSON.stringify({ tocOpen: false, cmOpen: false, showResolved: true, wrapCode: true }));
-  expect(got).toMatchObject({ tocOpen: false, cmOpen: false, showResolved: true, wrapCode: true, ...DEFAULT_PREFS });
+  const got = parsePrefs(
+    JSON.stringify({ tocOpen: false, cmOpen: false, showResolved: true, wrapCode: true }),
+  );
+  expect(got).toMatchObject({
+    tocOpen: false,
+    cmOpen: false,
+    showResolved: true,
+    wrapCode: true,
+    ...DEFAULT_PREFS,
+  });
 });
 
 test("parse: unknown theme falls back to warm and keeps a known one", () => {
@@ -93,8 +104,22 @@ test("parse: widths are clamped and strings are not numbers", () => {
 });
 
 test("parse: the reading behaviour and workspace keys validate like the rest", () => {
-  const got = parsePrefs(JSON.stringify({ docSize: "99", textWidth: "huge", resumeOnOpen: "yes", markReadOnOpen: false, docRepo: 42 }));
-  expect(got).toMatchObject({ docSize: "default", textWidth: "fit", resumeOnOpen: true, markReadOnOpen: false, docRepo: "" });
+  const got = parsePrefs(
+    JSON.stringify({
+      docSize: "99",
+      textWidth: "huge",
+      resumeOnOpen: "yes",
+      markReadOnOpen: false,
+      docRepo: 42,
+    }),
+  );
+  expect(got).toMatchObject({
+    docSize: "default",
+    textWidth: "fit",
+    resumeOnOpen: true,
+    markReadOnOpen: false,
+    docRepo: "",
+  });
   const kept = parsePrefs(JSON.stringify({ docSize: "15", textWidth: "wide", docRepo: "blackboard" }));
   expect(kept).toMatchObject({ docSize: "15", textWidth: "wide", docRepo: "blackboard" });
 });
@@ -212,7 +237,9 @@ test("boot: unknown theme keeps default", () => {
 });
 
 test("boot: font ids and widths are applied, bad ones ignored", () => {
-  const root = runBoot(JSON.stringify({ fontLatin: "charter", fontCjk: "songti", fontMono: "mess", tocW: 9999, cmW: 300 }));
+  const root = runBoot(
+    JSON.stringify({ fontLatin: "charter", fontCjk: "songti", fontMono: "mess", tocW: 9999, cmW: 300 }),
+  );
   expect(root.attrs.get("data-font-latin")).toBe("charter");
   expect(root.attrs.get("data-font-cjk")).toBe("songti");
   expect(root.attrs.get("data-font-mono")).toBeUndefined();
@@ -231,11 +258,16 @@ test("boot: the doc size and the wide flag paint before the first frame", () => 
 
 test("boot: a throwing storage never breaks the page", () => {
   const root = fakeRoot();
-  const storage = { getItem() { throw new Error("blocked"); } };
-  expect(() => new Function("localStorage", "document", bootScript())(storage, { documentElement: root.el })).not.toThrow();
+  const storage = {
+    getItem() {
+      throw new Error("blocked");
+    },
+  };
+  expect(() =>
+    new Function("localStorage", "document", bootScript())(storage, { documentElement: root.el }),
+  ).not.toThrow();
   expect(root.attrs.size).toBe(0);
 });
-
 
 test("stored record type check: defaults satisfy the shape", () => {
   const s: StoredChrome = { ...DEFAULT_CHROME };

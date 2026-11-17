@@ -3,14 +3,14 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Context, Effect, Layer } from "effect";
 import { CommentsStore } from "./comments-store";
-import { DocumentsRepo, type DocRow } from "./db/repos/documents";
-import type { DocMeta } from "./doc-meta";
-import { errorMessage, IoFailure, type DbFailure, type LockTimeout } from "./effect/errors";
 import { Db } from "./db/client";
-import { docMetaFromRow, indexIfNeeded, indexedBody, latestOf } from "./doc-read";
-import { checkDoc, realDoc, SessionError, tildify, type Session } from "./session-model";
+import { type DocRow, DocumentsRepo } from "./db/repos/documents";
+import type { DocMeta } from "./doc-meta";
+import { docMetaFromRow, indexedBody, indexIfNeeded, latestOf } from "./doc-read";
+import { type DbFailure, errorMessage, IoFailure, type LockTimeout } from "./effect/errors";
+import { checkDoc, realDoc, type Session, SessionError, tildify } from "./session-model";
 
-export { realDoc, servablePath, SessionError, tildify, type Session } from "./session-model";
+export { realDoc, type Session, SessionError, servablePath, tildify } from "./session-model";
 
 /**
  * The session registry, backed by the documents table. The file rules a session must pass live in
@@ -27,7 +27,8 @@ export function readRegistry(home: string): Registry {
   const p = join(home, "sessions.json");
   if (!existsSync(p)) return { version: 1, sessions: [] };
   const data = JSON.parse(readFileSync(p, "utf8"));
-  if (data?.version !== 1 || !Array.isArray(data.sessions)) throw new SessionError(`unsupported session registry: ${p}`);
+  if (data?.version !== 1 || !Array.isArray(data.sessions))
+    throw new SessionError(`unsupported session registry: ${p}`);
   return data as Registry;
 }
 
@@ -80,7 +81,11 @@ export class SessionsStore extends Context.Service<
     get(home: string, id: string): Effect.Effect<Session | null, IoFailure>;
     open(home: string, file: string, cwd?: string): Effect.Effect<Session, IoFailure | LockTimeout>;
     close(home: string, id: string): Effect.Effect<Session, IoFailure | LockTimeout>;
-    resolve(home: string, idOrPath: string, cwd?: string): Effect.Effect<Session | null, IoFailure | LockTimeout>;
+    resolve(
+      home: string,
+      idOrPath: string,
+      cwd?: string,
+    ): Effect.Effect<Session | null, IoFailure | LockTimeout>;
     row(home: string, session: Session): Effect.Effect<SessionRow, IoFailure>;
     rows(home: string): Effect.Effect<SessionRow[], IoFailure | LockTimeout>;
     /** The markdown a document was indexed from, or null when there is none to read (missing file, or never indexed). */
@@ -98,11 +103,18 @@ export const layer = Layer.effect(
     const toIo = (error: DbFailure | IoFailure): IoFailure =>
       error instanceof IoFailure ? error : new IoFailure({ message: error.message, status: error.status });
 
-    const list = (home: string) => docs.list(home).pipe(Effect.map((rows) => rows.map(toSession)), Effect.mapError(failure));
+    const list = (home: string) =>
+      docs.list(home).pipe(
+        Effect.map((rows) => rows.map(toSession)),
+        Effect.mapError(failure),
+      );
     const get = (home: string, id: string) =>
       Effect.suspend(() =>
         ID.test(id)
-          ? docs.get(home, id).pipe(Effect.map((row) => (row ? toSession(row) : null)), Effect.mapError(failure))
+          ? docs.get(home, id).pipe(
+              Effect.map((row) => (row ? toSession(row) : null)),
+              Effect.mapError(failure),
+            )
           : Effect.succeed(null),
       );
 
@@ -144,7 +156,9 @@ export const layer = Layer.effect(
       open: (home, file, cwd = process.cwd()) =>
         Effect.flatMap(Effect.try({ try: () => realDoc(file, cwd), catch: failure }), (real) =>
           Effect.gen(function* () {
-            const row = yield* docs.upsert(home, { id: sessionId(real), path: real }).pipe(Effect.mapError(failure));
+            const row = yield* docs
+              .upsert(home, { id: sessionId(real), path: real })
+              .pipe(Effect.mapError(failure));
             // Index it now, so the first read finds a body. Registration already succeeded; an index failure here
             // leaves the row for the next read to index, and does not fail the open.
             yield* indexIfNeeded(db, home, toSession(row)).pipe(Effect.catch(() => Effect.void));
@@ -154,7 +168,9 @@ export const layer = Layer.effect(
       close: (home, id) =>
         docs.remove(home, id).pipe(
           Effect.flatMap((row) =>
-            row ? Effect.succeed(toSession(row)) : Effect.fail(new IoFailure({ message: `no session ${id}`, status: 500 })),
+            row
+              ? Effect.succeed(toSession(row))
+              : Effect.fail(new IoFailure({ message: `no session ${id}`, status: 500 })),
           ),
           Effect.mapError((e) => (e instanceof IoFailure ? e : failure(e))),
         ),

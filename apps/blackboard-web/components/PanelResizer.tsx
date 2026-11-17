@@ -1,8 +1,8 @@
 "use client";
 
-import { useRef } from "react";
-import { clampPanel, DEFAULT_PREFS, DOC_MIN, PANEL_LIMITS, WIDTH_KEY, type PanelKey } from "@/lib/prefs";
 import { cn } from "@gjuoun/bb-ui/lib/utils";
+import { useRef } from "react";
+import { clampPanel, DEFAULT_PREFS, DOC_MIN, PANEL_LIMITS, type PanelKey, WIDTH_KEY } from "@/lib/prefs";
 
 type Props = {
   which: PanelKey;
@@ -34,7 +34,15 @@ const LABEL: Record<PanelKey, string> = {
  * handle; the width only hits localStorage on release, so a drag is one write rather than one per
  * pixel. Keyboard is the same code path: arrows step, Shift steps faster, Home resets.
  */
-export function PanelResizer({ which, width, other, floor = DOC_MIN, onDraft, onCommit, breakpoint = "md" }: Props) {
+export function PanelResizer({
+  which,
+  width,
+  other,
+  floor = DOC_MIN,
+  onDraft,
+  onCommit,
+  breakpoint = "md",
+}: Props) {
   const start = useRef<{ x: number; width: number } | null>(null);
   const draft = useRef<number | null>(null);
   const limits = PANEL_LIMITS[which];
@@ -46,7 +54,8 @@ export function PanelResizer({ which, width, other, floor = DOC_MIN, onDraft, on
     return Math.max(limits.min, Math.min(clampPanel(requested, which), room));
   };
 
-  const delta = (clientX: number) => (start.current ? (left ? clientX - start.current.x : start.current.x - clientX) : 0);
+  const delta = (clientX: number) =>
+    start.current ? (left ? clientX - start.current.x : start.current.x - clientX) : 0;
 
   const stop = () => {
     start.current = null;

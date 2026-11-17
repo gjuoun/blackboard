@@ -1,6 +1,6 @@
 import { Link as RouterLink, useRouter, useRouterState } from "@tanstack/react-router";
-import { useMemo, type ReactNode } from "react";
-import { NavProvider, type Nav, type NavLink } from "@/components/nav";
+import { type ReactNode, useMemo } from "react";
+import { type Nav, type NavLink, NavProvider } from "@/components/nav";
 
 const Link: NavLink = ({ href, ...rest }) => <RouterLink to={href as never} {...rest} />;
 
@@ -15,7 +15,8 @@ export function StartNavProvider({ children }: { children: ReactNode }) {
     () => ({
       pathname,
       push: (href, options) => void router.navigate({ href, resetScroll: options?.scroll !== false }),
-      replace: (href, options) => void router.navigate({ href, replace: true, resetScroll: options?.scroll !== false }),
+      replace: (href, options) =>
+        void router.navigate({ href, replace: true, resetScroll: options?.scroll !== false }),
       refresh: () => void router.invalidate(),
       Link,
     }),

@@ -9,10 +9,16 @@ describe("blackboard binary", () => {
     const [id, url] = opened.out.trim().split(/\s+/);
     expect(url).toBe(`http://127.0.0.1:38770/s/${id}`);
 
-    const made = runCli(home, ["comment", "design.md", "--quote", "Later text.", "--author", "agent", "please", "explain"], docs);
+    const made = runCli(
+      home,
+      ["comment", "design.md", "--quote", "Later text.", "--author", "agent", "please", "explain"],
+      docs,
+    );
     expect(made.code).toBe(0);
     const listed = runCli(home, ["comments", id, "--json"]);
-    expect(JSON.parse(listed.out).map((c: { body: string; author: string }) => `${c.author}:${c.body}`)).toEqual(["agent:please explain"]);
+    expect(
+      JSON.parse(listed.out).map((c: { body: string; author: string }) => `${c.author}:${c.body}`),
+    ).toEqual(["agent:please explain"]);
     const rows = JSON.parse(runCli(home, ["sessions", "--json"]).out);
     expect(rows.map((r: { title: string; open: number }) => `${r.title}:${r.open}`)).toEqual(["Design:1"]);
 

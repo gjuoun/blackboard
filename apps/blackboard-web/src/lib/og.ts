@@ -43,7 +43,16 @@ export async function ogCard({ title, line }: { title: string; line: string }): 
   const tree = {
     type: "div",
     props: {
-      style: { width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 80, background: PAPER, color: INK },
+      style: {
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: 80,
+        background: PAPER,
+        color: INK,
+      },
       children: [
         {
           type: "div",
@@ -56,7 +65,18 @@ export async function ogCard({ title, line }: { title: string; line: string }): 
                   width: 64,
                   height: 64,
                   viewBox: "0 0 64 64",
-                  children: { type: "rect", props: { x: 13, y: 13, width: 38, height: 38, rx: 7, transform: "rotate(45 32 32)", fill: MARK } },
+                  children: {
+                    type: "rect",
+                    props: {
+                      x: 13,
+                      y: 13,
+                      width: 38,
+                      height: 38,
+                      rx: 7,
+                      transform: "rotate(45 32 32)",
+                      fill: MARK,
+                    },
+                  },
                 },
               },
               { type: "div", props: { style: { fontSize: 36, fontWeight: 700 }, children: "Blackboard" } },
@@ -68,8 +88,23 @@ export async function ogCard({ title, line }: { title: string; line: string }): 
           props: {
             style: { display: "flex", flexDirection: "column", gap: 24 },
             children: [
-              { type: "div", props: { style: { fontSize: size, fontWeight: 800, lineHeight: 1.1, letterSpacing: -2, display: "flex" }, children: title } },
-              { type: "div", props: { style: { fontSize: 34, color: MUTED, display: "flex" }, children: line } },
+              {
+                type: "div",
+                props: {
+                  style: {
+                    fontSize: size,
+                    fontWeight: 800,
+                    lineHeight: 1.1,
+                    letterSpacing: -2,
+                    display: "flex",
+                  },
+                  children: title,
+                },
+              },
+              {
+                type: "div",
+                props: { style: { fontSize: 34, color: MUTED, display: "flex" }, children: line },
+              },
             ],
           },
         },
@@ -79,7 +114,18 @@ export async function ogCard({ title, line }: { title: string; line: string }): 
             style: { display: "flex", gap: 12 },
             children: ["Markdown", "Mermaid", "Comments", "Agent CLI"].map((t) => ({
               type: "div",
-              props: { style: { display: "flex", padding: "8px 20px", borderRadius: 999, border: `2px solid ${LINE}`, background: "#fff", fontSize: 26, color: MUTED }, children: t },
+              props: {
+                style: {
+                  display: "flex",
+                  padding: "8px 20px",
+                  borderRadius: 999,
+                  border: `2px solid ${LINE}`,
+                  background: "#fff",
+                  fontSize: 26,
+                  color: MUTED,
+                },
+                children: t,
+              },
             })),
           },
         },
@@ -88,7 +134,12 @@ export async function ogCard({ title, line }: { title: string; line: string }): 
   };
   const svg = await satori(tree as never, {
     ...OG_SIZE,
-    fonts: face ? [{ name: "card", data: face, weight: 400, style: "normal" }, { name: "card", data: face, weight: 700, style: "normal" }] : [],
+    fonts: face
+      ? [
+          { name: "card", data: face, weight: 400, style: "normal" },
+          { name: "card", data: face, weight: 700, style: "normal" },
+        ]
+      : [],
   });
   const png = new Resvg(svg, { fitTo: { mode: "width", value: OG_SIZE.width } }).render().asPng();
   // resvg hands back a Buffer; a Response body wants an ArrayBuffer, not a Buffer or a view over one.

@@ -7,9 +7,18 @@
  * active row by moving the container's `scrollTop`, since an unmounted row has no node for
  * `scrollIntoView` to find. The pure math is `lib/virtualize-list.ts`.
  */
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { type RefObject, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { VRange } from "@/lib/virtualize";
-import { LIST_OVERSCAN, LIST_THRESHOLD, ROW_ESTIMATE, listRange, listSpacers, medianRowHeight, revealScroll, rowOffsets } from "@/lib/virtualize-list";
+import {
+  LIST_OVERSCAN,
+  LIST_THRESHOLD,
+  listRange,
+  listSpacers,
+  medianRowHeight,
+  ROW_ESTIMATE,
+  revealScroll,
+  rowOffsets,
+} from "@/lib/virtualize-list";
 
 /** The viewport guess behind the very first window. It only has to be close — the layout effect
  *  replaces it with the container's real height before paint — and it must be constant so the
@@ -34,7 +43,11 @@ type Window = { enabled: boolean; range: VRange | null; top: number; bottom: num
 const ALL: Window = { enabled: false, range: null, top: 0, bottom: 0 };
 
 const sameWindow = (a: Window, b: Window): boolean =>
-  a.enabled === b.enabled && a.top === b.top && a.bottom === b.bottom && a.range?.first === b.range?.first && a.range?.last === b.range?.last;
+  a.enabled === b.enabled &&
+  a.top === b.top &&
+  a.bottom === b.bottom &&
+  a.range?.first === b.range?.first &&
+  a.range?.last === b.range?.last;
 
 /** The first window, from the count alone: a plain list from the top, or the whole list. */
 function firstWindow(count: number): Window {
@@ -53,7 +66,13 @@ function scrollParent(el: HTMLElement | null): HTMLElement | null {
   return null;
 }
 
-export function useVirtualList({ listRef, count }: { listRef: RefObject<HTMLElement | null>; count: number }): VirtualList {
+export function useVirtualList({
+  listRef,
+  count,
+}: {
+  listRef: RefObject<HTMLElement | null>;
+  count: number;
+}): VirtualList {
   const [win, setWin] = useState<Window>(() => firstWindow(count));
   const box = useRef<HTMLElement | null>(null);
   const heights = useRef<(number | null)[]>(new Array<number | null>(count).fill(null));
@@ -145,7 +164,6 @@ export function useVirtualList({ listRef, count }: { listRef: RefObject<HTMLElem
   // Every render may have mounted rows nobody measured yet; the loop settles in one or two passes.
   useLayoutEffect(() => {
     measureRef.current = measure;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- a row's height is only knowable after it mounts
     measure();
   });
 
@@ -159,9 +177,13 @@ export function useVirtualList({ listRef, count }: { listRef: RefObject<HTMLElem
       const ul = listRef.current;
       const pane = box.current;
       if (!pane) return { top: 0, height: estimate.current };
-      const base = ul ? ul.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop : 0;
+      const base = ul
+        ? ul.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop
+        : 0;
       const rect = el?.getBoundingClientRect();
-      return rect ? { top: rect.top - pane.getBoundingClientRect().top + pane.scrollTop, height: rect.height } : { top: base + (offsets.current[index] ?? 0), height: heights.current[index] ?? estimate.current };
+      return rect
+        ? { top: rect.top - pane.getBoundingClientRect().top + pane.scrollTop, height: rect.height }
+        : { top: base + (offsets.current[index] ?? 0), height: heights.current[index] ?? estimate.current };
     },
     [listRef],
   );
@@ -211,5 +233,8 @@ export function useVirtualList({ listRef, count }: { listRef: RefObject<HTMLElem
     [count, listRef, rowTopIn],
   );
 
-  return useMemo<VirtualList>(() => ({ enabled: win.enabled, range: win.range, top: win.top, bottom: win.bottom, reveal }), [win, reveal]);
+  return useMemo<VirtualList>(
+    () => ({ enabled: win.enabled, range: win.range, top: win.top, bottom: win.bottom, reveal }),
+    [win, reveal],
+  );
 }

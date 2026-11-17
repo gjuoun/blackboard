@@ -7,7 +7,9 @@ const noop = () => {};
 
 describe("PanelResizer", () => {
   test("the contents grip keeps its range and test id", () => {
-    const html = renderToStaticMarkup(<PanelResizer which="toc" width={240} other={340} onDraft={noop} onCommit={noop} />);
+    const html = renderToStaticMarkup(
+      <PanelResizer which="toc" width={240} other={340} onDraft={noop} onCommit={noop} />,
+    );
     expect(html).toContain('role="separator"');
     expect(html).toContain('aria-orientation="vertical"');
     expect(html).toContain('aria-label="Resize contents panel"');
@@ -17,7 +19,9 @@ describe("PanelResizer", () => {
   });
 
   test("the shared right rail keeps one grip and one persisted slot", () => {
-    const html = renderToStaticMarkup(<PanelResizer which="cm" width={340} other={240} onDraft={noop} onCommit={noop} />);
+    const html = renderToStaticMarkup(
+      <PanelResizer which="cm" width={340} other={240} onDraft={noop} onCommit={noop} />,
+    );
     expect(html).toContain('aria-label="Resize comments panel"');
     expect(html).toContain('data-testid="resize-cm"');
     expect(html).toContain('aria-valuemin="' + PANEL_LIMITS.cm.min + '"');
@@ -27,7 +31,9 @@ describe("PanelResizer", () => {
   });
 
   test("the inbox rail grip carries the rail range and sits on its inner edge", () => {
-    const html = renderToStaticMarkup(<PanelResizer which="rail" breakpoint="lg" width={236} other={384} onDraft={noop} onCommit={noop} />);
+    const html = renderToStaticMarkup(
+      <PanelResizer which="rail" breakpoint="lg" width={236} other={384} onDraft={noop} onCommit={noop} />,
+    );
     expect(html).toContain('aria-label="Resize inbox rail"');
     expect(html).toContain('data-testid="resize-rail"');
     expect(html).toContain('aria-valuemin="' + PANEL_LIMITS.rail.min + '"');
@@ -39,7 +45,9 @@ describe("PanelResizer", () => {
   });
 
   test("the preview grip is a right-edge panel, live from md", () => {
-    const html = renderToStaticMarkup(<PanelResizer which="preview" width={384} other={236} onDraft={noop} onCommit={noop} />);
+    const html = renderToStaticMarkup(
+      <PanelResizer which="preview" width={384} other={236} onDraft={noop} onCommit={noop} />,
+    );
     expect(html).toContain('aria-label="Resize preview pane"');
     expect(html).toContain('data-testid="resize-preview"');
     expect(html).toContain('aria-valuemin="' + PANEL_LIMITS.preview.min + '"');

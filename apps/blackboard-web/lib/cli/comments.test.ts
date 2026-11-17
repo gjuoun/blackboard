@@ -4,9 +4,9 @@ import { Effect } from "effect";
 import { run } from "../../test/app";
 import { DESIGN, runCli, setup } from "../../test/fixtures/cli";
 import { anchor } from "../anchor";
+import { formatComments } from "../cli";
 import { CommentsStore } from "../comments-store";
 import { renderPlainText } from "../markdown";
-import { formatComments } from "../cli";
 import { comment, comments, reply, status } from "./comments";
 import { open, sessions } from "./sessions";
 
@@ -17,10 +17,12 @@ describe("comments", () => {
     const c = await run(comment(home, design, "The cache is warm.", "why warm?", "agent", 2));
     const text = await renderPlainText(DESIGN);
     expect(anchor(text, c.quote!)?.start).toBe(text.lastIndexOf("The cache is warm."));
-    const file = await run(Effect.gen(function* () {
-      const store = yield* CommentsStore;
-      return yield* store.read(home, session.id);
-    }));
+    const file = await run(
+      Effect.gen(function* () {
+        const store = yield* CommentsStore;
+        return yield* store.read(home, session.id);
+      }),
+    );
     expect(file.docs["design.md"][0]).toMatchObject({ author: "agent", body: "why warm?" });
   });
 
@@ -28,7 +30,12 @@ describe("comments", () => {
     const { home, design } = setup();
     const { session } = await run(open(home, design));
     const c = await run(comment(home, session.id, "Later text.", "q", "jun"));
-    expect((await run(sessions(home)))[0]).toMatchObject({ id: session.id, open: 1, branch: null, location: design });
+    expect((await run(sessions(home)))[0]).toMatchObject({
+      id: session.id,
+      open: 1,
+      branch: null,
+      location: design,
+    });
     await run(reply(home, session.id, c.id, "a", "agent"));
     await run(status(home, session.id, c.id, "resolved", "agent"));
     const [all] = await run(comments(home, session.id));
@@ -45,7 +52,7 @@ describe("comments", () => {
     await run(status(home, design, c.id, "resolved", "agent"));
     const text = formatComments(await run(comments(home, design)));
     expect(text).toContain(`${c.id}  design.md  resolved  jun`);
-    expect(text).toMatch(/\u21b3 r_\w+  agent: done/);
+    expect(text).toMatch(/\u21b3 r_\w+ {2}agent: done/);
   });
 
   test("reply accepts a reply id and joins that comment thread", async () => {
@@ -53,10 +60,17 @@ describe("comments", () => {
     await run(open(home, design));
     const c = await run(comment(home, design, "Later text.", "q", "jun"));
     await run(reply(home, design, c.id, "first", "agent"));
-    const [{ replies: [first] }] = await run(comments(home, design));
+    const [
+      {
+        replies: [first],
+      },
+    ] = await run(comments(home, design));
     const parent = await run(reply(home, design, first.id, "reply to the reply", "jun"));
     expect(parent.id).toBe(c.id);
-    expect((await run(comments(home, design)))[0].replies.map((r) => `${r.author}:${r.body}`)).toEqual(["agent:first", "jun:reply to the reply"]);
+    expect((await run(comments(home, design)))[0].replies.map((r) => `${r.author}:${r.body}`)).toEqual([
+      "agent:first",
+      "jun:reply to the reply",
+    ]);
   });
 
   test("the CLI says when a reply id joined a comment thread", async () => {
@@ -70,7 +84,11 @@ describe("comments", () => {
     expect(joined.out).toContain(`joined thread of ${c.id}`);
     const direct = runCli(home, ["reply", session.id, c.id, "third"]);
     expect(direct.out).not.toContain("joined thread");
-    expect((await run(comments(home, session.id)))[0].replies.map((x) => x.body)).toEqual(["first", "second", "third"]);
+    expect((await run(comments(home, session.id)))[0].replies.map((x) => x.body)).toEqual([
+      "first",
+      "second",
+      "third",
+    ]);
   }, 30_000);
 
   test("unknown session, id and quote fail with a clear message", async () => {

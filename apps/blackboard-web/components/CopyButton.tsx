@@ -1,9 +1,9 @@
 "use client";
 
+import { cn } from "@gjuoun/bb-ui/lib/utils";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { copyText } from "@/lib/clipboard";
-import { cn } from "@gjuoun/bb-ui/lib/utils";
 
 const FEEDBACK_MS = 1200;
 

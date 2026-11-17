@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { LOCAL, fixture, register } from "../../test/api-fixture";
 import { comment, comments, reply } from "../../lib/cli/comments";
+import { fixture, LOCAL, register } from "../../test/api-fixture";
 import { run } from "../../test/app";
 import { app } from "../app";
 
@@ -18,7 +18,8 @@ const json = (payload: unknown, method = "POST"): RequestInit => ({
   headers: { ...LOCAL, "content-type": "application/json" },
   body: JSON.stringify(payload),
 });
-const get = (session: string) => app.request(`http://127.0.0.1/api/comments?session=${session}`, { headers: LOCAL });
+const get = (session: string) =>
+  app.request(`http://127.0.0.1/api/comments?session=${session}`, { headers: LOCAL });
 const post = (payload: unknown) => app.request("http://127.0.0.1/api/comments", json(payload));
 const patch = (payload: unknown) => app.request("http://127.0.0.1/api/comments", json(payload, "PATCH"));
 
@@ -43,7 +44,11 @@ describe("comments API renders bodies", () => {
 
   test("POST returns the new comment with its body rendered, and drops a script link", async () => {
     const { session } = await setup();
-    const res = await post({ session, quote: { exact: "More text.", prefix: "Later text. ", suffix: "" }, body: "see [x](javascript:alert(1))" });
+    const res = await post({
+      session,
+      quote: { exact: "More text.", prefix: "Later text. ", suffix: "" },
+      body: "see [x](javascript:alert(1))",
+    });
     expect(res.status).toBe(201);
     const { comment: made } = await res.json();
     expect(made.html).toBe("<p>see x</p>");
@@ -57,11 +62,22 @@ describe("reply joins the comment thread", () => {
     await run(reply(home, design, c.id, "first", "agent"));
     await run(reply(home, design, c.id, "second", "agent"));
     const [first, second] = (await run(comments(home, design)))[0].replies;
-    const res = await patch({ session, id: c.id, action: "reply", body: "third, joined from a reply", author: "jun", replyId: second.id });
+    const res = await patch({
+      session,
+      id: c.id,
+      action: "reply",
+      body: "third, joined from a reply",
+      author: "jun",
+      replyId: second.id,
+    });
     expect(res.status).toBe(200);
     const { comment: updated } = await res.json();
     expect(updated.id).toBe(c.id);
-    expect(updated.replies.map((r: { body: string }) => r.body)).toEqual(["first", "second", "third, joined from a reply"]);
+    expect(updated.replies.map((r: { body: string }) => r.body)).toEqual([
+      "first",
+      "second",
+      "third, joined from a reply",
+    ]);
     expect(updated.replies.every((r: Record<string, unknown>) => !("replies" in r))).toBe(true);
     expect(first.id).not.toBe(second.id);
   });

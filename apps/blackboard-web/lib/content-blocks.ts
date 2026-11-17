@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import remarkFrontmatter from "remark-frontmatter";
-import remarkMath from "remark-math";
 import { toString as mdastToString } from "mdast-util-to-string";
+import remarkFrontmatter from "remark-frontmatter";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import remarkParse from "remark-parse";
+import { unified } from "unified";
 
 /**
  * Markdown → paragraph-level content blocks, the unit comments anchor to and diffs diff.
@@ -30,14 +30,27 @@ const proc = unified().use(remarkParse).use(remarkGfm).use(remarkFrontmatter, ["
 const norm = (s: string) => s.replace(/\s+/g, " ").trim();
 export const blockHash = (s: string) => createHash("sha1").update(norm(s)).digest("hex").slice(0, 12);
 
-const spec = (src: string, node: { position: { start: { offset?: number }; end: { offset?: number } }; type: string }, grp: number, plain?: string): BlockSpec => {
+const spec = (
+  src: string,
+  node: { position: { start: { offset?: number }; end: { offset?: number } }; type: string },
+  grp: number,
+  plain?: string,
+): BlockSpec => {
   const text = src.slice(node.position.start.offset, node.position.end.offset);
-  return { kind: node.type, text, plain: (plain ?? mdastToString(node)).replace(/\s+$/, ""), hash: blockHash(text), grp };
+  return {
+    kind: node.type,
+    text,
+    plain: (plain ?? mdastToString(node)).replace(/\s+$/, ""),
+    hash: blockHash(text),
+    grp,
+  };
 };
 
 /** Top-level blocks of `src`, in document order. */
 export function parseContentBlocks(src: string): BlockSpec[] {
-  const tree = proc.parse(src) as unknown as { children?: { type: string; children?: unknown[]; position: never }[] };
+  const tree = proc.parse(src) as unknown as {
+    children?: { type: string; children?: unknown[]; position: never }[];
+  };
   const out: BlockSpec[] = [];
   let grp = 0;
   for (const node of tree.children ?? []) {

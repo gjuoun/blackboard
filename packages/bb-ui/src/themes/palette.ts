@@ -6,8 +6,8 @@
  * pins the two together, so the data and the stylesheet cannot drift.
  */
 import paletteJson from "@gjuoun/bb-tokens/palette.json";
-import { contrast, expand, type Block } from "./derive";
-import { MODES, THEME_IDS, type Mode, type Role, type ThemeId } from "./roles";
+import { type Block, contrast, expand } from "./derive";
+import { MODES, type Mode, type Role, THEME_IDS, type ThemeId } from "./roles";
 
 export { contrast };
 

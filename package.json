@@ -11,8 +11,11 @@
     "build": "bun run --cwd apps/blackboard-web build",
     "build:server": "bun run --cwd apps/blackboard-web build:server",
     "build:cli": "bun run --cwd apps/blackboard-web build:cli",
-    "typecheck": "bun run --cwd apps/blackboard-web typecheck && bun run --cwd packages/bb-ui typecheck",
-    "lint": "bun run --cwd apps/blackboard-web lint",
+    "typecheck": "bun run --cwd apps/blackboard-web typecheck && bun run --cwd packages/bb-ui typecheck && bun run --cwd apps/blackboard-site typecheck",
+    "check": "bun run typecheck && bun run lint && bun test && bun run --cwd packages/bb-ui theme:check && bun run --cwd packages/bb-ui ui:drift",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "format:check": "bunx biome check --formatter-enabled=true --linter-enabled=false --assist-enabled=false .",
     "test": "bun test",
     "db:generate": "bun run --cwd apps/blackboard-web db:generate"
   }

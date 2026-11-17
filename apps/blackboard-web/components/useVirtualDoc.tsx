@@ -1,6 +1,16 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type RefObject } from "react";
+import {
+  createContext,
+  type MouseEvent,
+  type ReactNode,
+  type RefObject,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { TextMap } from "@/lib/text-map";
 import { shouldVirtualize } from "@/lib/virtualize";
 import { chunkDocBody } from "@/lib/virtualize-chunk";
@@ -21,7 +31,13 @@ export type VirtualDocHandle = {
 
 export type VirtualDocView = { handle: VirtualDocHandle; version: number };
 
-const DISABLED: VirtualDocHandle = { enabled: () => false, textMap: () => null, scrollToId: () => false, topForId: () => null, docTop: () => 0 };
+const DISABLED: VirtualDocHandle = {
+  enabled: () => false,
+  textMap: () => null,
+  scrollToId: () => false,
+  topForId: () => null,
+  docTop: () => 0,
+};
 
 const VirtualDocContext = createContext<VirtualDocView>({ handle: DISABLED, version: 0 });
 
@@ -33,7 +49,17 @@ export const useVirtualDocContext = (): VirtualDocView => useContext(VirtualDocC
  * wrappers, no observers, no attributes. The `version` rises whenever the mounted window
  * changes, so comment anchoring and the TOC can redo their work against the new DOM.
  */
-export function useVirtualDoc({ html, bodyRef, pinTail, disabled }: { html: string; bodyRef: RefObject<HTMLElement | null>; pinTail?: boolean; disabled?: boolean }): VirtualDocView {
+export function useVirtualDoc({
+  html,
+  bodyRef,
+  pinTail,
+  disabled,
+}: {
+  html: string;
+  bodyRef: RefObject<HTMLElement | null>;
+  pinTail?: boolean;
+  disabled?: boolean;
+}): VirtualDocView {
   const ctrl = useRef<VirtualDoc | null>(null);
   const bumpRaf = useRef(0);
   const [version, setVersion] = useState(0);
@@ -43,7 +69,8 @@ export function useVirtualDoc({ html, bodyRef, pinTail, disabled }: { html: stri
     const body = bodyRef.current;
     if (!body || body.children.length === 0) return;
     // The body is still fully mounted in flow here, so its height is the real one.
-    if (!shouldVirtualize(body.children.length, body.getBoundingClientRect().height, window.innerHeight)) return;
+    if (!shouldVirtualize(body.children.length, body.getBoundingClientRect().height, window.innerHeight))
+      return;
     const chunked = chunkDocBody(body);
     if (!chunked) return;
     const v = new VirtualDoc(body, chunked, {

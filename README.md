@@ -55,12 +55,12 @@ blackboard open docs/design.md       # registers the file and opens its tab
 runs (`server/`); `bun run build:cli` bundles the command for Node (`dist/`). npm lifecycle hooks
 no longer build them — run them yourself before `npm pack` / `npm publish`.
 
-| Variable | Default | Meaning |
-|----------|---------|---------|
-| `BLACKBOARD_HOME` | `~/.blackboard` | Blackboard's own folder: the session list, each session's comments, the scratchpad. |
-| `PORT` | `38770` | Port for `bun dev` / `bun start` (`serve start` takes `--port` or the port in `BLACKBOARD_URL`). |
-| `BLACKBOARD_NO_SERVER` | off | `1`: `blackboard open` never starts the web app. |
-| `BLACKBOARD_URL` | `http://127.0.0.1:38770` | Where `blackboard open` points the browser, and the base of the share-card URLs in each page. Set it to your public address if the app is reachable from outside. |
+| Variable               | Default                  | Meaning                                                                                                                                                           |
+| ---------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `BLACKBOARD_HOME`      | `~/.blackboard`          | Blackboard's own folder: the session list, each session's comments, the scratchpad.                                                                               |
+| `PORT`                 | `38770`                  | Port for `bun dev` / `bun start` (`serve start` takes `--port` or the port in `BLACKBOARD_URL`).                                                                  |
+| `BLACKBOARD_NO_SERVER` | off                      | `1`: `blackboard open` never starts the web app.                                                                                                                  |
+| `BLACKBOARD_URL`       | `http://127.0.0.1:38770` | Where `blackboard open` points the browser, and the base of the share-card URLs in each page. Set it to your public address if the app is reachable from outside. |
 
 The server binds `127.0.0.1` and answers only `localhost` / `127.0.0.1` / `[::1]` Host
 headers; writes from another site's Origin get a 403. It serves only files that were
@@ -108,7 +108,7 @@ Checks: `bun run typecheck`, `bun run lint`, `bun test`, `bun run build`.
 - **Click a highlight** — the pointer changes over highlighted text; a click focuses that
   comment in the panel. Clicking a comment in the panel scrolls the doc to its passage.
 - **Live view** — the page refreshes when the file changes on disk. Highlights follow their
-  passage; a comment whose passage is gone stays in the list as *orphaned*.
+  passage; a comment whose passage is gone stays in the list as _orphaned_.
 - **Copy open** — copies the doc's open comments as markdown (title, file, then quote, note,
   replies) to paste to an agent.
 - **Old marks** — `==passage==[^n]` shows as a read-only yellow highlight with the footnote as
@@ -165,11 +165,11 @@ blackboard resolve  <session> <comment-id>        # or: reopen
 
 `<session>` is a session id or a path to the registered file (relative paths are fine).
 
-| Setting | Default | Meaning |
-|---------|---------|---------|
-| `--home` / `BLACKBOARD_HOME` | `~/.blackboard` | Blackboard's folder |
-| `--author` / `BLACKBOARD_AUTHOR` | `agent` | Name on what the CLI writes |
-| `--no-browser` / `BLACKBOARD_NO_BROWSER=1` | off | `open` registers without launching the browser |
+| Setting                                    | Default         | Meaning                                        |
+| ------------------------------------------ | --------------- | ---------------------------------------------- |
+| `--home` / `BLACKBOARD_HOME`               | `~/.blackboard` | Blackboard's folder                            |
+| `--author` / `BLACKBOARD_AUTHOR`           | `agent`         | Name on what the CLI writes                    |
+| `--no-browser` / `BLACKBOARD_NO_BROWSER=1` | off             | `open` registers without launching the browser |
 
 Exit codes: `0` ok, `1` command failed (not a markdown file, unknown session / id, quote not
 found), `2` bad usage, `3` `serve status` when the app is not running.
@@ -210,7 +210,12 @@ $BLACKBOARD_HOME/
 {
   "version": 1,
   "sessions": [
-    { "id": "3dc91666ea", "path": "/work/app/docs/design.md", "createdAt": "2026-10-16T19:40:00.000Z", "openedAt": "2026-10-16T19:40:00.000Z" }
+    {
+      "id": "3dc91666ea",
+      "path": "/work/app/docs/design.md",
+      "createdAt": "2026-10-16T19:40:00.000Z",
+      "openedAt": "2026-10-16T19:40:00.000Z"
+    }
   ]
 }
 ```

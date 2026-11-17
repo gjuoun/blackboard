@@ -13,9 +13,7 @@ import { forward } from "~/lib/forward";
 const api = process.env.BLACKBOARD_API_URL;
 
 const handle = ({ request }: { request: Request }) =>
-  api
-    ? forward(request)
-    : import("@/api/app").then(({ app }) => app.fetch(request));
+  api ? forward(request) : import("@/api/app").then(({ app }) => app.fetch(request));
 
 export const Route = createFileRoute("/api/$")({
   server: { handlers: { GET: handle, POST: handle, PUT: handle, PATCH: handle, DELETE: handle } },

@@ -1,6 +1,6 @@
+import { cn } from "@gjuoun/bb-ui/lib/utils";
 import type { ReactNode } from "react";
 import { CopyButton } from "@/components/CopyButton";
-import { cn } from "@gjuoun/bb-ui/lib/utils";
 
 type Tone = "default" | "muted" | "accent";
 

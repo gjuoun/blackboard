@@ -66,7 +66,9 @@ test("styles: @theme inline maps exactly the shadcn colours and the four radius 
   expect(colours.sort()).toEqual([...SHADCN_ROLES].sort());
   expect(radii).toEqual(["radius-sm", "radius-md", "radius-lg", "radius-xl"]);
   // No font, shadow or size key: those belong to the app that consumes the theme.
-  expect(theme.filter((k) => k.startsWith("font-") || k.startsWith("shadow-") || k.startsWith("text-"))).toEqual([]);
+  expect(
+    theme.filter((k) => k.startsWith("font-") || k.startsWith("shadow-") || k.startsWith("text-")),
+  ).toEqual([]);
 });
 
 test("styles: every semantic role is one var(--theme-*) hop, and the radius is the one constant", () => {
@@ -74,7 +76,8 @@ test("styles: every semantic role is one var(--theme-*) hop, and the radius is t
   const decls = new Map([...root.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
   expect([...decls.keys()].sort()).toEqual(["radius", ...SHADCN_ROLES].sort());
   expect(decls.get("radius")).toBe("0.75rem");
-  for (const role of SHADCN_ROLES) expect({ role, value: decls.get(role) }).toEqual({ role, value: `var(--theme-${role})` });
+  for (const role of SHADCN_ROLES)
+    expect({ role, value: decls.get(role) }).toEqual({ role, value: `var(--theme-${role})` });
   // Not a colour and not ours: the scheme comes from the generated block, the fonts from the app.
   expect(body).not.toMatch(/color-scheme\s*:/);
   expect(body).not.toMatch(/light-dark\(/);
@@ -84,7 +87,8 @@ test("styles: composite.css carries only Blackboard's own roles", () => {
   const root = blockOf(composite, ":root,\n[data-theme],\n[data-mode]");
   const decls = new Map([...root.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
   expect([...decls.keys()].sort()).toEqual([...COMPOSITE_ROLES].sort());
-  for (const role of COMPOSITE_ROLES) expect({ role, value: decls.get(role) }).toEqual({ role, value: `var(--theme-${role})` });
+  for (const role of COMPOSITE_ROLES)
+    expect({ role, value: decls.get(role) }).toEqual({ role, value: `var(--theme-${role})` });
   // The shadcn words stay in styles.css.
   expect([...decls.keys()].filter((k) => (SHADCN_ROLES as readonly string[]).includes(k))).toEqual([]);
 });

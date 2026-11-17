@@ -1,7 +1,14 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { applyPrefs, DEFAULT_CHROME, parsePrefs, PREFS_KEY, serializePrefs, type StoredChrome } from "@/lib/prefs";
+import {
+  applyPrefs,
+  DEFAULT_CHROME,
+  PREFS_KEY,
+  parsePrefs,
+  type StoredChrome,
+  serializePrefs,
+} from "@/lib/prefs";
 
 /**
  * Page chrome shared between the top bar (in the root layout) and the doc page: which side panels
@@ -53,7 +60,8 @@ export function setChrome(patch: Partial<Chrome>) {
 /** Update the open doc's info in place (comment count, …). */
 export function patchDoc(patch: Partial<DocInfo>) {
   const doc = read().doc;
-  if (doc && Object.entries(patch).some(([k, v]) => doc[k as keyof DocInfo] !== v)) setChrome({ doc: { ...doc, ...patch } });
+  if (doc && Object.entries(patch).some(([k, v]) => doc[k as keyof DocInfo] !== v))
+    setChrome({ doc: { ...doc, ...patch } });
 }
 
 const subscribe = (l: () => void) => {
@@ -86,6 +94,11 @@ export function togglePanel(which: "toc" | "cm", desktop: boolean) {
 
 /** Reset the reading picks (palette, the three faces) without touching how the panels are laid out. */
 export function resetReading() {
-  setChrome({ theme: DEFAULTS.theme, mode: DEFAULTS.mode, fontLatin: DEFAULTS.fontLatin, fontCjk: DEFAULTS.fontCjk, fontMono: DEFAULTS.fontMono });
+  setChrome({
+    theme: DEFAULTS.theme,
+    mode: DEFAULTS.mode,
+    fontLatin: DEFAULTS.fontLatin,
+    fontCjk: DEFAULTS.fontCjk,
+    fontMono: DEFAULTS.fontMono,
+  });
 }
-

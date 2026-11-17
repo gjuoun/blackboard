@@ -31,7 +31,13 @@ const GIT_TIMEOUT_MS = 2000;
 /** One git answer, or null when git fails, is missing, or takes longer than 2 s. */
 function git(cwd: string, ...args: string[]): string | null {
   try {
-    const out = execFileSync("git", args, { cwd, timeout: GIT_TIMEOUT_MS, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    const out = execFileSync("git", args, {
+      cwd,
+      timeout: GIT_TIMEOUT_MS,
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .toString()
+      .trim();
     return out || null;
   } catch {
     return null;
@@ -72,7 +78,8 @@ export function docTitle(src: string, path: string): string {
   if (fm) {
     try {
       const data = parseYaml(fm);
-      if (data && typeof data === "object" && typeof data.title === "string" && data.title.trim()) return data.title.trim();
+      if (data && typeof data === "object" && typeof data.title === "string" && data.title.trim())
+        return data.title.trim();
     } catch {
       // unparsable front matter: fall through
     }
@@ -128,7 +135,17 @@ function mainCheckoutRoot(dir: string, root: string): string {
 /** What Home and the doc header show for one file: title, where it is, which branch. */
 export function docMeta(path: string, commentsFile?: string): DocMeta {
   if (!existsSync(path)) {
-    return { title: basename(path), repo: null, branch: null, detached: false, worktree: null, project: null, updatedAt: null, missing: true, stats: { sections: 0, diagrams: 0 } };
+    return {
+      title: basename(path),
+      repo: null,
+      branch: null,
+      detached: false,
+      worktree: null,
+      project: null,
+      updatedAt: null,
+      missing: true,
+      stats: { sections: 0, diagrams: 0 },
+    };
   }
   const src = readFileSync(path, "utf8");
   const dir = dirname(path);
@@ -150,5 +167,15 @@ export function docMeta(path: string, commentsFile?: string): DocMeta {
     project = { name: basename(mainRoot), root: mainRoot };
   }
   const updated = Math.max(mtime(path), mtime(commentsFile));
-  return { title: docTitle(src, path), repo, branch, detached, worktree, project, updatedAt: new Date(updated).toISOString(), missing: false, stats: docStats(src) };
+  return {
+    title: docTitle(src, path),
+    repo,
+    branch,
+    detached,
+    worktree,
+    project,
+    updatedAt: new Date(updated).toISOString(),
+    missing: false,
+    stats: docStats(src),
+  };
 }

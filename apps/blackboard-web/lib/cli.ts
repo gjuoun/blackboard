@@ -1,13 +1,14 @@
 import { Data, Effect } from "effect";
+import type { Comment, CommentFile } from "./comments-store";
 import { docKey } from "./session-model";
-import { type Comment, type CommentFile } from "./comments-store";
-import { SessionsStore, type Session, type SessionRow } from "./sessions";
+import { type Session, type SessionRow, SessionsStore } from "./sessions";
 
 /** A failure the CLI reports on stderr. code 1 = the command failed, 2 = bad usage. */
 export class CliError extends Data.TaggedError("CliError")<{ message: string; code: 1 | 2 }> {}
 
 /** A store or parsing failure as the CLI reports it: same message, exit code 1 unless given. */
-export const cliFailure = (error: { message: string }, code: 1 | 2 = 1) => new CliError({ message: error.message, code });
+export const cliFailure = (error: { message: string }, code: 1 | 2 = 1) =>
+  new CliError({ message: error.message, code });
 
 export type DocComment = Comment & { doc: string };
 
@@ -15,19 +16,31 @@ export type DocComment = Comment & { doc: string };
 export type Target = { session: Session; doc: string };
 
 /** A session named by id or by a path to its file (relative to cwd). */
-export function find(home: string, ref: string, cwd = process.cwd()): Effect.Effect<Target, CliError, SessionsStore> {
+export function find(
+  home: string,
+  ref: string,
+  cwd = process.cwd(),
+): Effect.Effect<Target, CliError, SessionsStore> {
   return Effect.gen(function* () {
     const sessions = yield* SessionsStore;
-    const session = yield* sessions.resolve(home, ref, cwd).pipe(Effect.mapError((error) => cliFailure(error)));
+    const session = yield* sessions
+      .resolve(home, ref, cwd)
+      .pipe(Effect.mapError((error) => cliFailure(error)));
     if (!session) {
-      return yield* new CliError({ message: `no session "${ref}" (register the file with: blackboard open <file>)`, code: 1 });
+      return yield* new CliError({
+        message: `no session "${ref}" (register the file with: blackboard open <file>)`,
+        code: 1,
+      });
     }
     return { session, doc: docKey(session) };
   });
 }
 
 /** The top-level comment that id is, or that holds id as one of its replies. Ids are unique within a session. */
-export function threadOf(file: CommentFile, id: string): Effect.Effect<{ doc: string; commentId: string }, CliError> {
+export function threadOf(
+  file: CommentFile,
+  id: string,
+): Effect.Effect<{ doc: string; commentId: string }, CliError> {
   return Effect.suspend(() => {
     for (const [doc, list] of Object.entries(file.docs)) {
       const c = list.find((x) => x.id === id || x.replies.some((r) => r.id === id));
@@ -41,7 +54,9 @@ export function threadOf(file: CommentFile, id: string): Effect.Effect<{ doc: st
 export function docOf(file: CommentFile, id: string): Effect.Effect<string, CliError> {
   return Effect.suspend(() => {
     const doc = Object.keys(file.docs).find((d) => file.docs[d].some((c) => c.id === id));
-    return doc ? Effect.succeed(doc) : Effect.fail(new CliError({ message: `no comment ${id} on this session`, code: 1 }));
+    return doc
+      ? Effect.succeed(doc)
+      : Effect.fail(new CliError({ message: `no comment ${id} on this session`, code: 1 }));
   });
 }
 
@@ -56,8 +71,13 @@ export function formatComments(list: DocComment[]): string {
   return list
     .map((c) => {
       const where = c.quote ? "  > " + squash(c.quote.exact) : "  (general)";
-      const lines = [`${c.id}  ${c.doc}  ${c.status}  ${c.author}  ${c.createdAt}`, where, `  ${c.body.replace(/\n/g, "\n  ")}`];
-      for (const r of c.replies) lines.push(`    \u21b3 ${r.id}  ${r.author}: ${r.body.replace(/\n/g, "\n      ")}`);
+      const lines = [
+        `${c.id}  ${c.doc}  ${c.status}  ${c.author}  ${c.createdAt}`,
+        where,
+        `  ${c.body.replace(/\n/g, "\n  ")}`,
+      ];
+      for (const r of c.replies)
+        lines.push(`    \u21b3 ${r.id}  ${r.author}: ${r.body.replace(/\n/g, "\n      ")}`);
       return lines.join("\n");
     })
     .join("\n\n");
@@ -67,6 +87,9 @@ export function formatComments(list: DocComment[]): string {
 export function formatSessions(rows: Omit<SessionRow, "srcMtime">[]): string {
   if (rows.length === 0) return "no sessions (register a file with: blackboard open <file>)";
   return rows
-    .map((r) => `${r.id}  ${r.title}  ${r.location}  ${r.branch ?? "-"}  ${r.open} open${r.missing ? "  (missing)" : ""}`)
+    .map(
+      (r) =>
+        `${r.id}  ${r.title}  ${r.location}  ${r.branch ?? "-"}  ${r.open} open${r.missing ? "  (missing)" : ""}`,
+    )
     .join("\n");
 }

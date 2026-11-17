@@ -29,7 +29,10 @@ export function rowOffsets(heights: ReadonlyArray<number | null>, estimate = ROW
 }
 
 /** The heights that stand in for the window's unmounted neighbours, in px. */
-export function listSpacers(offsets: readonly number[], range: VRange | null): { top: number; bottom: number } {
+export function listSpacers(
+  offsets: readonly number[],
+  range: VRange | null,
+): { top: number; bottom: number } {
   const n = offsets.length - 1;
   if (!range || n <= 0) return { top: 0, bottom: 0 };
   const first = Math.max(0, Math.min(n - 1, range.first));
@@ -38,7 +41,12 @@ export function listSpacers(offsets: readonly number[], range: VRange | null): {
 }
 
 /** The window for a scroll position inside the list's own container. */
-export function listRange(offsets: readonly number[], scrollTop: number, viewportH: number, overscan = LIST_OVERSCAN): VRange | null {
+export function listRange(
+  offsets: readonly number[],
+  scrollTop: number,
+  viewportH: number,
+  overscan = LIST_OVERSCAN,
+): VRange | null {
   return computeRange(offsets, scrollTop, viewportH, overscan);
 }
 
@@ -48,7 +56,12 @@ export function listRange(offsets: readonly number[], scrollTop: number, viewpor
  * A row already fully visible leaves the position alone; a row taller than the viewport aligns
  * to its top, as the browser does.
  */
-export function revealScroll(scrollTop: number, viewportH: number, rowTop: number, rowHeight: number): number {
+export function revealScroll(
+  scrollTop: number,
+  viewportH: number,
+  rowTop: number,
+  rowHeight: number,
+): number {
   if (viewportH <= 0) return Math.max(0, scrollTop);
   if (rowTop < scrollTop || rowHeight > viewportH) return Math.max(0, rowTop);
   if (rowTop + rowHeight > scrollTop + viewportH) return Math.max(0, rowTop + rowHeight - viewportH);

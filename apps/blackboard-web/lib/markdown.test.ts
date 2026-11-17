@@ -12,7 +12,9 @@ describe("renderMarkdown", () => {
   });
 
   test("gives headings ids and lists h1-h3 in the toc", async () => {
-    const { html, toc } = await renderMarkdown("# Design\n\n## Data flow\n\n### Edge cases\n\n#### Too deep\n");
+    const { html, toc } = await renderMarkdown(
+      "# Design\n\n## Data flow\n\n### Edge cases\n\n#### Too deep\n",
+    );
     expect(html).toContain('<h2 id="data-flow">Data flow</h2>');
     expect(toc).toEqual([
       { depth: 1, id: "design", text: "Design" },
@@ -23,7 +25,9 @@ describe("renderMarkdown", () => {
 
   test("turns ==passage==[^n] into a read-only mark titled with the footnote", async () => {
     const { html } = await renderMarkdown("This is ==an old mark==[^1] here.\n\n[^1]: legacy note\n");
-    expect(html).toContain('<mark class="legacy-mark" data-testid="legacy-mark" title="legacy note">an old mark</mark>');
+    expect(html).toContain(
+      '<mark class="legacy-mark" data-testid="legacy-mark" title="legacy note">an old mark</mark>',
+    );
     expect(html).toContain("here.");
     expect(html).not.toContain("==an old mark==");
   });
@@ -50,7 +54,7 @@ describe("renderMarkdown", () => {
       "  - search",
       "  - auth",
       "sub_issue: []",
-      "pr: \"\"",
+      'pr: ""',
       "owner:",
       "  name: jun",
       "  team: core",
@@ -59,13 +63,25 @@ describe("renderMarkdown", () => {
       "# Body",
     ].join("\n");
     const { html, frontmatter } = await renderMarkdown(src);
-    expect(frontmatter).toEqual({ id: "PLAN-42", status: "In Progress", created: "2026-09-24", tags: ["search", "auth"], sub_issue: [], pr: "", owner: { name: "jun", team: "core" } });
+    expect(frontmatter).toEqual({
+      id: "PLAN-42",
+      status: "In Progress",
+      created: "2026-09-24",
+      tags: ["search", "auth"],
+      sub_issue: [],
+      pr: "",
+      owner: { name: "jun", team: "core" },
+    });
     expect(html.startsWith('<table class="frontmatter" data-testid="frontmatter">')).toBe(true);
-    expect(html).toContain('<th scope="row">tags</th><td><ul class="fm-list"><li class="fm-chip">search</li><li class="fm-chip">auth</li></ul></td>');
+    expect(html).toContain(
+      '<th scope="row">tags</th><td><ul class="fm-list"><li class="fm-chip">search</li><li class="fm-chip">auth</li></ul></td>',
+    );
     expect(html).toContain('<th scope="row">created</th><td>2026-09-24</td>');
     expect(html).toContain('<th scope="row">sub_issue</th><td></td>');
     expect(html).toContain('<th scope="row">pr</th><td></td>');
-    expect(html).toContain('<th scope="row">owner</th><td><table class="fm-nested"><tbody><tr><th scope="row">name</th><td>jun</td></tr>');
+    expect(html).toContain(
+      '<th scope="row">owner</th><td><table class="fm-nested"><tbody><tr><th scope="row">name</th><td>jun</td></tr>',
+    );
     expect(html).not.toContain("<hr>");
     expect(html).toContain('<h1 id="body">Body</h1>');
   });
@@ -78,7 +94,9 @@ describe("renderMarkdown", () => {
   });
 
   test("plain text skips mermaid and keeps the text between blocks", async () => {
-    const text = await renderPlainText("# Title\n\nPara one.\n\n" + FENCE + "mermaid\nflowchart LR\n  A --> B\n" + FENCE + "\n\nPara two.\n");
+    const text = await renderPlainText(
+      "# Title\n\nPara one.\n\n" + FENCE + "mermaid\nflowchart LR\n  A --> B\n" + FENCE + "\n\nPara two.\n",
+    );
     expect(text).toBe("Title\nPara one.\n\nPara two.");
   });
 
@@ -127,7 +145,8 @@ describe("renderMarkdown explicit file: links", () => {
 });
 
 describe("renderMarkdown assetBase", () => {
-  const DOC = "![shot](./shot.png) ![up](../assets/up.png) ![web](https://x.test/a.png) ![inline](data:image/png;base64,xx) ![sub](sub/dir/b.jpg)";
+  const DOC =
+    "![shot](./shot.png) ![up](../assets/up.png) ![web](https://x.test/a.png) ![inline](data:image/png;base64,xx) ![sub](sub/dir/b.jpg)";
 
   test("rewrites doc-relative img srcs onto the asset route", async () => {
     const { html } = await renderMarkdown(DOC, { assetBase: "/api/asset/abc123" });

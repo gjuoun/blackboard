@@ -3,13 +3,34 @@
 import type { WorkspaceCounts } from "@/lib/reading-model";
 
 /** The left rail: the status views with their counts. */
-export function ReadingRail({ filter, onFilter, counts }: { filter: string; onFilter: (value: "all" | "unread") => void; counts: WorkspaceCounts }) {
+export function ReadingRail({
+  filter,
+  onFilter,
+  counts,
+}: {
+  filter: string;
+  onFilter: (value: "all" | "unread") => void;
+  counts: WorkspaceCounts;
+}) {
   const rows = [
-    { key: "all" as const, label: "All documents", n: counts.total, dot: <span aria-hidden className="size-[7px] rounded-full bg-current" /> },
-    { key: "unread" as const, label: "Unread", n: counts.unread, dot: <span aria-hidden className="bg-primary size-[7px] rounded-full" /> },
+    {
+      key: "all" as const,
+      label: "All documents",
+      n: counts.total,
+      dot: <span aria-hidden className="size-[7px] rounded-full bg-current" />,
+    },
+    {
+      key: "unread" as const,
+      label: "Unread",
+      n: counts.unread,
+      dot: <span aria-hidden className="bg-primary size-[7px] rounded-full" />,
+    },
   ];
   return (
-    <aside data-testid="rw-rail" className="border-border flex h-full min-h-0 flex-col gap-1.5 overflow-auto border-r px-2.5 py-4">
+    <aside
+      data-testid="rw-rail"
+      className="border-border flex h-full min-h-0 flex-col gap-1.5 overflow-auto border-r px-2.5 py-4"
+    >
       <h2 className="text-muted-foreground mx-2.5 mt-1 mb-2 text-xs font-semibold">Reading state</h2>
       {rows.map((row) => (
         <button

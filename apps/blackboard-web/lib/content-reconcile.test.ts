@@ -19,13 +19,30 @@ const x = 1;
 最后一段也是原文。
 `;
 
-const withIds = (src: string) => parseContentBlocks(src).map((s, i) => ({ id: `cb_${i}`, kind: s.kind, text: s.text, hash: s.hash, rev: 1, deletedAt: null }));
+const withIds = (src: string) =>
+  parseContentBlocks(src).map((s, i) => ({
+    id: `cb_${i}`,
+    kind: s.kind,
+    text: s.text,
+    hash: s.hash,
+    rev: 1,
+    deletedAt: null,
+  }));
 
 describe("parseContentBlocks", () => {
   test("顶层块 + 列表项各自成块", () => {
     const blocks = parseContentBlocks(V1);
     const kinds = blocks.map((b) => b.kind);
-    expect(kinds).toEqual(["heading", "paragraph", "listItem", "listItem", "listItem", "paragraph", "code", "paragraph"]);
+    expect(kinds).toEqual([
+      "heading",
+      "paragraph",
+      "listItem",
+      "listItem",
+      "listItem",
+      "paragraph",
+      "code",
+      "paragraph",
+    ]);
     // 列表项共享父组的 grp
     expect(blocks[2].grp).toBe(blocks[3].grp);
     expect(blocks[4].grp).toBe(blocks[2].grp);
@@ -57,7 +74,10 @@ describe("reconcileBlocks", () => {
 
   test("整段换成无关内容：报 1 removed + 1 added，不误判成 modified", () => {
     const old = withIds(V1);
-    const v2 = V1.replace("第一段内容，包含一些可以修改的字。", "Completely unrelated text about blockchains and cheese aging.");
+    const v2 = V1.replace(
+      "第一段内容，包含一些可以修改的字。",
+      "Completely unrelated text about blockchains and cheese aging.",
+    );
     const plan = reconcileBlocks(old, v2);
     expect(plan.removed).toEqual([old[1].id]);
     expect(plan.added).toHaveLength(1);
@@ -66,7 +86,10 @@ describe("reconcileBlocks", () => {
 
   test("删除一段 + 插入一段", () => {
     const old = withIds(V1);
-    const v2 = V1.replace("第二段内容保持原样。\n\n", "").replace("最后一段也是原文。", "插入的新段落。\n\n最后一段也是原文。");
+    const v2 = V1.replace("第二段内容保持原样。\n\n", "").replace(
+      "最后一段也是原文。",
+      "插入的新段落。\n\n最后一段也是原文。",
+    );
     const plan = reconcileBlocks(old, v2);
     expect(plan.removed).toEqual([old[5].id]);
     expect(plan.added).toHaveLength(1);

@@ -1,7 +1,7 @@
 "use client";
 
+import { MODES, type Mode, THEMES, type ThemeId } from "@gjuoun/bb-ui/themes";
 import { useEffect, useRef, useState } from "react";
-import { MODES, THEMES, type Mode, type ThemeId } from "@gjuoun/bb-ui/themes";
 import { ComponentsSection } from "./ComponentsSection";
 import { PaletteSection } from "./PaletteSection";
 import { TypeSection } from "./TypeSection";

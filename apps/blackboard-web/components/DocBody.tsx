@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, type ReactNode, type Ref, type RefObject } from "react";
+import { memo, type ReactNode, type Ref, type RefObject, useEffect } from "react";
 import { renderMermaidIn } from "./Mermaid";
 
 type Mouse = (e: React.MouseEvent<HTMLElement>) => void;
@@ -19,7 +19,14 @@ type Props = {
  * drop the reader's selection and the drawn diagrams). A streamed doc hands rendered timeline
  * sections as children instead of one html string. Diagrams are drawn after the content lands.
  */
-export const DocBody = memo(function DocBody({ html, ref, children, onClick, onMouseMove, onMouseLeave }: Props) {
+export const DocBody = memo(function DocBody({
+  html,
+  ref,
+  children,
+  onClick,
+  onMouseMove,
+  onMouseLeave,
+}: Props) {
   useEffect(() => {
     const el = (ref as RefObject<HTMLElement | null>).current;
     if (el) void renderMermaidIn(el);

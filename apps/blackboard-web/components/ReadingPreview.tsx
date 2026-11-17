@@ -1,9 +1,9 @@
 "use client";
 
-import { useNav } from "./nav";
-import { useEffect, useRef, useState } from "react";
 import { cn } from "@gjuoun/bb-ui/lib/utils";
+import { useEffect, useRef, useState } from "react";
 import type { PreviewData, WorkspaceDoc } from "@/lib/reading-model";
+import { useNav } from "./nav";
 import { PreviewReplyBar } from "./PreviewReplyBar";
 
 /** The body preview: the rendered document, the general-comment thread, and a reply box kept at the bottom. */
@@ -28,7 +28,16 @@ export type ReadingPreviewProps = {
   onReply: (text: string) => Promise<boolean>;
 };
 
-export function ReadingPreview({ doc, preview, loading, error, resume, onClose, onMark, onReply }: ReadingPreviewProps) {
+export function ReadingPreview({
+  doc,
+  preview,
+  loading,
+  error,
+  resume,
+  onClose,
+  onMark,
+  onReply,
+}: ReadingPreviewProps) {
   const { Link } = useNav();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -62,11 +71,22 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
 
   if (!doc) {
     return (
-      <aside aria-label="Preview" data-testid="rw-preview" className="border-border bg-card relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l">
-        <div data-testid="rw-empty" className="text-muted-foreground flex flex-1 flex-col justify-center gap-1.5 px-[26px] py-7">
-          <div className="border-border bg-background mb-1 grid size-[34px] place-items-center rounded-[9px] border text-[15px]">◫</div>
+      <aside
+        aria-label="Preview"
+        data-testid="rw-preview"
+        className="border-border bg-card relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l"
+      >
+        <div
+          data-testid="rw-empty"
+          className="text-muted-foreground flex flex-1 flex-col justify-center gap-1.5 px-[26px] py-7"
+        >
+          <div className="border-border bg-background mb-1 grid size-[34px] place-items-center rounded-[9px] border text-[15px]">
+            ◫
+          </div>
           <p className="text-foreground m-0 text-sm font-semibold">Select a document</p>
-          <span className="max-w-[240px] text-[12.5px] leading-[1.65]">Click any row to open it here: the body, the replies so far, and a reply box pinned at the bottom.</span>
+          <span className="max-w-[240px] text-[12.5px] leading-[1.65]">
+            Click any row to open it here: the body, the replies so far, and a reply box pinned at the bottom.
+          </span>
         </div>
       </aside>
     );
@@ -74,14 +94,28 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
 
   const unread = doc.status === "unread";
   return (
-    <aside aria-label="Preview" data-testid="rw-preview" className="border-border bg-card relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l">
+    <aside
+      aria-label="Preview"
+      data-testid="rw-preview"
+      className="border-border bg-card relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-l"
+    >
       {/* Phone: the mail-detail bar — ‹ back, the title centred, the ⋯ menu. No status badge, no
           progress: the state dot lives in the list row only. */}
       <div className="border-border flex h-[52px] flex-none items-center gap-2 border-b px-2.5 md:hidden">
-        <button type="button" onClick={onClose} aria-label="Back to list" title="Back to list" data-testid="rw-back" className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-[34px] place-items-center rounded-[9px] pb-1 text-[22px]">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Back to list"
+          title="Back to list"
+          data-testid="rw-back"
+          className="text-muted-foreground hover:bg-accent hover:text-foreground grid size-[34px] place-items-center rounded-[9px] pb-1 text-[22px]"
+        >
           ‹
         </button>
-        <span data-testid="rw-mobile-title" className="min-w-0 flex-1 truncate text-center text-[13px] font-semibold">
+        <span
+          data-testid="rw-mobile-title"
+          className="min-w-0 flex-1 truncate text-center text-[13px] font-semibold"
+        >
           {doc.title}
         </span>
         <button
@@ -97,7 +131,10 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
         </button>
       </div>
       {menuOpen ? (
-        <div data-testid="rw-menu" className="border-border bg-card absolute top-[46px] right-2.5 z-20 w-[168px] rounded-[10px] border p-[5px] shadow-[0_20px_44px_-30px_rgba(0,0,0,0.65)] md:hidden">
+        <div
+          data-testid="rw-menu"
+          className="border-border bg-card absolute top-[46px] right-2.5 z-20 w-[168px] rounded-[10px] border p-[5px] shadow-[0_20px_44px_-30px_rgba(0,0,0,0.65)] md:hidden"
+        >
           <button
             type="button"
             data-testid="rw-menu-mark"
@@ -141,7 +178,10 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
         className="min-h-0 flex-1 overflow-auto px-[18px] pb-2.5"
         onClick={() => menuOpen && setMenuOpen(false)}
       >
-        <h2 data-testid="rw-preview-title" className="mt-3.5 text-[18px] leading-[1.42] font-bold tracking-[-0.01em]">
+        <h2
+          data-testid="rw-preview-title"
+          className="mt-3.5 text-[18px] leading-[1.42] font-bold tracking-[-0.01em]"
+        >
           {doc.title}
         </h2>
         <div className="text-muted-foreground border-border mt-[9px] flex flex-wrap items-center gap-x-1.5 gap-y-1 border-b pb-3 font-mono text-[10.5px]">
@@ -158,7 +198,11 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
         {error ? <p className="text-primary pt-4 text-[12.5px]">{error}</p> : null}
         {preview && !loading && !error ? (
           <>
-            <div data-testid="rw-preview-html" className={PROSE} dangerouslySetInnerHTML={{ __html: preview.html }} />
+            <div
+              data-testid="rw-preview-html"
+              className={PROSE}
+              dangerouslySetInnerHTML={{ __html: preview.html }}
+            />
             {preview.replies.length > 0 ? (
               <>
                 <div className="text-muted-foreground mt-[18px] mb-2.5 flex items-center gap-2 font-mono text-[10.5px] after:h-px after:flex-1 after:bg-[var(--border)]">
@@ -166,12 +210,18 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
                 </div>
                 <div className="flex flex-col gap-2">
                   {preview.replies.map((reply) => (
-                    <div key={reply.id} data-testid="rw-reply" className="border-border bg-background rounded-lg border px-2.5 py-2">
+                    <div
+                      key={reply.id}
+                      data-testid="rw-reply"
+                      className="border-border bg-background rounded-lg border px-2.5 py-2"
+                    >
                       <div className="text-muted-foreground flex items-center gap-1.5 text-[10.5px]">
                         <b className="text-foreground text-[11.5px] font-semibold">{reply.author}</b>
                         <span>{reply.updated}</span>
                       </div>
-                      <p className="mt-0.5 text-[12.5px] leading-[1.6] break-words whitespace-pre-wrap">{reply.body}</p>
+                      <p className="mt-0.5 text-[12.5px] leading-[1.6] break-words whitespace-pre-wrap">
+                        {reply.body}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -190,7 +240,10 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
           >
             {doc.status === "read" ? "Mark unread" : "Mark read"}
           </button>
-          <Link href={`/s/${doc.id}`} className="border-border bg-card hover:bg-accent flex h-8 items-center rounded-lg border px-3 text-[12.5px]">
+          <Link
+            href={`/s/${doc.id}`}
+            className="border-border bg-card hover:bg-accent flex h-8 items-center rounded-lg border px-3 text-[12.5px]"
+          >
             Open ↗
           </Link>
         </div>
@@ -201,7 +254,9 @@ export function ReadingPreview({ doc, preview, loading, error, resume, onClose, 
 
       {/* Desktop: the reply box as it was. */}
       <div className="border-border bg-card hidden flex-none border-t px-4 pt-2.5 pb-3.5 md:block">
-        <div className="text-muted-foreground mb-1.5 text-[10.5px]">Replies are added as comments on this document</div>
+        <div className="text-muted-foreground mb-1.5 text-[10.5px]">
+          Replies are added as comments on this document
+        </div>
         <div className="flex items-center gap-2">
           <input
             data-testid="rw-reply-input"

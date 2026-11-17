@@ -1,36 +1,47 @@
 import { describe, expect, test } from "bun:test";
-import { Effect } from "effect";
 import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { markRead, markUnread, type ReadingEntry } from "./reading-model";
-import { ReadingStateStore, type ReadingFile } from "./reading-state";
-import { DocumentsRepo } from "./db/repos/documents";
+import { Effect } from "effect";
 import { run } from "../test/app";
+import { DocumentsRepo } from "./db/repos/documents";
+import { markRead, markUnread, type ReadingEntry } from "./reading-model";
+import { type ReadingFile, ReadingStateStore } from "./reading-state";
 
 const at = "2026-11-08T10:00:00.000Z";
-const entry = (status: ReadingEntry["status"], progress: number): ReadingEntry => ({ status, progress, readAt: at, sourceMtime: 100 });
+const entry = (status: ReadingEntry["status"], progress: number): ReadingEntry => ({
+  status,
+  progress,
+  readAt: at,
+  sourceMtime: 100,
+});
 
 /** A temp home with the documents the foreign key points at. */
 const fresh = async (...ids: string[]) => {
   const home = realpathSync(mkdtempSync(join(tmpdir(), "bb-reading-")));
-  await run(Effect.gen(function* () {
-    const docs = yield* DocumentsRepo;
-    for (const id of ids) yield* docs.upsert(home, { id, path: join(home, `${id}.md`) });
-  }));
+  await run(
+    Effect.gen(function* () {
+      const docs = yield* DocumentsRepo;
+      for (const id of ids) yield* docs.upsert(home, { id, path: join(home, `${id}.md`) });
+    }),
+  );
   return home;
 };
 
 const read = (home: string): Promise<ReadingFile> =>
-  run(Effect.gen(function* () {
-    const s = yield* ReadingStateStore;
-    return yield* s.read(home);
-  }));
+  run(
+    Effect.gen(function* () {
+      const s = yield* ReadingStateStore;
+      return yield* s.read(home);
+    }),
+  );
 const set = (home: string, id: string, e: ReadingEntry): Promise<void> =>
-  run(Effect.gen(function* () {
-    const s = yield* ReadingStateStore;
-    return yield* s.set(home, id, e);
-  }));
+  run(
+    Effect.gen(function* () {
+      const s = yield* ReadingStateStore;
+      return yield* s.set(home, id, e);
+    }),
+  );
 
 describe("reading state", () => {
   test("a home without rows reads as empty", async () => {

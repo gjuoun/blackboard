@@ -1,6 +1,6 @@
-import { useState } from "react";
 import { Badge } from "@gjuoun/bb-ui/components/ui/badge";
 import { Button } from "@gjuoun/bb-ui/components/ui/button";
+import { useState } from "react";
 import type { DemoComment, DemoDict } from "./data";
 
 // bb-ui's Sheet portals to document.body, which would escape the phone clip — so the demo

@@ -1,6 +1,7 @@
 /** Where comment images are kept on disk: `<home>/comment-images/<sha256>.<ext>`. */
-import { Effect, FileSystem } from "effect";
+
 import { join } from "node:path";
+import { Effect, FileSystem } from "effect";
 import { acceptImage, IMAGE_ID } from "./comment-images";
 import { errorMessage, ImageRejected, IoFailure } from "./effect/errors";
 

@@ -15,7 +15,10 @@ reading.post("/", (c) =>
       const raw = yield* jsonBody(c.req.raw);
       if (raw === null) return yield* Effect.fail(sessionNotFound(400));
       const body = yield* decodeBody(ReadingPostBody, raw, readingReject);
-      if (!body.action) return yield* Effect.fail(new InvalidInput({ message: "unknown action", status: 400, field: "action" }));
+      if (!body.action)
+        return yield* Effect.fail(
+          new InvalidInput({ message: "unknown action", status: 400, field: "action" }),
+        );
       return yield* applyReading(getHome(), { session: body.session, action: body.action });
     }),
   ),

@@ -7,12 +7,18 @@ import { docMeta, docStats, docTitle } from "./doc-meta";
 
 const tmp = () => realpathSync(mkdtempSync(join(tmpdir(), "bb-meta-")));
 const git = (cwd: string, ...args: string[]) =>
-  execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd, stdio: "ignore" });
+  execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], {
+    cwd,
+    stdio: "ignore",
+  });
 
 function repo() {
   const root = join(tmp(), "my-repo");
   mkdirSync(join(root, "docs"), { recursive: true });
-  writeFileSync(join(root, "docs", "plan.md"), "# Plan\n\n## One\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\n## Two\n");
+  writeFileSync(
+    join(root, "docs", "plan.md"),
+    "# Plan\n\n## One\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\n## Two\n",
+  );
   git(root, "init", "-q", "-b", "main");
   git(root, "add", "-A");
   git(root, "commit", "-qm", "init");
@@ -26,7 +32,9 @@ describe("docTitle", () => {
   });
 
   test("first # heading, skipping code fences and front matter", () => {
-    expect(docTitle("---\nstatus: x\n---\n\n```sh\n# not a title\n```\n\n## Sub\n\n# Real Title\n", "a.md")).toBe("Real Title");
+    expect(
+      docTitle("---\nstatus: x\n---\n\n```sh\n# not a title\n```\n\n## Sub\n\n# Real Title\n", "a.md"),
+    ).toBe("Real Title");
   });
 
   test("falls back to the file name", () => {
@@ -43,7 +51,8 @@ describe("docTitle source file", () => {
 
 describe("docStats", () => {
   test("counts ## sections and mermaid diagrams outside code fences", () => {
-    const src = "# T\n\n## A\n\n```mermaid\ngraph\n```\n\n````md\n## not a section\n```mermaid\n```\n````\n\n## B\n\n```mermaid\ngraph\n```\n";
+    const src =
+      "# T\n\n## A\n\n```mermaid\ngraph\n```\n\n````md\n## not a section\n```mermaid\n```\n````\n\n## B\n\n```mermaid\ngraph\n```\n";
     expect(docStats(src)).toEqual({ sections: 2, diagrams: 2 });
   });
 });

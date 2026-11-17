@@ -1,10 +1,10 @@
+import { Badge } from "@gjuoun/bb-ui/components/ui/badge";
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { Folder, FolderGit2, FolderTree, GitBranch, GitCommitHorizontal } from "lucide-react";
-import { Badge } from "@gjuoun/bb-ui/components/ui/badge";
 import { DocChip } from "@/components/DocChip";
 import { DocView } from "@/components/DocView";
-import { Toc } from "@/components/Toc";
 import { useNav } from "@/components/nav";
+import { Toc } from "@/components/Toc";
 import { loadSessionPage, type SessionHeader } from "~/lib/session";
 
 export const Route = createFileRoute("/s/$id")({
@@ -50,8 +50,16 @@ function Header({ header }: { header: SessionHeader }) {
           <bdi dir="ltr">{header.location}</bdi>
         </span>
       </DocChip>
-      <div className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" data-testid="doc-meta-row">
-        <DocChip testid="doc-project" title={`project root ${header.projectRoot}`} className="shrink-0" copy={{ value: header.projectRoot, label: "Copy project path" }}>
+      <div
+        className="flex min-w-0 flex-nowrap items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        data-testid="doc-meta-row"
+      >
+        <DocChip
+          testid="doc-project"
+          title={`project root ${header.projectRoot}`}
+          className="shrink-0"
+          copy={{ value: header.projectRoot, label: "Copy project path" }}
+        >
           <FolderTree aria-hidden />
           <span className="min-w-0 truncate">{header.projectName}</span>
         </DocChip>
@@ -61,7 +69,11 @@ function Header({ header }: { header: SessionHeader }) {
             title={header.detached ? "detached HEAD" : "git branch"}
             tone={header.detached ? "muted" : "default"}
             className="shrink-0"
-            copy={header.detached ? { value: header.branch, label: "Copy short sha" } : { value: header.branch, label: "Copy branch" }}
+            copy={
+              header.detached
+                ? { value: header.branch, label: "Copy short sha" }
+                : { value: header.branch, label: "Copy branch" }
+            }
           >
             {header.detached ? <GitCommitHorizontal aria-hidden /> : <GitBranch aria-hidden />}
             <span className="min-w-0 truncate">{header.branch}</span>
@@ -99,10 +111,12 @@ function SessionPage() {
         <Header header={header} />
         <h1 className="text-2xl font-bold">{header.title}</h1>
         <p className="text-muted-foreground mt-3">
-          This file is missing or no longer a markdown file: <code className="bg-code rounded px-1.5">{page.sessionPath}</code>
+          This file is missing or no longer a markdown file:{" "}
+          <code className="bg-code rounded px-1.5">{page.sessionPath}</code>
         </p>
         <p className="text-muted-foreground mt-2">
-          Open its new location with <code className="bg-code rounded px-1.5">blackboard open &lt;file&gt;</code>.
+          Open its new location with{" "}
+          <code className="bg-code rounded px-1.5">blackboard open &lt;file&gt;</code>.
         </p>
       </main>
     );
@@ -129,7 +143,8 @@ function SessionNotFound() {
     <main className="mx-auto max-w-2xl px-4 py-10 md:px-6" data-testid="session-not-found">
       <h1 className="text-2xl font-bold">No such session</h1>
       <p className="text-muted-foreground mt-3">
-        It was closed or never opened. Open a file with <code className="bg-code rounded px-1.5">blackboard open &lt;file&gt;</code>, or go{" "}
+        It was closed or never opened. Open a file with{" "}
+        <code className="bg-code rounded px-1.5">blackboard open &lt;file&gt;</code>, or go{" "}
         <Link href="/inbox" className="text-primary hover:underline">
           Inbox
         </Link>

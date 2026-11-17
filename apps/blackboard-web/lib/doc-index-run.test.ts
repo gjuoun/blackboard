@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 import { Db, layer as dbLayer } from "./db/client";
-import { documents } from "./db/schema";
 import { DocumentsRepo, layer as documentsLayer } from "./db/repos/documents";
+import { documents } from "./db/schema";
 import { indexDocuments } from "./doc-index-run";
 
 /**
@@ -35,14 +35,18 @@ const runIn = <A>(effect: Effect.Effect<A, unknown, Db | DocumentsRepo>): Promis
 
 /** Register a file as a document. */
 const register = (home: string, id: string, path: string) =>
-  runIn(Effect.gen(function* () {
-    const docs = yield* DocumentsRepo;
-    yield* docs.upsert(home, { id, path });
-  }));
+  runIn(
+    Effect.gen(function* () {
+      const docs = yield* DocumentsRepo;
+      yield* docs.upsert(home, { id, path });
+    }),
+  );
 
 /** The index, run once. */
 const indexOnce = (home: string) =>
-  Effect.runPromise(indexDocuments(home).pipe(Effect.provide(dbLayer)) as Effect.Effect<IndexShape, never, never>);
+  Effect.runPromise(
+    indexDocuments(home).pipe(Effect.provide(dbLayer)) as Effect.Effect<IndexShape, never, never>,
+  );
 
 type IndexShape = { scanned: number; updated: number; skipped: number; missing: number; gitCommands: number };
 
@@ -71,7 +75,6 @@ describe("the index reads a document into its row", () => {
     expect(second).toMatchObject({ updated: 0, skipped: 1 });
   });
 });
-
 
 describe("the index follows the file", () => {
   test("an edited file is re-read on the next run, and only that file", async () => {
@@ -107,13 +110,17 @@ describe("the index follows the file", () => {
 
   test("a path-less stream row is never file-indexed, even under --force", async () => {
     const home = freshHome();
-    await runIn(Effect.gen(function* () {
-      const docs = yield* DocumentsRepo;
-      yield* docs.upsert(home, { id: "s-stream1", path: null, kind: "stream" });
-    }));
+    await runIn(
+      Effect.gen(function* () {
+        const docs = yield* DocumentsRepo;
+        yield* docs.upsert(home, { id: "s-stream1", path: null, kind: "stream" });
+      }),
+    );
     const first = await indexOnce(home);
     expect(first).toMatchObject({ scanned: 1, updated: 0, missing: 0 });
-    const forced = await Effect.runPromise(indexDocuments(home, true).pipe(Effect.provide(dbLayer)) as Effect.Effect<IndexShape, never, never>);
+    const forced = await Effect.runPromise(
+      indexDocuments(home, true).pipe(Effect.provide(dbLayer)) as Effect.Effect<IndexShape, never, never>,
+    );
     expect(forced.updated).toBe(0);
     expect((await rowOf(home, "s-stream1"))?.body).toBeNull();
   });
@@ -125,7 +132,9 @@ describe("the index follows the file", () => {
     await register(home, "is", f);
     await indexOnce(home);
     expect((await indexOnce(home)).updated).toBe(0);
-    const forced = await Effect.runPromise(indexDocuments(home, true).pipe(Effect.provide(dbLayer)) as Effect.Effect<IndexShape, never, never>);
+    const forced = await Effect.runPromise(
+      indexDocuments(home, true).pipe(Effect.provide(dbLayer)) as Effect.Effect<IndexShape, never, never>,
+    );
     expect(forced.updated).toBe(1);
   });
 });

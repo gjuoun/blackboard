@@ -32,4 +32,9 @@ const subscribe = (l: () => void) => {
 };
 
 /** The bar props the mounted workspace page last published, or null anywhere else (and on SSR). */
-export const useWorkspaceBar = () => useSyncExternalStore(subscribe, () => bar, () => null);
+export const useWorkspaceBar = () =>
+  useSyncExternalStore(
+    subscribe,
+    () => bar,
+    () => null,
+  );

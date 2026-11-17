@@ -1,5 +1,5 @@
 import type { Element, ElementContent, Root as HastRoot } from "hast";
-import type { FootnoteDefinition, PhrasingContent, Root as MdastRoot } from "mdast";
+import type { FootnoteDefinition, Root as MdastRoot, PhrasingContent } from "mdast";
 import { toString as mdToString } from "mdast-util-to-string";
 import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
@@ -22,7 +22,11 @@ type Frontmatter = Record<string, unknown>;
 export type Rendered = { html: string; toc: TocEntry[]; frontmatter: Frontmatter | null };
 
 /** A node remark-rehype turns into the element named by data.hName. */
-type HNode = { type: string; data: { hName: string; hProperties?: Record<string, unknown>; hChildren?: unknown[] }; children?: PhrasingContent[] };
+type HNode = {
+  type: string;
+  data: { hName: string; hProperties?: Record<string, unknown>; hChildren?: unknown[] };
+  children?: PhrasingContent[];
+};
 
 const MARK = /==([^=\n]+)==/g;
 
@@ -79,7 +83,11 @@ function remarkLegacyMarks() {
             if (note) props.title = note;
             consumedRef = true;
           }
-          parts.push({ type: "legacyMark", data: { hName: "mark", hProperties: props }, children: [{ type: "text", value: m[1] }] });
+          parts.push({
+            type: "legacyMark",
+            data: { hName: "mark", hProperties: props },
+            children: [{ type: "text", value: m[1] }],
+          });
         }
         if (parts.length === 0) continue;
         if (last < kid.value.length) parts.push({ type: "text", value: kid.value.slice(last) });
@@ -90,20 +98,37 @@ function remarkLegacyMarks() {
   };
 }
 
-const el = (tagName: string, properties: Element["properties"], children: ElementContent[]): Element => ({ type: "element", tagName, properties, children });
+const el = (tagName: string, properties: Element["properties"], children: ElementContent[]): Element => ({
+  type: "element",
+  tagName,
+  properties,
+  children,
+});
 const txt = (value: string): ElementContent => ({ type: "text", value });
 
 /** Empty values ("", null, [], {}) render as a blank cell. */
 const isEmpty = (v: unknown) =>
-  v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0) || (typeof v === "object" && Object.keys(v as object).length === 0);
+  v === null ||
+  v === undefined ||
+  v === "" ||
+  (Array.isArray(v) && v.length === 0) ||
+  (typeof v === "object" && Object.keys(v as object).length === 0);
 
 /** One front-matter value as HAST: lists become chips, objects nested tables. */
 function fmValue(v: unknown): ElementContent {
   if (Array.isArray(v)) {
     if (v.every((x) => x === null || typeof x !== "object")) {
-      return el("ul", { className: ["fm-list"] }, v.map((x) => el("li", { className: ["fm-chip"] }, [txt(String(x ?? ""))])));
+      return el(
+        "ul",
+        { className: ["fm-list"] },
+        v.map((x) => el("li", { className: ["fm-chip"] }, [txt(String(x ?? ""))])),
+      );
     }
-    return el("ol", { className: ["fm-items"] }, v.map((x) => el("li", {}, isEmpty(x) ? [] : [fmValue(x)])));
+    return el(
+      "ol",
+      { className: ["fm-items"] },
+      v.map((x) => el("li", {}, isEmpty(x) ? [] : [fmValue(x)])),
+    );
   }
   if (typeof v === "object") return fmTable(v as Frontmatter, "fm-nested");
   const s = String(v);
@@ -112,8 +137,12 @@ function fmValue(v: unknown): ElementContent {
 }
 
 function fmTable(data: Frontmatter, className: string, testid?: string): Element {
-  const rows = Object.entries(data).map(([k, v]) => el("tr", {}, [el("th", { scope: "row" }, [txt(k)]), el("td", {}, isEmpty(v) ? [] : [fmValue(v)])]));
-  return el("table", testid ? { className: [className], dataTestid: testid } : { className: [className] }, [el("tbody", {}, rows)]);
+  const rows = Object.entries(data).map(([k, v]) =>
+    el("tr", {}, [el("th", { scope: "row" }, [txt(k)]), el("td", {}, isEmpty(v) ? [] : [fmValue(v)])]),
+  );
+  return el("table", testid ? { className: [className], dataTestid: testid } : { className: [className] }, [
+    el("tbody", {}, rows),
+  ]);
 }
 
 /**
@@ -128,16 +157,24 @@ function remarkFrontmatterTable(out: { data: Frontmatter | null }) {
     let block: Element;
     try {
       const data = parseYaml(first.value) ?? {};
-      if (typeof data !== "object" || Array.isArray(data)) throw new Error("front matter is not a map of fields");
+      if (typeof data !== "object" || Array.isArray(data))
+        throw new Error("front matter is not a map of fields");
       out.data = data as Frontmatter;
       block = fmTable(out.data, "frontmatter", "frontmatter");
     } catch (err) {
       block = el("div", { className: ["frontmatter-error"], dataTestid: "frontmatter" }, [
-        el("p", {}, [txt(`Front matter does not parse: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`)]),
+        el("p", {}, [
+          txt(
+            `Front matter does not parse: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`,
+          ),
+        ]),
         el("pre", {}, [txt(first.value)]),
       ]);
     }
-    const node: HNode = { type: "frontmatterBlock", data: { hName: block.tagName, hProperties: block.properties, hChildren: block.children } };
+    const node: HNode = {
+      type: "frontmatterBlock",
+      data: { hName: block.tagName, hProperties: block.properties, hChildren: block.children },
+    };
     tree.children.splice(0, 1, node as never);
   };
 }
@@ -152,7 +189,14 @@ function remarkMermaidBlocks() {
         data: {
           hName: "div",
           hProperties: { className: ["mermaid-block"], dataTestid: "mermaid" },
-          hChildren: [{ type: "element", tagName: "pre", properties: { className: ["mermaid-src"] }, children: [{ type: "text", value: node.value }] }],
+          hChildren: [
+            {
+              type: "element",
+              tagName: "pre",
+              properties: { className: ["mermaid-src"] },
+              children: [{ type: "text", value: node.value }],
+            },
+          ],
         },
       };
       parent.children.splice(index, 1, block as never);
@@ -160,7 +204,8 @@ function remarkMermaidBlocks() {
   };
 }
 
-const hasClass = (node: Element, name: string) => Array.isArray(node.properties.className) && node.properties.className.includes(name);
+const hasClass = (node: Element, name: string) =>
+  Array.isArray(node.properties.className) && node.properties.className.includes(name);
 
 /** `$$…$$` alone in a paragraph is display math (Typora and Pandoc agree); remark-math reads it as inline. */
 export function remarkDisplayMath() {
@@ -171,7 +216,12 @@ export function remarkDisplayMath() {
       if (!parent || index === undefined || only?.type !== "inlineMath" || !only.position) return;
       if (!src.startsWith("$$", only.position.start.offset ?? -1)) return;
       const code = el("code", { className: ["language-math", "math-display"] }, [txt(only.value)]);
-      const block: HNode = { type: "math", value: only.value, position: node.position, data: { hName: "pre", hChildren: [code] } } as unknown as HNode;
+      const block: HNode = {
+        type: "math",
+        value: only.value,
+        position: node.position,
+        data: { hName: "pre", hChildren: [code] },
+      } as unknown as HNode;
       parent.children.splice(index, 1, block as never);
     });
   };
@@ -180,7 +230,8 @@ export function remarkDisplayMath() {
 /** Heading text with the formulas dropped, so the TOC carries neither TeX source nor glyphs. */
 function textWithoutMath(node: HastRoot | ElementContent): string {
   if (node.type === "text") return node.value;
-  if (node.type === "root" || (node.type === "element" && !hasClass(node, "language-math"))) return (node.children as ElementContent[]).map((c) => textWithoutMath(c)).join("");
+  if (node.type === "root" || (node.type === "element" && !hasClass(node, "language-math")))
+    return (node.children as ElementContent[]).map((c) => textWithoutMath(c)).join("");
   return "";
 }
 
@@ -219,7 +270,12 @@ function rehypeCollectToc(toc: TocEntry[]) {
   return () => (tree: HastRoot) => {
     visit(tree, "element", (el: Element) => {
       const m = /^h([1-3])$/.exec(el.tagName);
-      if (m && typeof el.properties.id === "string") toc.push({ depth: Number(m[1]), id: el.properties.id, text: textWithoutMath(el).replace(/\s+/g, " ").trim() });
+      if (m && typeof el.properties.id === "string")
+        toc.push({
+          depth: Number(m[1]),
+          id: el.properties.id,
+          text: textWithoutMath(el).replace(/\s+/g, " ").trim(),
+        });
     });
   };
 }
@@ -258,7 +314,8 @@ const OPAQUE = new Set(["mermaid", "math"]);
 function hastText(node: HastRoot | ElementContent): string {
   if (node.type === "text") return node.value;
   if (node.type === "element" && OPAQUE.has(String(node.properties.dataTestid))) return "";
-  if (node.type === "root" || node.type === "element") return node.children.map((c) => hastText(c as ElementContent)).join("");
+  if (node.type === "root" || node.type === "element")
+    return node.children.map((c) => hastText(c as ElementContent)).join("");
   return "";
 }
 

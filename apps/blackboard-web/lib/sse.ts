@@ -1,5 +1,5 @@
-import { FileSystem, Schedule, Stream } from "effect";
-import { errorMessage, IoFailure, type ApiFailure } from "./effect/errors";
+import { type FileSystem, Schedule, Stream } from "effect";
+import { type ApiFailure, errorMessage, IoFailure } from "./effect/errors";
 
 const DEBOUNCE_MS = 100;
 /** An idle watch connection says something this often: the browser ignores a comment line, and a
@@ -13,17 +13,25 @@ const sse = (text: string): Uint8Array => encoder.encode(text);
 type Changed = { doc: boolean; comments: boolean };
 
 /** A doc save: the folder reports a file name, and only the doc itself is a change the page shows. */
-export function docChanges<E>(events: Stream.Stream<FileSystem.WatchEvent, E>, docName: string): Stream.Stream<"doc"> {
+export function docChanges<E>(
+  events: Stream.Stream<FileSystem.WatchEvent, E>,
+  docName: string,
+): Stream.Stream<"doc"> {
   return events.pipe(
     Stream.filter((event) => event.path === docName),
     Stream.map(() => "doc" as const),
     // A folder that is already gone has nothing to watch, and that is not a failed request.
-    Stream.catchIf((_error): _error is E => true, () => Stream.empty),
+    Stream.catchIf(
+      (_error): _error is E => true,
+      () => Stream.empty,
+    ),
   );
 }
 
 /** The comments folder: the lock and the temp file the store writes on every change are not changes. */
-export function commentChanges<E>(events: Stream.Stream<FileSystem.WatchEvent, E>): Stream.Stream<"comments", ApiFailure> {
+export function commentChanges<E>(
+  events: Stream.Stream<FileSystem.WatchEvent, E>,
+): Stream.Stream<"comments", ApiFailure> {
   return events.pipe(
     Stream.filter((event) => !event.path.endsWith(".tmp") && !event.path.endsWith(".lock")),
     Stream.map(() => "comments" as const),
@@ -32,7 +40,10 @@ export function commentChanges<E>(events: Stream.Stream<FileSystem.WatchEvent, E
 }
 
 /** One `changed` event per 100 ms that has news, carrying every kind seen since the last one. */
-function batches(doc: Stream.Stream<"doc">, comments: Stream.Stream<"comments", ApiFailure>): Stream.Stream<Uint8Array, ApiFailure> {
+function batches(
+  doc: Stream.Stream<"doc">,
+  comments: Stream.Stream<"comments", ApiFailure>,
+): Stream.Stream<Uint8Array, ApiFailure> {
   const pending: Changed = { doc: false, comments: false };
   const marks = Stream.merge(doc, comments).pipe(
     Stream.map((kind) => {
@@ -58,7 +69,11 @@ function batches(doc: Stream.Stream<"doc">, comments: Stream.Stream<"comments", 
  * read inside this stream, so cancelling the readable stream — or aborting the request — runs their
  * finalizers and closes them.
  */
-export function watchEvents(doc: Stream.Stream<"doc">, comments: Stream.Stream<"comments", ApiFailure>, heartbeatMs = HEARTBEAT_MS): Stream.Stream<Uint8Array, ApiFailure> {
+export function watchEvents(
+  doc: Stream.Stream<"doc">,
+  comments: Stream.Stream<"comments", ApiFailure>,
+  heartbeatMs = HEARTBEAT_MS,
+): Stream.Stream<Uint8Array, ApiFailure> {
   // The first heartbeat is due after one interval, not at connect.
   const beat = Stream.fromSchedule(Schedule.spaced(heartbeatMs)).pipe(Stream.map(() => sse(": ping\n\n")));
   return Stream.concat(Stream.make(sse(": connected\n\n")), Stream.merge(batches(doc, comments), beat));

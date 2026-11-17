@@ -8,7 +8,12 @@ const squash = (s: string) => s.replace(/\s+/g, " ");
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** Build a selector for text[start, end) of a doc's plain text. */
-export function makeSelector(text: string, start: number, end: number, context = CONTEXT_CHARS): QuoteSelector {
+export function makeSelector(
+  text: string,
+  start: number,
+  end: number,
+  context = CONTEXT_CHARS,
+): QuoteSelector {
   return {
     exact: text.slice(start, end),
     prefix: text.slice(Math.max(0, start - context), start),

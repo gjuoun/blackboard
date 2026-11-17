@@ -1,25 +1,37 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect } from "effect";
 import { run } from "../test/app";
 import { CommentsStore } from "./comments-store";
-import { realDoc, servablePath, sessionCommentsPath, SessionsStore, type Session } from "./sessions";
+import { realDoc, type Session, SessionsStore, servablePath, sessionCommentsPath } from "./sessions";
 
 /** The registry operations as the app runs them. Every test here is single process. */
-const withStore = <A>(work: (store: SessionsStore["Service"]) => Effect.Effect<A, { message: string }>): Promise<A> =>
+const withStore = <A>(
+  work: (store: SessionsStore["Service"]) => Effect.Effect<A, { message: string }>,
+): Promise<A> =>
   run(
     Effect.gen(function* () {
       const store = yield* SessionsStore;
       return yield* work(store);
     }),
   );
-const openSession = (home: string, file: string, cwd = process.cwd()): Promise<Session> => withStore((s) => s.open(home, file, cwd));
+const openSession = (home: string, file: string, cwd = process.cwd()): Promise<Session> =>
+  withStore((s) => s.open(home, file, cwd));
 const closeSession = (home: string, id: string): Promise<Session> => withStore((s) => s.close(home, id));
 const listSessions = (home: string): Promise<Session[]> => withStore((s) => s.list(home));
 const getSession = (home: string, id: string): Promise<Session | null> => withStore((s) => s.get(home, id));
-const resolveSession = (home: string, ref: string, cwd = process.cwd()): Promise<Session | null> => withStore((s) => s.resolve(home, ref, cwd));
+const resolveSession = (home: string, ref: string, cwd = process.cwd()): Promise<Session | null> =>
+  withStore((s) => s.resolve(home, ref, cwd));
 
 /** A temp home plus a few docs: one in a nested folder, a non-markdown file, a symlink to a doc. */
 function fixture() {
@@ -89,10 +101,10 @@ describe("openSession", () => {
 
   test("resolves a symlink to the same id", async () => {
     const { home, docs } = fixture();
-    expect((await openSession(home, join(docs, "alias.md"))).id).toBe((await openSession(home, join(docs, "design.md"))).id);
+    expect((await openSession(home, join(docs, "alias.md"))).id).toBe(
+      (await openSession(home, join(docs, "design.md"))).id,
+    );
   });
-
-
 });
 
 describe("lazy freshness", () => {
@@ -106,7 +118,9 @@ describe("lazy freshness", () => {
     writeFileSync(file, "# Design v2\n\n## Added section\n\nNew paragraph.\n");
     utimesSync(file, new Date(1_700_000_000_000), new Date(1_700_000_000_000));
     const row = await withStore((store) => store.row(home, s));
-    expect(await withStore((store) => store.body(home, s.id))).toBe("# Design v2\n\n## Added section\n\nNew paragraph.\n");
+    expect(await withStore((store) => store.body(home, s.id))).toBe(
+      "# Design v2\n\n## Added section\n\nNew paragraph.\n",
+    );
     expect(row.title).toBe("Design v2");
     expect(row.stats.sections).toBe(1);
   });
@@ -139,20 +153,24 @@ describe("closeSession", () => {
   test("removes the entry but its comments survive and return on re-open", async () => {
     const { home, docs } = fixture();
     const s = await openSession(home, join(docs, "design.md"));
-    await run(Effect.gen(function* () {
-      const comments = yield* CommentsStore;
-      yield* comments.add(home, s.id, "design.md", { general: true, body: "keep me", author: "jun" });
-    }));
+    await run(
+      Effect.gen(function* () {
+        const comments = yield* CommentsStore;
+        yield* comments.add(home, s.id, "design.md", { general: true, body: "keep me", author: "jun" });
+      }),
+    );
     await closeSession(home, s.id);
     expect(await listSessions(home)).toHaveLength(0);
     await expect(closeSession(home, s.id)).rejects.toThrow(/no session/);
     // The old rule: closing kept the comments, and opening the file again brings them back.
     const reopened = await openSession(home, join(docs, "design.md"));
     expect(reopened.id).toBe(s.id);
-    const file = await run(Effect.gen(function* () {
-      const comments = yield* CommentsStore;
-      return yield* comments.read(home, s.id);
-    }));
+    const file = await run(
+      Effect.gen(function* () {
+        const comments = yield* CommentsStore;
+        return yield* comments.read(home, s.id);
+      }),
+    );
     expect(file.docs["design.md"]?.map((c) => c.body)).toEqual(["keep me"]);
   });
 });
@@ -175,5 +193,3 @@ describe("sessionCommentsPath", () => {
     expect(() => sessionCommentsPath("/h", "../x")).toThrow(/bad session id/);
   });
 });
-
-

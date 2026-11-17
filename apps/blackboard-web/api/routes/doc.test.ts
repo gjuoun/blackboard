@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { commentGeneral } from "../../lib/cli/comments";
-import { LOCAL, fixture, register } from "../../test/api-fixture";
+import { fixture, LOCAL, register } from "../../test/api-fixture";
 import { run } from "../../test/app";
 import { app } from "../app";
 
@@ -12,13 +12,16 @@ import { app } from "../app";
  */
 
 async function setup() {
-  const { home, docs } = await fixture("bb-reading-doc-", { "design.md": "# Design\n\n## Plan\n\nLater text. More text.\n" });
+  const { home, docs } = await fixture("bb-reading-doc-", {
+    "design.md": "# Design\n\n## Plan\n\nLater text. More text.\n",
+  });
   const design = join(docs, "design.md");
   const session = await register(home, design);
   return { home, design, id: session.id };
 }
 
-const get = (session: string) => app.request(`http://127.0.0.1/api/reading/doc?session=${session}`, { headers: LOCAL });
+const get = (session: string) =>
+  app.request(`http://127.0.0.1/api/reading/doc?session=${session}`, { headers: LOCAL });
 
 describe("GET /api/reading/doc", () => {
   test("renders the whole document and its metadata", async () => {
@@ -56,7 +59,9 @@ describe("a file session picks up later edits", () => {
     const design = join(docs, "design.md");
     const { id } = await register(home, design);
     const fetchBody = async () =>
-      (await (await app.request(`http://127.0.0.1/api/session?id=${id}`, { headers: LOCAL })).json()) as { body: string | null };
+      (await (await app.request(`http://127.0.0.1/api/session?id=${id}`, { headers: LOCAL })).json()) as {
+        body: string | null;
+      };
     expect((await fetchBody()).body).toContain("First version.");
     writeFileSync(design, "# Design\n\nSecond version with more words.\n");
     utimesSync(design, new Date(1_700_000_000_000), new Date(1_700_000_000_000));
@@ -67,8 +72,12 @@ describe("a file session picks up later edits", () => {
 describe("a file session keeps the wire it had", () => {
   test("no stream field, and ?range= changes nothing", async () => {
     const { id } = await setup();
-    const plain = (await (await app.request(`http://127.0.0.1/api/session?id=${id}`, { headers: { host: "127.0.0.1" } })).json()) as Record<string, unknown>;
-    const ranged = (await (await app.request(`http://127.0.0.1/api/session?id=${id}&range=0:0`, { headers: { host: "127.0.0.1" } })).json()) as Record<string, unknown>;
+    const plain = (await (
+      await app.request(`http://127.0.0.1/api/session?id=${id}`, { headers: { host: "127.0.0.1" } })
+    ).json()) as Record<string, unknown>;
+    const ranged = (await (
+      await app.request(`http://127.0.0.1/api/session?id=${id}&range=0:0`, { headers: { host: "127.0.0.1" } })
+    ).json()) as Record<string, unknown>;
     // A markdown doc has no exchanges and no window: the two answers are byte-identical.
     expect("stream" in plain).toBe(false);
     expect("window" in plain).toBe(false);

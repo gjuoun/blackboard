@@ -13,7 +13,6 @@ async function refusal<A>(effect: Effect.Effect<A, CliError>): Promise<{ message
 }
 
 describe("the option records", () => {
-
   test("comment: an empty --occurrence is not given, so the first match", async () => {
     const empty = await Effect.runPromise(decodeArgs(CommentArgs, { quote: "Later text.", occurrence: "" }));
     expect(empty.occurrence).toBeUndefined();
@@ -30,8 +29,13 @@ describe("the option records", () => {
     expect(await refusal(decodeArgs(CommentArgs, { general: true, quote: "Later text." }))).toEqual(both);
     expect(await refusal(decodeArgs(CommentArgs, {}))).toEqual(neither);
     expect(await refusal(decodeArgs(CommentArgs, { quote: "" }))).toEqual(neither);
-    expect(await refusal(decodeArgs(CommentArgs, { quote: "x", occurrence: "1.5" }))).toEqual({ message: "--occurrence must be a whole number", code: 2 });
-    expect(await Effect.runPromise(decodeArgs(CommentArgs, { quote: "Later text.", occurrence: "2" }))).toEqual({ quote: "Later text.", occurrence: 2 });
+    expect(await refusal(decodeArgs(CommentArgs, { quote: "x", occurrence: "1.5" }))).toEqual({
+      message: "--occurrence must be a whole number",
+      code: 2,
+    });
+    expect(
+      await Effect.runPromise(decodeArgs(CommentArgs, { quote: "Later text.", occurrence: "2" })),
+    ).toEqual({ quote: "Later text.", occurrence: 2 });
     expect(await Effect.runPromise(decodeArgs(CommentArgs, { general: true }))).toEqual({ general: true });
   });
 });

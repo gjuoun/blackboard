@@ -4,14 +4,18 @@ import { join } from "node:path";
 import { CJK_BY_ID, CJK_FONTS, LATIN_BY_ID, LATIN_FONTS, MONO_BY_ID, MONO_FONTS } from "./fonts";
 import { CJK_IDS, DEFAULT_PREFS, LATIN_IDS, MONO_IDS } from "./prefs";
 
-const CSS = readFileSync(join(import.meta.dir, "..", "src", "styles", "fonts.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+const CSS = readFileSync(join(import.meta.dir, "..", "src", "styles", "fonts.css"), "utf8").replace(
+  /\/\*[\s\S]*?\*\//g,
+  "",
+);
 
 /** The body of `html[data-font-<slot>="<id>"] { … }`. */
 function rule(slot: string, id: string): string | null {
-  const m = new RegExp('html\\[data-font-' + slot + '="' + id + '"\\]\\s*\\{([^}]*)\\}').exec(CSS);
+  const m = new RegExp("html\\[data-font-" + slot + '="' + id + '"\\]\\s*\\{([^}]*)\\}').exec(CSS);
   return m ? m[1] : null;
 }
-const value = (body: string | null, key: string) => new RegExp("--" + key + "\\s*:\\s*([^;]+);").exec(body ?? "")?.[1].trim() ?? "";
+const value = (body: string | null, key: string) =>
+  new RegExp("--" + key + "\\s*:\\s*([^;]+);").exec(body ?? "")?.[1].trim() ?? "";
 
 test("fonts: the registries cover the prefs vocabularies exactly", () => {
   expect(LATIN_FONTS.map((f) => f.id).sort()).toEqual([...LATIN_IDS].sort());
@@ -43,7 +47,10 @@ test("fonts: every registry id has its CSS rule and the defaults resolve", () =>
 
 test("fonts: every CJK stack ends in a generic family", () => {
   for (const f of CJK_FONTS) {
-    expect({ id: f.id, generic: /(sans-serif|serif|monospace)\s*$/.test(value(rule("cjk", f.id), "font-cjk")) }).toEqual({ id: f.id, generic: true });
+    expect({
+      id: f.id,
+      generic: /(sans-serif|serif|monospace)\s*$/.test(value(rule("cjk", f.id), "font-cjk")),
+    }).toEqual({ id: f.id, generic: true });
   }
 });
 
@@ -52,7 +59,8 @@ test("fonts: mono pairs declare alignment, and the aligned ones keep a 2:1 CJK s
   for (const f of MONO_FONTS) {
     const body = rule("mono", f.id);
     const cjk = value(body, "font-mono-cjk");
-    if (f.aligned) expect({ id: f.id, cjkMono: /(Mono|Sarasa)/.test(cjk) }).toEqual({ id: f.id, cjkMono: true });
+    if (f.aligned)
+      expect({ id: f.id, cjkMono: /(Mono|Sarasa)/.test(cjk) }).toEqual({ id: f.id, cjkMono: true });
     else expect({ id: f.id, warning: /Latin only/.test(f.note ?? "") }).toEqual({ id: f.id, warning: true });
   }
 });

@@ -1,7 +1,16 @@
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { AUTHORED_COLOURS, RATIO_GRID, RATIO_ROLES, channelsOf, expand, validateBlock, type Block, type RatioRole } from "./derive";
+import {
+  AUTHORED_COLOURS,
+  type Block,
+  channelsOf,
+  expand,
+  RATIO_GRID,
+  RATIO_ROLES,
+  type RatioRole,
+  validateBlock,
+} from "./derive";
 import { REQUIRED, type Role } from "./roles";
 
 /**
@@ -10,7 +19,6 @@ import { REQUIRED, type Role } from "./roles";
  * page. Copies must be exact; a mix may move a channel by at most BUDGET.
  */
 const BUDGET = 13;
-
 
 const PALETTE = join(import.meta.dir, "..", "..", "..", "bb-tokens", "palette", "palette.json");
 const palette = JSON.parse(readFileSync(PALETTE, "utf8")) as Record<string, Record<string, Block>>;
@@ -21,14 +29,35 @@ const blocks = THEMES.flatMap((theme) => MODES.map((mode) => ({ id: `${theme}/${
 
 /** What each block hand-wrote for the four derived colours before the palette was slimmed. */
 const SHIPPED: Record<string, Record<"code" | RatioRole, string>> = {
-  "warm/light": { code: "#f6f2ed", "primary-soft": "#f8e6df", "success-soft": "#ebf7ef", "destructive-soft": "#fdecee" },
-  "warm/dark": { code: "#241f1b", "primary-soft": "#3a241c", "success-soft": "#14261a", "destructive-soft": "#2a1416" },
-  "cold/light": { code: "#f6f8fa", "primary-soft": "#e7f0fb", "success-soft": "#eaf6ec", "destructive-soft": "#fdecec" },
-  "cold/dark": { code: "#141a21", "primary-soft": "#16324d", "success-soft": "#12261a", "destructive-soft": "#2a1416" },
+  "warm/light": {
+    code: "#f6f2ed",
+    "primary-soft": "#f8e6df",
+    "success-soft": "#ebf7ef",
+    "destructive-soft": "#fdecee",
+  },
+  "warm/dark": {
+    code: "#241f1b",
+    "primary-soft": "#3a241c",
+    "success-soft": "#14261a",
+    "destructive-soft": "#2a1416",
+  },
+  "cold/light": {
+    code: "#f6f8fa",
+    "primary-soft": "#e7f0fb",
+    "success-soft": "#eaf6ec",
+    "destructive-soft": "#fdecec",
+  },
+  "cold/dark": {
+    code: "#141a21",
+    "primary-soft": "#16324d",
+    "success-soft": "#12261a",
+    "destructive-soft": "#2a1416",
+  },
 };
 
 /** The largest per-channel distance between two colours; alpha is compared apart. */
-const drift = (a: string, b: string) => Math.max(...channelsOf(a).map((c, i) => Math.abs(c - channelsOf(b)[i])));
+const drift = (a: string, b: string) =>
+  Math.max(...channelsOf(a).map((c, i) => Math.abs(c - channelsOf(b)[i])));
 
 test("derive: a block states the 14 authored colours and three ratios, nothing more", () => {
   expect(AUTHORED_COLOURS.length).toBe(14);
@@ -38,15 +67,23 @@ test("derive: a block states the 14 authored colours and three ratios, nothing m
 
   for (const { id, theme, mode } of blocks) {
     const block = palette[theme][mode];
-    const keys = Object.keys(block).filter((key) => key !== "ratios").sort();
+    const keys = Object.keys(block)
+      .filter((key) => key !== "ratios")
+      .sort();
     expect({ id, keys }).toEqual({ id, keys: [...AUTHORED_COLOURS].sort() });
-    expect({ id, ratios: Object.keys(block.ratios ?? {}).sort() }).toEqual({ id, ratios: [...RATIO_ROLES].sort() });
+    expect({ id, ratios: Object.keys(block.ratios ?? {}).sort() }).toEqual({
+      id,
+      ratios: [...RATIO_ROLES].sort(),
+    });
   }
 });
 
 test("derive: the ratio table sits on the 4% grid", () => {
   const table = Object.fromEntries(
-    blocks.map(({ id, theme, mode }) => [id, RATIO_ROLES.map((soft) => palette[theme][mode].ratios![soft]).join("/")]),
+    blocks.map(({ id, theme, mode }) => [
+      id,
+      RATIO_ROLES.map((soft) => palette[theme][mode].ratios![soft]).join("/"),
+    ]),
   );
   console.log("ratios", JSON.stringify(table));
   expect(table).toEqual({
@@ -59,7 +96,11 @@ test("derive: the ratio table sits on the 4% grid", () => {
   for (const { id, theme, mode } of blocks) {
     for (const soft of RATIO_ROLES) {
       const ratio = palette[theme][mode].ratios![soft];
-      expect({ id, soft, grid: (RATIO_GRID as readonly number[]).includes(ratio) }).toEqual({ id, soft, grid: true });
+      expect({ id, soft, grid: (RATIO_GRID as readonly number[]).includes(ratio) }).toEqual({
+        id,
+        soft,
+        grid: true,
+      });
     }
   }
 });
@@ -83,13 +124,17 @@ test("derive: copies are exact and mixes stay inside the channel budget", () => 
       expect({ id, role, same: out[role] === out[source] }).toEqual({ id, role, same: true });
     }
     // The ink on primary is the block's own surface, not a fourth colour.
-    expect({ id, ink: [out.card, out.background].includes(out["primary-foreground"]) }).toEqual({ id, ink: true });
+    expect({ id, ink: [out.card, out.background].includes(out["primary-foreground"]) }).toEqual({
+      id,
+      ink: true,
+    });
 
     const softs = RATIO_ROLES.map((soft) => drift(SHIPPED[id][soft], out[soft]));
     const code = drift(SHIPPED[id].code, out.code);
     console.log(`${id} code Δ${code} soft Δ${softs.join("/")}`);
     expect({ id, code: code <= BUDGET }).toEqual({ id, code: true });
-    for (const [i, soft] of RATIO_ROLES.entries()) expect({ id, soft, ok: softs[i] <= BUDGET }).toEqual({ id, soft, ok: true });
+    for (const [i, soft] of RATIO_ROLES.entries())
+      expect({ id, soft, ok: softs[i] <= BUDGET }).toEqual({ id, soft, ok: true });
   }
 });
 
@@ -121,7 +166,10 @@ test("derive: a highlight keeps its hue and only steps its alpha", () => {
     expect({ id, active: rgb(out["hl-active"]) === rgb(out.hl) }).toEqual({ id, active: true });
     // Stronger than the resting highlight, never weaker, and never past opaque.
     const alpha = (v: string) => Number(/rgba\([^)]*?,\s*([\d.]+)\s*\)/.exec(v)?.[1] ?? 1);
-    expect({ id, order: alpha(out.hl) < alpha(out["hl-hover"]) && alpha(out["hl-hover"]) < alpha(out["hl-active"]) }).toEqual({ id, order: true });
+    expect({
+      id,
+      order: alpha(out.hl) < alpha(out["hl-hover"]) && alpha(out["hl-hover"]) < alpha(out["hl-active"]),
+    }).toEqual({ id, order: true });
     expect({ id, capped: alpha(out["hl-active"]) <= 1 }).toEqual({ id, capped: true });
   }
 });

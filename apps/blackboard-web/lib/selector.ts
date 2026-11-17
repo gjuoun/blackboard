@@ -13,7 +13,10 @@ export function selectorFor(text: string, quote: string, occurrence = 1): Select
   const hits = [...text.matchAll(re)];
   if (hits.length === 0) return { ok: false, error: `quote not found in the doc: "${quote}"` };
   if (occurrence < 1 || occurrence > hits.length) {
-    return { ok: false, error: `quote occurs ${hits.length} time(s); --occurrence must be 1..${hits.length}` };
+    return {
+      ok: false,
+      error: `quote occurs ${hits.length} time(s); --occurrence must be 1..${hits.length}`,
+    };
   }
   const m = hits[occurrence - 1];
   const start = m.index ?? 0;
