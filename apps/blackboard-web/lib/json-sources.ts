@@ -1,6 +1,17 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { AgentsFile } from "./agents-store";
+
+/** `agents.json` as a value, for the migration only. */
+type AgentsFile = { version: 1; agents: ReadingBinding[] };
+type ReadingBinding = {
+  session: string;
+  path: string;
+  piSession: string;
+  url: string;
+  boundAt: string;
+  lastSeenAt: string;
+};
+
 import { type CommentFile, readComments } from "./comments-store";
 import { type ReadingFile, readReadingState } from "./reading-state";
 import { type Registry, SessionError, sessionCommentsPath } from "./sessions";

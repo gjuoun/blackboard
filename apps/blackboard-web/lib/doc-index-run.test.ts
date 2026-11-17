@@ -2,10 +2,9 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, realpathSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Safe } from "@gjuoun/safe-ts";
 import { eq } from "drizzle-orm";
-import { Effect, Layer } from "effect";
-import { Db, layer as dbLayer } from "./db/client";
-import { DocumentsRepo, layer as documentsLayer } from "./db/repos/documents";
+import { run, services } from "../test/app";
 import { documents } from "./db/schema";
 import { indexDocuments } from "./doc-index-run";
 
@@ -26,37 +25,30 @@ function freshHome(): string {
   return d;
 }
 
-// The repo needs Db, so Db is the layer under it: provide the repo's dependency, then the repo.
-const layers = documentsLayer.pipe(Layer.provide(dbLayer));
-
-/** Run one program against a fresh-enough set of layers. */
-const runIn = <A>(effect: Effect.Effect<A, unknown, Db | DocumentsRepo>): Promise<A> =>
-  Effect.runPromise(effect.pipe(Effect.provide(layers)) as Effect.Effect<A, never, never>);
+/** Run one program against the shared graph. */
+const runIn = <A>(effect: Safe<A, unknown>): Promise<A> => run(effect as Safe<A, never>);
 
 /** Register a file as a document. */
 const register = (home: string, id: string, path: string) =>
   runIn(
-    Effect.gen(function* () {
-      const docs = yield* DocumentsRepo;
-      yield* docs.upsert(home, { id, path });
+    Safe.try(function* () {
+      const docs = services.documents;
+      yield docs.upsert(home, { id, path });
     }),
   );
 
 /** The index, run once. */
-const indexOnce = (home: string) =>
-  Effect.runPromise(
-    indexDocuments(home).pipe(Effect.provide(dbLayer)) as Effect.Effect<IndexShape, never, never>,
-  );
+const indexOnce = (home: string) => run(indexDocuments(services.db, home) as Safe<IndexShape, never>);
 
 type IndexShape = { scanned: number; updated: number; skipped: number; missing: number; gitCommands: number };
 
 /** The stored row for a document. */
 const rowOf = (home: string, id: string) =>
-  Effect.runPromise(
-    Effect.gen(function* () {
-      const db = yield* Db;
-      return yield* db.use(home, (d) => d.select().from(documents).where(eq(documents.id, id)).get() ?? null);
-    }).pipe(Effect.provide(dbLayer)) as Effect.Effect<typeof documents.$inferSelect | null, never, never>,
+  run(
+    Safe.try(function* () {
+      const db = services.db;
+      return yield db.use(home, (d) => d.select().from(documents).where(eq(documents.id, id)).get() ?? null);
+    }) as Safe<typeof documents.$inferSelect | null, never>,
   );
 
 describe("the index reads a document into its row", () => {
@@ -111,16 +103,14 @@ describe("the index follows the file", () => {
   test("a path-less stream row is never file-indexed, even under --force", async () => {
     const home = freshHome();
     await runIn(
-      Effect.gen(function* () {
-        const docs = yield* DocumentsRepo;
-        yield* docs.upsert(home, { id: "s-stream1", path: null, kind: "stream" });
+      Safe.try(function* () {
+        const docs = services.documents;
+        yield docs.upsert(home, { id: "s-stream1", path: null, kind: "stream" });
       }),
     );
     const first = await indexOnce(home);
     expect(first).toMatchObject({ scanned: 1, updated: 0, missing: 0 });
-    const forced = await Effect.runPromise(
-      indexDocuments(home, true).pipe(Effect.provide(dbLayer)) as Effect.Effect<IndexShape, never, never>,
-    );
+    const forced = await run(indexDocuments(services.db, home, true) as Safe<IndexShape, never>);
     expect(forced.updated).toBe(0);
     expect((await rowOf(home, "s-stream1"))?.body).toBeNull();
   });
@@ -132,9 +122,7 @@ describe("the index follows the file", () => {
     await register(home, "is", f);
     await indexOnce(home);
     expect((await indexOnce(home)).updated).toBe(0);
-    const forced = await Effect.runPromise(
-      indexDocuments(home, true).pipe(Effect.provide(dbLayer)) as Effect.Effect<IndexShape, never, never>,
-    );
+    const forced = await run(indexDocuments(services.db, home, true) as Safe<IndexShape, never>);
     expect(forced.updated).toBe(1);
   });
 });

@@ -1,9 +1,11 @@
 import { existsSync, mkdtempSync, renameSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Safe } from "@gjuoun/safe-ts";
+import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import { run, services } from "../../test/app";
 import type { Comment, CommentFile } from "../comments-file";
-import { type DbFailure, errorMessage, IoFailure, type LockTimeout } from "../errors";
+import { type DbFailure, errorMessage, failures, type IoFailure, type LockTimeout } from "../errors";
 import {
   commentFiles,
   readAgentsFile,
@@ -11,7 +13,9 @@ import {
   readReadingFile,
   readRegistryFile,
 } from "../json-sources";
-import { Lock } from "../lock";
+import type { Lock } from "../lock";
+import type { Db } from "./client";
+import { agents, comments, documents, readingState } from "./schema";
 
 type RegistrySession = {
   id: string;
@@ -20,10 +24,6 @@ type RegistrySession = {
   openedAt: string;
   kind?: string | null;
 };
-
-import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
-import { Db } from "./client";
-import { agents, comments, documents, readingState } from "./schema";
 
 /**
  * One-shot, idempotent migration of the four JSON stores into `<home>/blackboard.db`:
@@ -40,7 +40,6 @@ export type MigrateReport = {
   dry: boolean;
   documents: number;
   comments: number;
-
   readingState: number;
   agents: number;
   /** Source files renamed to .migrated (empty on dry-run). */
@@ -48,7 +47,7 @@ export type MigrateReport = {
   nothing: boolean;
 };
 
-const failure = (error: unknown) => new IoFailure({ message: errorMessage(error), status: 500 });
+const failure = (error: unknown) => failures.IoFailure(errorMessage(error), 500);
 
 /** Every migratable source that still exists as .json (not yet renamed). */
 const sources = (home: string) => ({
@@ -213,55 +212,47 @@ const insert = (db: BunSQLiteDatabase, home: string): MigrateReport => {
   return report;
 };
 
-/**
- * Migrate `home`, or dry-run it. Dry runs execute the same inserts against a throwaway
- * database in a temp dir — real parse, real FK checks, nothing on disk renamed.
- */
-export const migrate = (
-  home: string,
-  options: { dry?: boolean } = {},
-): Effect.Effect<MigrateReport, IoFailure | LockTimeout | DbFailure, Db | Lock> =>
-  Effect.gen(function* () {
-    const db = yield* Db;
-    const lock = yield* Lock;
-    const dry = options.dry === true;
-    // dry-runs write to a temp db; real runs take the dedicated migrate lock on the real one
-    const target = dry ? mkdtempSync(join(tmpdir(), "bb-migrate-dry-")) : home;
-    const work = dry
-      ? Effect.succeed(target)
-      : lock.withLock(join(home, "blackboard.db.migrate.lock"), Effect.succeed(home));
-    return yield* work.pipe(
-      Effect.flatMap((dir) =>
-        db
-          .withTransaction(dir, (d) => insert(d, home))
-          .pipe(
-            Effect.map((report) => {
-              if (dry) return { ...report, dry: true };
-              // rename sources only after the transaction committed
-              const renamed: string[] = [];
-              const src = sources(home);
-              const candidates = [src.registry, ...src.comments, src.reading, src.agents];
-              for (const p of candidates) {
-                if (existsSync(p)) {
-                  renameSync(p, `${p}.migrated`);
-                  renamed.push(p);
-                }
-              }
-              return { ...report, renamed };
-            }),
-          ),
-      ),
-      Effect.mapError((e) => ("message" in e ? e : failure(e))),
-    );
-  });
+/** The JSON → SQLite move, and the row counts `db stats` prints. */
+export class Migrations {
+  constructor(
+    private readonly db: Db,
+    private readonly lock: Lock,
+  ) {}
 
-/** What `db stats` prints: row counts per table plus the db file's size. */
-export const stats = (
-  home: string,
-): Effect.Effect<{ path: string; tables: Record<string, number>; bytes: number }, DbFailure, Db> =>
-  Effect.gen(function* () {
-    const db = yield* Db;
-    return yield* db.raw(home, (raw) => {
+  /**
+   * Migrate `home`, or dry-run it. Dry runs execute the same inserts against a throwaway
+   * database in a temp dir — real parse, real FK checks, nothing on disk renamed.
+   */
+  migrate(
+    home: string,
+    options: { dry?: boolean } = {},
+  ): Safe<MigrateReport, IoFailure | LockTimeout | DbFailure> {
+    const dry = options.dry === true;
+    const lock = this.lock;
+    const db = this.db;
+    const temp = Safe.call(() => mkdtempSync(join(tmpdir(), "bb-migrate-dry-")), failure);
+    return Safe.try(function* () {
+      // dry-runs write to a temp db; real runs take the dedicated migrate lock on the real one
+      const dir = (
+        dry ? yield temp : yield lock.withLock(join(home, "blackboard.db.migrate.lock"), () => Safe.ok(home))
+      ) as string;
+      const report = (yield db.withTransaction(dir, (d) => insert(d, home))) as MigrateReport;
+      if (dry) return { ...report, dry: true };
+      // rename sources only after the transaction committed
+      const renamed: string[] = [];
+      const src = sources(home);
+      for (const p of [src.registry, ...src.comments, src.reading, src.agents]) {
+        if (!existsSync(p)) continue;
+        renameSync(p, `${p}.migrated`);
+        renamed.push(p);
+      }
+      return { ...report, renamed };
+    });
+  }
+
+  /** What `db stats` prints: row counts per table plus the db file's size. */
+  stats(home: string): Safe<{ path: string; tables: Record<string, number>; bytes: number }, DbFailure> {
+    return this.db.raw(home, (raw) => {
       const tables: Record<string, number> = {};
       for (const name of ["documents", "comments", "reading_state", "agents"]) {
         tables[name] = (raw.query(`SELECT COUNT(*) AS n FROM ${name}`).get() as { n: number }).n;
@@ -269,4 +260,5 @@ export const stats = (
       const p = join(home, "blackboard.db");
       return { path: p, tables, bytes: existsSync(p) ? statSync(p).size : 0 };
     });
-  });
+  }
+}

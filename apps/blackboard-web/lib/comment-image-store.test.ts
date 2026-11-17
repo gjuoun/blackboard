@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect, Exit } from "effect";
+import { Runtime } from "@gjuoun/safe-ts";
 import { run } from "../test/app";
 import { readImage, saveImage } from "./comment-image-store";
 
@@ -44,11 +44,9 @@ describe("the comment image store", () => {
 
   test("refuses bytes that are not a png, jpeg, gif or webp", async () => {
     const home = fresh();
-    const exit = await run(Effect.exit(saveImage(home, new TextEncoder().encode("not an image"))));
-    expect(Exit.isFailure(exit)).toBe(true);
-    if (Exit.isFailure(exit)) {
-      expect(JSON.stringify(exit.cause)).toContain("not a png, jpeg, gif or webp image");
-    }
+    const outcome = await Runtime.run(saveImage(home, new TextEncoder().encode("not an image")));
+    expect(outcome._tag).toBe("fail");
+    expect(JSON.stringify(outcome)).toContain("not a png, jpeg, gif or webp image");
   });
 
   test("an id that is not a stored image name, or names no file, reads as null", async () => {

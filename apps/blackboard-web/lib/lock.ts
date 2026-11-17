@@ -1,8 +1,9 @@
 import { closeSync, openSync, readFileSync, rmSync, statSync, writeSync } from "node:fs";
-import { Context, Effect, Layer, Schedule } from "effect";
-import { LockTimeout } from "./errors";
+import { Pipe, Runtime, Safe } from "@gjuoun/safe-ts";
+import { failures, type LockTimeout } from "./errors";
 
 const LOCK_WAIT_MS = 5_000;
+const RETRY_MS = 10;
 export const STALE_MS = 10_000;
 export const STREAM_STALE_MS = 30_000;
 
@@ -15,120 +16,125 @@ export type LockOptions = {
   readonly timeoutMessage?: (lockPath: string) => string;
 };
 
-/** One failed exclusive create, kept typed so the retry schedule can recognize it. */
-type Busy = { readonly _tag: "Busy"; readonly lockPath: string };
+/** One failed exclusive create, kept typed so the caller can tell "held" from "broken". */
+type Busy = { readonly Busy: { readonly code?: string } };
 
-/** True when the recorded holder is still running. EPERM means it exists under another user. */
-const holderAlive = (pid: number): Effect.Effect<boolean> =>
-  pid <= 0
-    ? Effect.succeed(true)
-    : Effect.try(() => {
-        process.kill(pid, 0);
-        return true;
-      }).pipe(Effect.catch((error) => Effect.succeed((error as NodeJS.ErrnoException).code === "EPERM")));
+/** Sleeping without an await: the stores hold the lock across synchronous file work only. */
+const sleep = (ms: number) => {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+};
 
-/** Age and holder of a lock file; null when it vanished between calls, which just means retry. */
-const lockInfo = (lockPath: string): Effect.Effect<{ age: number; pid: number } | null> =>
-  Effect.try({
-    try: () => {
-      const age = Date.now() - statSync(lockPath).mtimeMs;
-      const pid = Number(readFileSync(lockPath, "utf8").split(" ")[0]);
-      return { age, pid };
-    },
-    catch: () => "gone" as const,
-  }).pipe(Effect.catch(() => Effect.succeed(null)));
+const timeoutOf = (lockPath: string, options: LockOptions) =>
+  failures.LockTimeout(options.timeoutMessage?.(lockPath) ?? `timed out waiting for ${lockPath}`, 400);
 
-/** Stale means old, or held by a process that is gone when the caller asks about the holder. */
-const isStale = (lockPath: string, options: LockOptions): Effect.Effect<boolean> =>
-  lockInfo(lockPath).pipe(
-    Effect.flatMap((info) => {
-      if (!info) return Effect.succeed(false);
-      if (info.age > (options.staleMs ?? STALE_MS)) return Effect.succeed(true);
-      return options.checkHolder === false
-        ? Effect.succeed(false)
-        : holderAlive(info.pid).pipe(Effect.map((alive) => !alive));
-    }),
-  );
-
-/** Exclusive create plus the holder line; every other outcome is the error the caller classifies. */
-const create = (lockPath: string): Effect.Effect<number, NodeJS.ErrnoException> =>
-  Effect.try({
-    try: () => {
+/** Exclusive create plus the holder line; EEXIST comes back as a Busy, everything else as is. */
+const create = (lockPath: string): Safe<number, Busy> =>
+  Safe.call(
+    () => {
       const fd = openSync(lockPath, "wx");
       writeSync(fd, `${process.pid} ${new Date().toISOString()}`);
       return fd;
     },
-    catch: (error) => error as NodeJS.ErrnoException,
-  });
-
-/** One attempt: the open fd, or Busy once the lock exists and is worth waiting for. */
-const attempt = (lockPath: string, options: LockOptions): Effect.Effect<number, Busy> =>
-  create(lockPath).pipe(
-    Effect.catch((error): Effect.Effect<number, Busy> => {
-      if (error.code !== "EEXIST") return Effect.die(error);
-      return isStale(lockPath, options).pipe(
-        Effect.flatMap((stale) =>
-          stale
-            ? Effect.sync(() => rmSync(lockPath, { force: true })).pipe(
-                Effect.flatMap(() => attempt(lockPath, options)),
-              )
-            : Effect.fail({ _tag: "Busy" as const, lockPath }),
-        ),
-      );
-    }),
+    (error) => ({ Busy: { code: (error as NodeJS.ErrnoException).code } }),
   );
 
-const timeoutOf = (lockPath: string, options: LockOptions) =>
-  new LockTimeout({
-    message: options.timeoutMessage?.(lockPath) ?? `timed out waiting for ${lockPath}`,
-    status: 400,
+/** Age and holder of a lock file; null when it vanished between calls, which just means retry. */
+const info = (lockPath: string): Safe<{ age: number; pid: number } | null, never> =>
+  (
+    Safe.call(
+      () => ({
+        age: Date.now() - statSync(lockPath).mtimeMs,
+        pid: Number(readFileSync(lockPath, "utf8").split(" ")[0]),
+      }),
+      (error) => ({ Gone: error }),
+    ) as unknown as Safe<{ age: number; pid: number } | null, { Gone: unknown }>
+  ).pipe(Pipe.catchTag("Gone", () => Safe.ok(null))) as unknown as Safe<
+    { age: number; pid: number } | null,
+    never
+  >;
+
+/** True when the recorded holder is still running. EPERM means it exists under another user. */
+const holderAlive = (pid: number): Safe<boolean, never> =>
+  (pid <= 0
+    ? Safe.ok(true)
+    : (
+        Safe.call(
+          () => {
+            process.kill(pid, 0);
+            return true;
+          },
+          (error) => ({ Probe: error as NodeJS.ErrnoException }),
+        ) as unknown as Safe<boolean, { Probe: NodeJS.ErrnoException }>
+      ).pipe(
+        Pipe.catchTag("Probe", (error: NodeJS.ErrnoException) => Safe.ok(error.code === "EPERM")),
+      )) as unknown as Safe<boolean, never>;
+
+/** Stale means old, or held by a process that is gone when the caller asks about the holder. */
+const isStale = (lockPath: string, options: LockOptions): Safe<boolean, boolean | null> =>
+  Safe.try(function* () {
+    const got = (yield info(lockPath)) as { age: number; pid: number } | null;
+    if (!got) return false;
+    if (got.age > (options.staleMs ?? STALE_MS)) return true;
+    if (options.checkHolder === false) return false;
+    return !((yield holderAlive(got.pid)) as boolean);
   });
 
-/** Busy is retried on a jittered exponential schedule until the waiter budget runs out. */
-const acquire = (lockPath: string, options: LockOptions): Effect.Effect<number, LockTimeout> =>
-  attempt(lockPath, options).pipe(
-    Effect.retry({
-      schedule: Schedule.spaced("10 millis").pipe(
-        Schedule.jittered,
-        Schedule.upTo({ duration: options.waitMs ?? LOCK_WAIT_MS }),
-      ),
-      while: (busy: Busy) => busy._tag === "Busy",
-    }),
-    Effect.catchTag("Busy", () => Effect.fail(timeoutOf(lockPath, options))),
-  );
+/**
+ * Take the lock: an exclusive create, retried on a short backoff until the waiter budget runs out.
+ * A stale lock is removed and retried; a live one is waited for. The wait blocks this thread — the
+ * body it guards is synchronous file work, so nothing else is due in the meantime.
+ */
+const acquire = (lockPath: string, options: LockOptions): Safe<number, LockTimeout> =>
+  Safe.try(function* () {
+    const deadline = Date.now() + (options.waitMs ?? LOCK_WAIT_MS);
+    for (;;) {
+      const made = (yield create(lockPath).pipe(
+        Pipe.catchTag("Busy", (busy: { code?: string }) => Safe.ok({ Busy: busy })),
+      )) as number | Busy;
+      if (typeof made === "number") return made;
+      if (made.Busy.code !== "EEXIST") return (yield Safe.err(timeoutOf(lockPath, options))) as never;
+      if ((yield isStale(lockPath, options)) as boolean) {
+        rmSync(lockPath, { force: true });
+        continue;
+      }
+      if (Date.now() >= deadline) return (yield Safe.err(timeoutOf(lockPath, options))) as never;
+      sleep(RETRY_MS);
+    }
+  }) as unknown as Safe<number, LockTimeout>;
 
-const release = (lockPath: string, fd: number): Effect.Effect<void> =>
-  Effect.sync(() => {
+const release = (lockPath: string, fd: number): Safe<void, never> =>
+  Safe.call(() => {
     closeSync(fd);
     rmSync(lockPath, { force: true });
   });
 
 /**
- * Run an effect while holding `<path>.lock`, shared by every process that writes the file (the web
- * app and the CLI). The lock is an exclusive create; waiters back off on an Effect schedule, so a
- * waiting fiber yields instead of blocking the event loop, and a stale lock is removed.
+ * Run something while holding `<path>.lock`, shared by every process that writes the file (the web
+ * app and the CLI). The lock is an exclusive create; a stale lock is removed and retried, and the
+ * body runs with the lock released whatever the body's outcome.
  */
-export class Lock extends Context.Service<
-  Lock,
-  {
-    withLock<A, E, R>(
-      path: string,
-      effect: Effect.Effect<A, E, R>,
-      options?: LockOptions,
-    ): Effect.Effect<A, E | LockTimeout, R>;
+export class Lock {
+  withLock<A, E>(path: string, body: () => Safe<A, E>, options: LockOptions = {}): Safe<A, E | LockTimeout> {
+    const lockPath = `${path}.lock`;
+    return Safe.try(function* () {
+      const fd = (yield acquire(lockPath, options)) as number;
+      // Run the body, then release whatever happened: a throw inside it is a die, and a die must not
+      // leave the lock behind, so the release cannot ride on `Pipe.ensuring`.
+      const outcome = (yield Safe.call(
+        async () => await Runtime.run(body()),
+        (error) => ({ Threw: error }),
+      )) as
+        | { _tag: "success"; value: A }
+        | { _tag: "fail"; error: E }
+        | { _tag: "die"; defect: unknown }
+        | { _tag: "interrupt" }
+        | { Threw: unknown };
+      yield release(lockPath, fd);
+      if ("Threw" in outcome) throw (outcome as { Threw: unknown }).Threw;
+      const done = outcome as { _tag: string; value?: A; error?: E; defect?: unknown };
+      if (done._tag === "success") return done.value as A;
+      if (done._tag === "fail") return (yield Safe.err(done.error as E)) as never;
+      throw done._tag === "die" ? done.defect : new Error("safe-ts: run was interrupted");
+    }) as unknown as Safe<A, E | LockTimeout>;
   }
->()("blackboard/Lock") {}
-
-export const layer = Layer.succeed(
-  Lock,
-  Lock.of({
-    withLock: (path, effect, options = {}) => {
-      const lockPath = `${path}.lock`;
-      return Effect.acquireUseRelease(
-        acquire(lockPath, options),
-        () => effect,
-        (fd) => release(lockPath, fd),
-      );
-    },
-  }),
-);
+}

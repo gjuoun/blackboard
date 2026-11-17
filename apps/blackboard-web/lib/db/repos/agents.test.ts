@@ -2,19 +2,17 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
-import { run } from "../test/app";
-import { AgentsStore, type BindInput } from "./agents-store";
-import { DocumentsRepo } from "./db/repos/documents";
+import { Safe } from "@gjuoun/safe-ts";
+import { run, services } from "../../../test/app";
+import type { AgentInput, AgentsRepo } from "./agents";
+import { DocumentsRepo } from "./documents";
 
 /** The store as the app runs it. Every test here is one process. */
-const withStore = <A>(
-  work: (store: AgentsStore["Service"]) => Effect.Effect<A, { message: string }>,
-): Promise<A> =>
+const withStore = <A>(work: (store: AgentsRepo) => Safe<A, unknown>): Promise<A> =>
   run(
-    Effect.gen(function* () {
-      const store = yield* AgentsStore;
-      return yield* work(store);
+    Safe.try(function* () {
+      const store = services.agents;
+      return yield work(store);
     }),
   );
 
@@ -22,22 +20,22 @@ const withStore = <A>(
 const fixture = async (...sessions: string[]) => {
   const home = join(realpathSync(mkdtempSync(join(tmpdir(), "bb-agents-"))), "home");
   await run(
-    Effect.gen(function* () {
-      const docs = yield* DocumentsRepo;
-      for (const id of sessions) yield* docs.upsert(home, { id, path: `/tmp/${id}.md` });
+    Safe.try(function* () {
+      const docs = services.documents;
+      for (const id of sessions) yield docs.upsert(home, { id, path: `/tmp/${id}.md` });
     }),
   );
   return { home };
 };
 
-const bound = (session: string, url = "http://127.0.0.1:40000"): BindInput => ({
+const bound = (session: string, url = "http://127.0.0.1:40000"): AgentInput => ({
   session,
   path: `/tmp/${session}.md`,
   piSession: `pi-${session}`,
   url,
 });
 
-const bind = (home: string, input: BindInput) => withStore((s) => s.bind(home, input));
+const bind = (home: string, input: AgentInput) => withStore((s) => s.bind(home, input));
 const get = (home: string, session: string) => withStore((s) => s.get(home, session));
 const unbind = (home: string, session: string) => withStore((s) => s.unbind(home, session));
 const touch = (home: string, session: string) => withStore((s) => s.touch(home, session));

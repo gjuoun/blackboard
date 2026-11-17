@@ -2,15 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
-import { type Lock, layer as lockLayer } from "../lock";
-import { Db, layer as dbLayer } from "./client";
-import { migrate, stats } from "./migrate";
+import { Safe } from "@gjuoun/safe-ts";
+import { run, services } from "../../test/app";
 
 const fresh = () => realpathSync(mkdtempSync(join(tmpdir(), "bb-mig-")));
-
-const run = <A>(effect: Effect.Effect<A, unknown, Db | Lock>): Promise<A> =>
-  Effect.runPromise(effect.pipe(Effect.provide(dbLayer), Effect.provide(lockLayer)));
 
 /** The four JSON stores, seeded the way real sessions produce them. */
 const seed = (home: string) => {
@@ -116,7 +111,7 @@ describe("migrate", () => {
   test("dry-run reports counts and touches nothing on disk", async () => {
     const home = fresh();
     seed(home);
-    const r = await run(migrate(home, { dry: true }));
+    const r = await run(services.migrations.migrate(home, { dry: true }));
     expect(r.dry).toBe(true);
     expect(r.documents).toBe(3); // two registry rows + one closed-session stub
     expect(r.comments).toBe(3);
@@ -130,14 +125,14 @@ describe("migrate", () => {
   test("real run lands rows, renames sources, and a second run reports nothing", async () => {
     const home = fresh();
     seed(home);
-    const r = await run(migrate(home));
+    const r = await run(services.migrations.migrate(home));
     expect(r.documents).toBe(3);
     expect(r.comments).toBe(3);
     expect(r.renamed.length).toBe(5); // sessions.json, 2 comments.json, reading-state.json, agents.json
     expect(existsSync(join(home, "sessions.json.migrated"))).toBe(true);
     expect(existsSync(join(home, "sessions.json"))).toBe(false);
 
-    const st = await run(stats(home));
+    const st = await run(services.migrations.stats(home));
     expect(st.tables.documents).toBe(3);
     expect(st.tables.comments).toBe(3);
     expect(st.tables.reading_state).toBe(1);
@@ -146,13 +141,13 @@ describe("migrate", () => {
 
     // row content survived: replies JSON, quote anchor, closed-session stub
     const c = await run(
-      Effect.gen(function* () {
-        const db = yield* Db;
-        return yield* db.raw(home, (raw) => raw.query("SELECT * FROM comments WHERE id='c_1'").get()!);
+      Safe.try(function* () {
+        const db = services.db;
+        return yield db.raw(home, (raw) => raw.query("SELECT * FROM comments WHERE id='c_1'").get()!);
       }),
     );
     expect(JSON.parse(c.replies as string)).toHaveLength(1);
-    const again = await run(migrate(home));
+    const again = await run(services.migrations.migrate(home));
     expect(again.nothing).toBe(true);
     expect(again.renamed).toEqual([]);
   });
@@ -161,10 +156,8 @@ describe("migrate", () => {
     const home = fresh();
     mkdirSync(home, { recursive: true });
     writeFileSync(join(home, "sessions.json"), "{not json");
-    const exit = await Effect.runPromiseExit(
-      migrate(home).pipe(Effect.provide(dbLayer), Effect.provide(lockLayer)),
-    );
-    expect(exit._tag).toBe("Failure");
+    // A file that does not parse is a defect, not a declared failure: the run dies and nothing moves.
+    await expect(run(services.migrations.migrate(home))).rejects.toThrow(/JSON/i);
     expect(existsSync(join(home, "sessions.json.migrated"))).toBe(false);
     expect(existsSync(join(home, "sessions.json"))).toBe(true);
   });

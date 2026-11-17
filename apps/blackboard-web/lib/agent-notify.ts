@@ -1,5 +1,5 @@
-import type { Binding } from "./agents-store";
 import type { Comment } from "./comments-store";
+import type { AgentRow } from "./db/repos/agents";
 
 /**
  * What a bound pi session receives when a comment is submitted. Small on purpose: the session reads
@@ -66,7 +66,7 @@ export async function postPayload(url: string, payload: AgentPayload): Promise<b
  * this runs, so a session that is gone, busy or slow changes nothing the submitter sees: no
  * binding is a no-op, and no failure is reported anywhere. Coalescing is the extension's job.
  */
-export function notifyAgent(binding: Binding | null, payload: AgentPayload): void {
+export function notifyAgent(binding: AgentRow | null, payload: AgentPayload): void {
   if (!binding) return;
   void postPayload(binding.url, payload);
 }

@@ -10,19 +10,17 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
-import { run } from "../test/app";
+import { Safe } from "@gjuoun/safe-ts";
+import { run, services } from "../test/app";
 import { CommentsStore } from "./comments-store";
-import { realDoc, type Session, SessionsStore, servablePath, sessionCommentsPath } from "./sessions";
+import { realDoc, type Session, type SessionsStore, servablePath, sessionCommentsPath } from "./sessions";
 
 /** The registry operations as the app runs them. Every test here is single process. */
-const withStore = <A>(
-  work: (store: SessionsStore["Service"]) => Effect.Effect<A, { message: string }>,
-): Promise<A> =>
+const withStore = <A>(work: (store: SessionsStore) => Safe<A, unknown>): Promise<A> =>
   run(
-    Effect.gen(function* () {
-      const store = yield* SessionsStore;
-      return yield* work(store);
+    Safe.try(function* () {
+      const store = services.sessions;
+      return yield work(store);
     }),
   );
 const openSession = (home: string, file: string, cwd = process.cwd()): Promise<Session> =>
@@ -154,9 +152,9 @@ describe("closeSession", () => {
     const { home, docs } = fixture();
     const s = await openSession(home, join(docs, "design.md"));
     await run(
-      Effect.gen(function* () {
-        const comments = yield* CommentsStore;
-        yield* comments.add(home, s.id, "design.md", { general: true, body: "keep me", author: "jun" });
+      Safe.try(function* () {
+        const comments = services.comments;
+        yield comments.add(home, s.id, "design.md", { general: true, body: "keep me", author: "jun" });
       }),
     );
     await closeSession(home, s.id);
@@ -166,12 +164,12 @@ describe("closeSession", () => {
     const reopened = await openSession(home, join(docs, "design.md"));
     expect(reopened.id).toBe(s.id);
     const file = await run(
-      Effect.gen(function* () {
-        const comments = yield* CommentsStore;
-        return yield* comments.read(home, s.id);
+      Safe.try(function* () {
+        const comments = services.comments;
+        return yield comments.read(home, s.id);
       }),
     );
-    expect(file.docs["design.md"]?.map((c) => c.body)).toEqual(["keep me"]);
+    expect(file.docs["design.md"]?.map((c: any) => c.body)).toEqual(["keep me"]);
   });
 });
 
