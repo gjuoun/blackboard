@@ -2,8 +2,24 @@ import { describe, expect, test } from "bun:test";
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { clearState, DEFAULT_URL, pidAlive, portOf, prepareServer, readState, resolveUrl, restart, runForeground, runtimeFor, ServerError, stop, unrecordedNote, verifyRecord, writeState } from "./server-ctl";
 import { bigHome, slowServer, tmp } from "../test/serve-fixture";
+import {
+  clearState,
+  DEFAULT_URL,
+  pidAlive,
+  portOf,
+  prepareServer,
+  readState,
+  resolveUrl,
+  restart,
+  runForeground,
+  runtimeFor,
+  ServerError,
+  stop,
+  unrecordedNote,
+  verifyRecord,
+  writeState,
+} from "./server-ctl";
 
 describe("resolveUrl", () => {
   test("defaults to the local app, honours BLACKBOARD_URL and strips a trailing slash", () => {
@@ -11,7 +27,9 @@ describe("resolveUrl", () => {
     expect(resolveUrl({ env: { BLACKBOARD_URL: "http://127.0.0.1:4000/" } })).toBe("http://127.0.0.1:4000");
   });
   test("--port overrides the port and pins the host to this machine", () => {
-    expect(resolveUrl({ port: 4100, env: { BLACKBOARD_URL: "https://notes.example.com" } })).toBe("http://127.0.0.1:4100");
+    expect(resolveUrl({ port: 4100, env: { BLACKBOARD_URL: "https://notes.example.com" } })).toBe(
+      "http://127.0.0.1:4100",
+    );
   });
   test("rejects a port that is not a port", () => {
     expect(() => resolveUrl({ port: "abc", env: {} })).toThrow(ServerError);
@@ -26,13 +44,21 @@ describe("resolveUrl", () => {
 describe("runtimeFor", () => {
   const exists = (p: string) => p === "/opt/bun/bin/bun";
   test("a Bun process runs the app with itself", () => {
-    expect(runtimeFor({ execPath: "/home/u/.bun/bin/bun", pathDirs: [], exists })).toEqual({ cmd: "/home/u/.bun/bin/bun", args: [] });
+    expect(runtimeFor({ execPath: "/home/u/.bun/bin/bun", pathDirs: [], exists })).toEqual({
+      cmd: "/home/u/.bun/bin/bun",
+      args: [],
+    });
   });
   test("a Node process uses a Bun on PATH when there is one", () => {
-    expect(runtimeFor({ execPath: "/usr/bin/node", pathDirs: ["/usr/bin", "/opt/bun/bin"], exists })).toEqual({ cmd: "/opt/bun/bin/bun", args: [] });
+    expect(runtimeFor({ execPath: "/usr/bin/node", pathDirs: ["/usr/bin", "/opt/bun/bin"], exists })).toEqual(
+      { cmd: "/opt/bun/bin/bun", args: [] },
+    );
   });
   test("with no Bun on PATH the execPath is the fallback", () => {
-    expect(runtimeFor({ execPath: "/usr/bin/node", pathDirs: ["/usr/bin"], exists })).toEqual({ cmd: "/usr/bin/node", args: [] });
+    expect(runtimeFor({ execPath: "/usr/bin/node", pathDirs: ["/usr/bin"], exists })).toEqual({
+      cmd: "/usr/bin/node",
+      args: [],
+    });
   });
 });
 
@@ -45,10 +71,16 @@ describe("server state", () => {
     const st = readState(home);
     expect(st).toEqual({ ui: proc });
     // the two-process era's file: both pids are still ours to stop, named under the pair shape
-    writeFileSync(join(home, "server.json"), JSON.stringify({ ui: proc, api: { ...proc, pid: 124, url: "http://127.0.0.1:2" } }));
+    writeFileSync(
+      join(home, "server.json"),
+      JSON.stringify({ ui: proc, api: { ...proc, pid: 124, url: "http://127.0.0.1:2" } }),
+    );
     expect(readState(home)).toEqual({ ui: proc, api: { ...proc, pid: 124, url: "http://127.0.0.1:2" } });
     // the pre-split single-pid file is a marked legacy record: the pid it names is ours to stop
-    writeFileSync(join(home, "server.json"), JSON.stringify({ pid: 123, url: "http://127.0.0.1:1", startedAt: "x" }));
+    writeFileSync(
+      join(home, "server.json"),
+      JSON.stringify({ pid: 123, url: "http://127.0.0.1:1", startedAt: "x" }),
+    );
     const legacy = readState(home);
     expect(legacy).toEqual({ legacy: { pid: 123, url: "http://127.0.0.1:1", startedAt: "x" } });
     writeFileSync(join(home, "server.json"), "not json");
@@ -56,9 +88,21 @@ describe("server state", () => {
     clearState(home);
     expect(readState(home)).toBeNull();
   });
-  test("pidAlive is true for this process and false for a dead pid", () => {
+  test("pidAlive reads the probe: EPERM is alive, ESRCH is dead", () => {
+    // Pinned through the probe rather than poking real pids: the ESRCH/EPERM branches are the
+    // behaviour, and `2 ** 22 + 12345` is only "free" on a machine nobody else is using.
+    const err = (code: string) => Object.assign(new Error(code), { code });
     expect(pidAlive(process.pid)).toBe(true);
-    expect(pidAlive(2 ** 22 + 12345)).toBe(false);
+    expect(
+      pidAlive(4242, () => {
+        throw err("EPERM");
+      }),
+    ).toBe(true);
+    expect(
+      pidAlive(4242, () => {
+        throw err("ESRCH");
+      }),
+    ).toBe(false);
   });
 });
 
@@ -113,7 +157,10 @@ describe("a large home: stop clears a dead record", () => {
   test("a two-process record with both pids gone also clears", async () => {
     const home = bigHome();
     const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" };
-    writeFileSync(join(home, "server.json"), JSON.stringify({ ui: dead, api: { ...dead, pid: dead.pid + 1, url: "http://127.0.0.1:2" } }));
+    writeFileSync(
+      join(home, "server.json"),
+      JSON.stringify({ ui: dead, api: { ...dead, pid: dead.pid + 1, url: "http://127.0.0.1:2" } }),
+    );
     const r = await stop(home);
     expect(r).toEqual({ stopped: true });
     expect(readState(home)).toBeNull();
@@ -130,9 +177,13 @@ describe("serve restart: the stopped pair must really be gone", () => {
       const home = tmp();
       // No server.json (a stale single-pid record reads as none); the server is still up.
       await expect(
-        restart(home, { port: server.port }, {
-          start: async () => ({ running: true, url, managed: false, started: false }),
-        }),
+        restart(
+          home,
+          { port: server.port },
+          {
+            start: async () => ({ running: true, url, managed: false, started: false }),
+          },
+        ),
       ).rejects.toThrow(/not stopped|already|not started by this command/);
     } finally {
       server.stop(true);
@@ -161,9 +212,13 @@ describe("serve restart: the stopped pair must really be gone", () => {
     // The recorded server stopped cleanly; a different process then grabbed the port, so start
     // reports an unmanaged server instead of starting ours. That is not a restart.
     await expect(
-      restart(home, { port: 1 }, {
-        start: async () => ({ running: true, url, managed: false, started: false }),
-      }),
+      restart(
+        home,
+        { port: 1 },
+        {
+          start: async () => ({ running: true, url, managed: false, started: false }),
+        },
+      ),
     ).rejects.toThrow(ServerError);
   });
 });
@@ -235,13 +290,21 @@ describe("a pre-split single-pid record", () => {
       expect(pidAlive(pid)).toBe(false);
       expect(readState(home)).toBeNull();
     } finally {
-      try { process.kill(pid, "SIGKILL"); } catch { /* already gone */ }
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {
+        /* already gone */
+      }
     }
   }, 20_000);
 
   test("stop on a dead pid just clears the record", async () => {
     const home = tmp();
-    writeLegacy(home, { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" });
+    writeLegacy(home, {
+      pid: 2 ** 22 + 12345,
+      url: "http://127.0.0.1:1",
+      startedAt: "2026-01-01T00:00:00.000Z",
+    });
     const r = await stop(home);
     expect(r).toEqual({ stopped: true });
     expect(readState(home)).toBeNull();
@@ -266,15 +329,23 @@ describe("a pre-split single-pid record", () => {
 
   test("restart stops the legacy process and starts a fresh server", async () => {
     const home = tmp();
-    writeLegacy(home, { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:1", startedAt: "2026-01-01T00:00:00.000Z" });
+    writeLegacy(home, {
+      pid: 2 ** 22 + 12345,
+      url: "http://127.0.0.1:1",
+      startedAt: "2026-01-01T00:00:00.000Z",
+    });
     let started = false;
     const proc = { pid: process.pid, url: "http://127.0.0.1:1", startedAt: "x", log: "/x/server.log" };
-    const r = await restart(home, { port: 1 }, {
-      start: async () => {
-        started = true;
-        return { running: true, url: proc.url, managed: true, degraded: [], ui: proc, started: true };
+    const r = await restart(
+      home,
+      { port: 1 },
+      {
+        start: async () => {
+          started = true;
+          return { running: true, url: proc.url, managed: true, degraded: [], ui: proc, started: true };
+        },
       },
-    });
+    );
     expect(started).toBe(true);
     expect(r.started).toBe(true);
     expect(readState(home)).toBeNull();
@@ -288,15 +359,30 @@ describe("a pre-split single-pid record", () => {
     process.env.BLACKBOARD_URL = "http://127.0.0.1:4101";
     try {
       const home = tmp();
-      const dead = { pid: 2 ** 22 + 12345, url: "http://127.0.0.1:4100", startedAt: "2026-01-01T00:00:00.000Z" };
+      const dead = {
+        pid: 2 ** 22 + 12345,
+        url: "http://127.0.0.1:4100",
+        startedAt: "2026-01-01T00:00:00.000Z",
+      };
       writeState(home, { ui: dead });
       let asked: { port?: number | string } | undefined;
-      await restart(home, {}, {
-        start: async (_home, opts) => {
-          asked = opts;
-          return { running: true, url: dead.url, managed: true, degraded: [], ui: { ...dead, pid: process.pid, log: "/x/server.log" }, started: true };
+      await restart(
+        home,
+        {},
+        {
+          start: async (_home, opts) => {
+            asked = opts;
+            return {
+              running: true,
+              url: dead.url,
+              managed: true,
+              degraded: [],
+              ui: { ...dead, pid: process.pid, log: "/x/server.log" },
+              started: true,
+            };
+          },
         },
-      });
+      );
       expect(asked?.port).toBe(4100);
     } finally {
       if (saved === undefined) delete process.env.BLACKBOARD_URL;
@@ -309,7 +395,9 @@ describe("serve start --foreground", () => {
   test("foreground refuses when the port is already listening, naming the port", async () => {
     const busy = slowServer(0);
     try {
-      await expect(runForeground(tmp(), { port: busy.port })).rejects.toThrow(/already in use|listening|occupied/);
+      await expect(runForeground(tmp(), { port: busy.port })).rejects.toThrow(
+        /already in use|listening|occupied/,
+      );
     } finally {
       busy.stop(true);
     }

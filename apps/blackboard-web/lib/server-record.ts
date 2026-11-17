@@ -37,12 +37,15 @@ export const statePath = (home: string) => join(home, "server.json");
 export const uiLogPath = (home: string) => join(home, "server.log");
 
 /** Where the app should answer: --port, else $BLACKBOARD_URL, else the default. Always an http origin. */
-export function resolveUrl(opts: { port?: number | string; env?: Record<string, string | undefined> } = {}): string {
+export function resolveUrl(
+  opts: { port?: number | string; env?: Record<string, string | undefined> } = {},
+): string {
   const env = opts.env ?? process.env;
   const base = new URL((env.BLACKBOARD_URL || DEFAULT_URL).replace(/\/+$/, ""));
   if (opts.port !== undefined) {
     const n = Number(opts.port);
-    if (!Number.isInteger(n) || n < 1 || n > 65535) throw new ServerError(`--port must be a number from 1 to 65535, got "${opts.port}"`);
+    if (!Number.isInteger(n) || n < 1 || n > 65535)
+      throw new ServerError(`--port must be a number from 1 to 65535, got "${opts.port}"`);
     base.protocol = "http:";
     base.hostname = "127.0.0.1";
     base.port = String(n);
@@ -65,7 +68,11 @@ export function portOf(url: string): number {
 export function readState(home: string): RecordedState | null {
   try {
     const v = JSON.parse(readFileSync(statePath(home), "utf8"));
-    const ok = (p: unknown): p is Proc => !!p && Number.isInteger((p as Proc).pid) && typeof (p as Proc).url === "string" && typeof (p as Proc).startedAt === "string";
+    const ok = (p: unknown): p is Proc =>
+      !!p &&
+      Number.isInteger((p as Proc).pid) &&
+      typeof (p as Proc).url === "string" &&
+      typeof (p as Proc).startedAt === "string";
     if (ok(v?.ui) && ok(v?.api)) return { ui: v.ui, api: v.api };
     if (ok(v?.ui)) return { ui: v.ui };
     return ok(v) ? { legacy: v } : null;
@@ -80,9 +87,12 @@ export function writeState(home: string, s: ServerState) {
 
 export const clearState = (home: string) => rmSync(statePath(home), { force: true });
 
-export function pidAlive(pid: number): boolean {
+/** The liveness probe, injectable so a test can pin the ESRCH/EPERM branches without a live process. */
+export type KillProbe = (pid: number, signal: 0) => void;
+
+export function pidAlive(pid: number, probe: KillProbe = (p, s) => void process.kill(p, s)): boolean {
   try {
-    process.kill(pid, 0);
+    probe(pid, 0);
     return true;
   } catch (err) {
     return (err as NodeJS.ErrnoException).code === "EPERM";

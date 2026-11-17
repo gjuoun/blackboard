@@ -2,14 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { open } from "@/lib/cli/sessions";
 import { app } from "@/api/app";
+import { open } from "@/lib/cli/sessions";
 import { run } from "./app";
 
 /**
  * The wire snapshot: every branch the API answers, driven through the one Hono app. The file next
  * to this test is generated from the code and then never edited by hand, so a refactor that
- * changes a status, a header or a body shape fails here instead of in a browser.
+ * changes a status, a header or a body shape fails here instead of in a browser. Refresh it
+ * deliberately: `bun run test:update`.
  */
 
 const SNAPSHOT = join(import.meta.dir, "wire-snapshot.json");
@@ -47,10 +48,14 @@ function isBinary(contentType: string): boolean {
 }
 
 /** One response as the wire sees it: status, content type, every header, body (base64 when binary). */
-async function wire(res: Response): Promise<{ status: number; contentType: string; headers: Record<string, string>; body: string }> {
+async function wire(
+  res: Response,
+): Promise<{ status: number; contentType: string; headers: Record<string, string>; body: string }> {
   const bytes = new Uint8Array(await res.arrayBuffer());
   const contentType = res.headers.get("content-type") ?? "";
-  const body = isBinary(contentType) ? `base64:${Buffer.from(bytes).toString("base64")}` : decoder.decode(bytes);
+  const body = isBinary(contentType)
+    ? `base64:${Buffer.from(bytes).toString("base64")}`
+    : decoder.decode(bytes);
   return { status: res.status, contentType, headers: headersOf(res), body: normalize(body) };
 }
 
@@ -77,7 +82,11 @@ async function docsFixture() {
 }
 
 const HOST = { host: "127.0.0.1" };
-const api = (path: string, init?: RequestInit) => app.request(`http://127.0.0.1${path}`, { ...init, headers: { ...HOST, ...(init?.headers as Record<string, string> | undefined) } });
+const api = (path: string, init?: RequestInit) =>
+  app.request(`http://127.0.0.1${path}`, {
+    ...init,
+    headers: { ...HOST, ...(init?.headers as Record<string, string> | undefined) },
+  });
 const json = (payload: unknown): RequestInit => ({
   method: "POST",
   headers: { "content-type": "application/json" },
@@ -97,54 +106,154 @@ describe("the wire the api answers today", () => {
     await record("comments.GET.empty", await get(fx.session));
 
     await record("comments.POST.bad-json", await post("{not json"));
-    await record("comments.POST.unknown-session", await post({ session: "nosuchid", general: true, body: "x" }));
+    await record(
+      "comments.POST.unknown-session",
+      await post({ session: "nosuchid", general: true, body: "x" }),
+    );
     await record("comments.POST.no-body", await post({ session: fx.session, general: true }));
     await record("comments.POST.no-anchor", await post({ session: fx.session, body: "x" }));
-    await record("comments.POST.two-anchors", await post({ session: fx.session, body: "x", quote: { exact: "Later text.", prefix: "", suffix: "" }, general: true }));
-    await record("comments.POST.bad-images", await post({ session: fx.session, general: true, body: "x", images: ["../etc/passwd"] }));
-    await record("comments.POST.too-many-images", await post({ session: fx.session, general: true, body: "x", images: Array(5).fill("<sha256>.png") }));
+    await record(
+      "comments.POST.two-anchors",
+      await post({
+        session: fx.session,
+        body: "x",
+        quote: { exact: "Later text.", prefix: "", suffix: "" },
+        general: true,
+      }),
+    );
+    await record(
+      "comments.POST.bad-images",
+      await post({ session: fx.session, general: true, body: "x", images: ["../etc/passwd"] }),
+    );
+    await record(
+      "comments.POST.too-many-images",
+      await post({ session: fx.session, general: true, body: "x", images: Array(5).fill("<sha256>.png") }),
+    );
     const created = await post({ session: fx.session, general: true, body: "**first** note", author: "jun" });
     const { comment } = (await created.clone().json()) as { comment: { id: string } };
     await record("comments.POST.ok", created);
     await record("comments.GET.one", await get(fx.session));
-    await record("comments.POST.quoted.ok", await post({ session: fx.session, quote: { exact: "Later text.", prefix: "", suffix: "" }, body: "a passage note", author: "agent" }));
+    await record(
+      "comments.POST.quoted.ok",
+      await post({
+        session: fx.session,
+        quote: { exact: "Later text.", prefix: "", suffix: "" },
+        body: "a passage note",
+        author: "agent",
+      }),
+    );
     await record("comments.GET.two", await get(fx.session));
 
-    await record("comments.PATCH.unknown-session", await patch({ session: "nosuchid", id: comment.id, action: "resolve" }));
+    await record(
+      "comments.PATCH.unknown-session",
+      await patch({ session: "nosuchid", id: comment.id, action: "resolve" }),
+    );
     await record("comments.PATCH.no-id", await patch({ session: fx.session, action: "resolve" }));
-    await record("comments.PATCH.unknown-action", await patch({ session: fx.session, id: comment.id, action: "nope" }));
-    await record("comments.PATCH.reply-no-body", await patch({ session: fx.session, id: comment.id, action: "reply" }));
-    await record("comments.PATCH.reply-bad-reply-id", await patch({ session: fx.session, id: comment.id, action: "reply", body: "x", replyId: "" }));
-    await record("comments.PATCH.comment-not-found", await patch({ session: fx.session, id: "c_000000000000", action: "resolve" }));
-    const replied = await patch({ session: fx.session, id: comment.id, action: "reply", body: "answer with `x`", author: "agent" });
+    await record(
+      "comments.PATCH.unknown-action",
+      await patch({ session: fx.session, id: comment.id, action: "nope" }),
+    );
+    await record(
+      "comments.PATCH.reply-no-body",
+      await patch({ session: fx.session, id: comment.id, action: "reply" }),
+    );
+    await record(
+      "comments.PATCH.reply-bad-reply-id",
+      await patch({ session: fx.session, id: comment.id, action: "reply", body: "x", replyId: "" }),
+    );
+    await record(
+      "comments.PATCH.comment-not-found",
+      await patch({ session: fx.session, id: "c_000000000000", action: "resolve" }),
+    );
+    const replied = await patch({
+      session: fx.session,
+      id: comment.id,
+      action: "reply",
+      body: "answer with `x`",
+      author: "agent",
+    });
     const { comment: thread } = (await replied.clone().json()) as { comment: { replies: { id: string }[] } };
     await record("comments.PATCH.reply.ok", replied);
     const replyId = thread.replies[0].id;
-    await record("comments.PATCH.reply-not-found", await patch({ session: fx.session, id: comment.id, action: "reply", body: "x", replyId: "r_000000000000" }));
-    await record("comments.PATCH.edit-no-body", await patch({ session: fx.session, id: comment.id, action: "edit" }));
-    await record("comments.PATCH.edit.ok", await patch({ session: fx.session, id: comment.id, action: "edit", body: "edited body" }));
-    await record("comments.PATCH.edit-reply-no-reply-id", await patch({ session: fx.session, id: comment.id, action: "edit-reply", body: "x" }));
-    await record("comments.PATCH.edit-reply-no-body", await patch({ session: fx.session, id: comment.id, action: "edit-reply", replyId, body: "" }));
-    await record("comments.PATCH.edit-reply.ok", await patch({ session: fx.session, id: comment.id, action: "edit-reply", replyId, body: "edited reply" }));
-    await record("comments.PATCH.resolve.ok", await patch({ session: fx.session, id: comment.id, action: "resolve" }));
-    await record("comments.PATCH.reopen.ok", await patch({ session: fx.session, id: comment.id, action: "reopen" }));
-    await record("comments.PATCH.delete-reply.ok", await patch({ session: fx.session, id: comment.id, action: "delete-reply", replyId }));
-    await record("comments.PATCH.delete.ok", await patch({ session: fx.session, id: comment.id, action: "delete" }));
+    await record(
+      "comments.PATCH.reply-not-found",
+      await patch({
+        session: fx.session,
+        id: comment.id,
+        action: "reply",
+        body: "x",
+        replyId: "r_000000000000",
+      }),
+    );
+    await record(
+      "comments.PATCH.edit-no-body",
+      await patch({ session: fx.session, id: comment.id, action: "edit" }),
+    );
+    await record(
+      "comments.PATCH.edit.ok",
+      await patch({ session: fx.session, id: comment.id, action: "edit", body: "edited body" }),
+    );
+    await record(
+      "comments.PATCH.edit-reply-no-reply-id",
+      await patch({ session: fx.session, id: comment.id, action: "edit-reply", body: "x" }),
+    );
+    await record(
+      "comments.PATCH.edit-reply-no-body",
+      await patch({ session: fx.session, id: comment.id, action: "edit-reply", replyId, body: "" }),
+    );
+    await record(
+      "comments.PATCH.edit-reply.ok",
+      await patch({
+        session: fx.session,
+        id: comment.id,
+        action: "edit-reply",
+        replyId,
+        body: "edited reply",
+      }),
+    );
+    await record(
+      "comments.PATCH.resolve.ok",
+      await patch({ session: fx.session, id: comment.id, action: "resolve" }),
+    );
+    await record(
+      "comments.PATCH.reopen.ok",
+      await patch({ session: fx.session, id: comment.id, action: "reopen" }),
+    );
+    await record(
+      "comments.PATCH.delete-reply.ok",
+      await patch({ session: fx.session, id: comment.id, action: "delete-reply", replyId }),
+    );
+    await record(
+      "comments.PATCH.delete.ok",
+      await patch({ session: fx.session, id: comment.id, action: "delete" }),
+    );
 
     const listenerUrl = "http://127.0.0.1:41234";
     const postBind = (payload: unknown) => api("/api/bind", json(payload));
     const getBind = (session: string) => api(`/api/bind?session=${session}`);
     const deleteBind = (session: string) => api(`/api/bind?session=${session}`, { method: "DELETE" });
-    await record("bind.POST.unknown-session", await postBind({ session: "nosuchid", piSession: "pi-1", url: listenerUrl }));
+    await record(
+      "bind.POST.unknown-session",
+      await postBind({ session: "nosuchid", piSession: "pi-1", url: listenerUrl }),
+    );
     await record("bind.POST.no-pi-session", await postBind({ session: fx.session, url: listenerUrl }));
-    await record("bind.POST.bad-url", await postBind({ session: fx.session, piSession: "pi-1", url: "http://example.com:41234" }));
+    await record(
+      "bind.POST.bad-url",
+      await postBind({ session: fx.session, piSession: "pi-1", url: "http://example.com:41234" }),
+    );
     await record("bind.GET.unknown-session", await getBind("nosuchid"));
     await record("bind.GET.none", await getBind(fx.session));
-    await record("bind.POST.ok", await postBind({ session: fx.session, piSession: "pi-1", url: listenerUrl }));
+    await record(
+      "bind.POST.ok",
+      await postBind({ session: fx.session, piSession: "pi-1", url: listenerUrl }),
+    );
     await record("bind.GET.bound", await getBind(fx.session));
     await record("bind.DELETE.ok", await deleteBind(fx.session));
     await record("bind.DELETE.none", await deleteBind(fx.session));
-    await record("comments.POST.no-binding", await post({ session: fx.session, general: true, body: "unbound note" }));
+    await record(
+      "comments.POST.no-binding",
+      await post({ session: fx.session, general: true, body: "unbound note" }),
+    );
 
     const asset = (id: string, p?: string) => api(`/api/asset/${id}${p === undefined ? "" : `?p=${p}`}`);
     await record("asset.GET.no-session", await asset("nosuchid", "shot.png"));
@@ -155,7 +264,8 @@ describe("the wire the api answers today", () => {
     await record("asset.GET.no-such-image", await asset(fx.session, "gone.png"));
     await record("asset.GET.ok", await asset(fx.session, "shot.png"));
 
-    const upload = (bytes: Uint8Array) => api("/api/comment-images", { method: "POST", body: bytes as unknown as BodyInit });
+    const upload = (bytes: Uint8Array) =>
+      api("/api/comment-images", { method: "POST", body: bytes as unknown as BodyInit });
     await record("comment-images.POST.rejected", await upload(new TextEncoder().encode("not an image")));
     const stored = await upload(PNG);
     const { id: imageId } = (await stored.clone().json()) as { id: string };
@@ -180,7 +290,9 @@ describe("the wire the api answers today", () => {
     };
 
     const actual = normalize(JSON.stringify(out, null, 2)) + "\n";
-    if (!existsSync(SNAPSHOT)) writeFileSync(SNAPSHOT, actual);
+    if (process.env.UPDATE_SNAPSHOTS === "1") writeFileSync(SNAPSHOT, actual);
+    // Same rule as the CLI snapshot: missing is red, never self-written.
+    expect(existsSync(SNAPSHOT)).toBe(true);
     expect(actual).toBe(readFileSync(SNAPSHOT, "utf8"));
   });
 });
