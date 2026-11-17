@@ -2,24 +2,56 @@
  * Running the web app from the `blackboard` command: start, stop, restart, status. The record lives in
  * server-record.ts and the probing in server-status.ts; this file starts and stops the process and formats output.
  */
-import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { type ChildProcess, execFileSync, spawn } from "node:child_process";
+import {
+  closeSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+} from "node:fs";
 import { basename, delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { clearState, pidAlive, portOf, readState, resolveUrl, uiLogPath, ServerError, statePath, writeState, type ServerState } from "./server-record";
-import { portListens, status, type ServerStatus } from "./server-status";
+import {
+  clearState,
+  pidAlive,
+  portOf,
+  readState,
+  resolveUrl,
+  ServerError,
+  type ServerState,
+  statePath,
+  uiLogPath,
+  writeState,
+} from "./server-record";
+import { portListens, type ServerStatus, status } from "./server-status";
 
-export { DEFAULT_URL, ServerError, clearState, pidAlive, portOf, readState, resolveUrl, statePath, uiLogPath, writeState } from "./server-record";
+export type { Proc, ServerState } from "./server-record";
+export {
+  clearState,
+  DEFAULT_URL,
+  pidAlive,
+  portOf,
+  readState,
+  resolveUrl,
+  ServerError,
+  statePath,
+  uiLogPath,
+  writeState,
+} from "./server-record";
 export { restart } from "./server-restart";
-export { HEALTH_BUDGET_MS, healthAnswers, portListens, procState, status } from "./server-status";
 export type { ProcName, ProcState, ServerStatus } from "./server-status";
-export type { ServerState, Proc } from "./server-record";
+export { HEALTH_BUDGET_MS, healthAnswers, portListens, procState, status } from "./server-status";
 
 export async function probe(url: string, timeoutMs = 1500): Promise<boolean> {
   try {
     const res = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(timeoutMs) });
     if (!res.ok) return false;
-    return (await res.json())?.app === "blackboard";
+    const body = (await res.json()) as { data?: { app?: string } };
+    return body?.data?.app === "blackboard";
   } catch {
     return false;
   }
@@ -31,7 +63,10 @@ function appRoot(from: string = import.meta.url): string {
 }
 
 /** Command that runs the built app: Bun only — the API mounts in-process and owns bun:sqlite. */
-export function runtimeFor(opts: { execPath: string; pathDirs: string[]; exists: (p: string) => boolean }): { cmd: string; args: string[] } {
+export function runtimeFor(opts: { execPath: string; pathDirs: string[]; exists: (p: string) => boolean }): {
+  cmd: string;
+  args: string[];
+} {
   if (/^bun/i.test(basename(opts.execPath))) return { cmd: opts.execPath, args: [] };
   for (const d of opts.pathDirs) {
     const p = join(d, process.platform === "win32" ? "bun.exe" : "bun");
@@ -41,7 +76,11 @@ export function runtimeFor(opts: { execPath: string; pathDirs: string[]; exists:
 }
 
 const currentRuntime = () =>
-  runtimeFor({ execPath: process.execPath, pathDirs: (process.env.PATH ?? "").split(delimiter).filter(Boolean), exists: existsSync });
+  runtimeFor({
+    execPath: process.execPath,
+    pathDirs: (process.env.PATH ?? "").split(delimiter).filter(Boolean),
+    exists: existsSync,
+  });
 
 /**
  * Where the app sits inside the assembled server tree: Nitro's node-server preset emits
@@ -61,7 +100,8 @@ const serverEntry = (dir: string) => join(dir, APP_IN_SERVER, "index.mjs");
 function restoreModules(dir: string, rename: (from: string, to: string) => void): void {
   for (const base of [dir, join(dir, APP_IN_SERVER)]) {
     const modules = join(base, "modules");
-    if (existsSync(modules) && !existsSync(join(base, "node_modules"))) rename(modules, join(base, "node_modules"));
+    if (existsSync(modules) && !existsSync(join(base, "node_modules")))
+      rename(modules, join(base, "node_modules"));
   }
 }
 
@@ -73,7 +113,12 @@ const prepared = (dir: string) =>
  * The folder to run the UI from. When the package folder is read-only (a root-owned global install)
  * the app is copied under `<home>/runtime` and prepared there instead.
  */
-export function prepareServer(serverDir: string, home: string, version: string, rename: (from: string, to: string) => void = renameSync): string {
+export function prepareServer(
+  serverDir: string,
+  home: string,
+  version: string,
+  rename: (from: string, to: string) => void = renameSync,
+): string {
   if (prepared(serverDir)) return serverDir;
   try {
     restoreModules(serverDir, rename);
@@ -102,7 +147,9 @@ const packageVersion = (root: string): string => {
 function uiStartCommand(root: string, home: string) {
   const serverDir = join(root, "server");
   if (!existsSync(serverEntry(serverDir))) {
-    throw new ServerError("this copy has no production build; run `bun run build && bun run build:server` first (or use `bun dev`)");
+    throw new ServerError(
+      "this copy has no production build; run `bun run build && bun run build:server` first (or use `bun dev`)",
+    );
   }
   const dir = prepareServer(serverDir, home, packageVersion(root));
   const rt = currentRuntime();
@@ -113,7 +160,14 @@ function uiStartCommand(root: string, home: string) {
 function appEnv(home: string, url: string): NodeJS.ProcessEnv {
   // No BLACKBOARD_API_URL: the app's /api/* route mounts the Hono app in-process when it is absent —
   // the one-process fold. Dev's forwarder sets it for the API it runs alongside.
-  return { ...process.env, NODE_ENV: "production", BLACKBOARD_HOME: home, BLACKBOARD_URL: url, PORT: String(portOf(url)), HOSTNAME: "127.0.0.1" };
+  return {
+    ...process.env,
+    NODE_ENV: "production",
+    BLACKBOARD_HOME: home,
+    BLACKBOARD_URL: url,
+    PORT: String(portOf(url)),
+    HOSTNAME: "127.0.0.1",
+  };
 }
 
 /**
@@ -162,7 +216,10 @@ async function spawnAndWait(child: ChildProcess, url: string, log: string): Prom
 }
 
 /** Start the app in the background and wait until it answers. A running server is left alone. */
-export async function start(home: string, opts: { port?: number | string } = {}): Promise<ServerStatus & { started: boolean }> {
+export async function start(
+  home: string,
+  opts: { port?: number | string } = {},
+): Promise<ServerStatus & { started: boolean }> {
   const url = resolveUrl({ port: opts.port });
   const cur = await status(home, url);
   if (cur.running) return { ...cur, started: false };
@@ -175,7 +232,12 @@ export async function start(home: string, opts: { port?: number | string } = {})
   const uiLog = openSync(uiLogPath(home), "a");
   let uiChild: ChildProcess;
   try {
-    uiChild = spawn(uiCmd.cmd, uiCmd.args, { cwd: uiCmd.cwd, detached: true, stdio: ["ignore", uiLog, uiLog], env: appEnv(home, url) });
+    uiChild = spawn(uiCmd.cmd, uiCmd.args, {
+      cwd: uiCmd.cwd,
+      detached: true,
+      stdio: ["ignore", uiLog, uiLog],
+      env: appEnv(home, url),
+    });
   } finally {
     closeSync(uiLog);
   }
@@ -190,7 +252,14 @@ export async function start(home: string, opts: { port?: number | string } = {})
   verifyRecord(home, record);
   // Report what this command started, from the record it just verified. A probe here could miss a server
   // that is up, and then the output would call our own process someone else's.
-  return { running: true, url, managed: true, degraded: [], ui: { ...record.ui, log: uiLogPath(home) }, started: true };
+  return {
+    running: true,
+    url,
+    managed: true,
+    degraded: [],
+    ui: { ...record.ui, log: uiLogPath(home) },
+    started: true,
+  };
 }
 
 /** Run the app in this terminal until it stops (Ctrl-C). For containers and service managers. */
@@ -201,7 +270,9 @@ export async function runForeground(home: string, opts: { port?: number | string
   const port = portOf(url);
   if (await portListens(url, 400)) {
     const pids = listenersOn(port);
-    throw new ServerError(`port ${port} is already in use${pids.length ? ` by pid ${pids.join(", ")}` : ""} (the app would answer at ${url})`);
+    throw new ServerError(
+      `port ${port} is already in use${pids.length ? ` by pid ${pids.join(", ")}` : ""} (the app would answer at ${url})`,
+    );
   }
   const root = appRoot();
   const uiCmd = uiStartCommand(root, home);
@@ -216,8 +287,19 @@ export async function runForeground(home: string, opts: { port?: number | string
  */
 export function listenersOn(port: number): number[] {
   try {
-    const out = execFileSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], { encoding: "utf8", timeout: 3000, stdio: ["ignore", "pipe", "ignore"] });
-    return [...new Set(out.split(/\s+/).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+    const out = execFileSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], {
+      encoding: "utf8",
+      timeout: 3000,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return [
+      ...new Set(
+        out
+          .split(/\s+/)
+          .map(Number)
+          .filter((n) => Number.isInteger(n) && n > 0),
+      ),
+    ];
   } catch {
     return [];
   }
@@ -225,7 +307,8 @@ export function listenersOn(port: number): number[] {
 
 /** What `stop` says when a Blackboard answers but this home recorded nothing: the pids, and the command to run. */
 export function unrecordedNote(url: string, pids: number[]): string {
-  if (pids.length === 0) return `a Blackboard answers at ${url}, but this home did not start it and no process could be found on that port (look for it with: lsof -nP -iTCP:${portOf(url)} -sTCP:LISTEN)`;
+  if (pids.length === 0)
+    return `a Blackboard answers at ${url}, but this home did not start it and no process could be found on that port (look for it with: lsof -nP -iTCP:${portOf(url)} -sTCP:LISTEN)`;
   return `a Blackboard answers at ${url}, but this home did not start it. Process on that port: pid ${pids.join(", ")}. To stop it, run: kill ${pids.join(" ")}`;
 }
 
@@ -243,7 +326,10 @@ async function portQuiet(url: string): Promise<boolean> {
 
 /** Stop the process this home started. `stopped` requires the pid gone AND the recorded port quiet —
  *  anything less is not a stop a restart may build on. Refuses a server it did not start. */
-export async function stop(home: string, at = resolveUrl()): Promise<{ stopped: boolean; note?: string; nothing?: boolean }> {
+export async function stop(
+  home: string,
+  at = resolveUrl(),
+): Promise<{ stopped: boolean; note?: string; nothing?: boolean }> {
   const st = readState(home);
   if (!st) {
     if (!(await probe(at))) return { stopped: false, nothing: true };
@@ -257,10 +343,18 @@ export async function stop(home: string, at = resolveUrl()): Promise<{ stopped: 
   const procs = "legacy" in st ? [st.legacy] : "api" in st ? [st.ui, st.api] : [st.ui];
   for (const proc of procs) {
     if (!pidAlive(proc.pid)) continue;
-    try { process.kill(proc.pid, "SIGTERM"); } catch { /* already gone */ }
+    try {
+      process.kill(proc.pid, "SIGTERM");
+    } catch {
+      /* already gone */
+    }
     for (let i = 0; i < 40 && pidAlive(proc.pid); i++) await sleep(150);
     if (pidAlive(proc.pid)) {
-      try { process.kill(proc.pid, "SIGKILL"); } catch { /* already gone */ }
+      try {
+        process.kill(proc.pid, "SIGKILL");
+      } catch {
+        /* already gone */
+      }
       for (let i = 0; i < 10 && pidAlive(proc.pid); i++) await sleep(100);
     }
   }
@@ -278,23 +372,46 @@ export async function stop(home: string, at = resolveUrl()): Promise<{ stopped: 
 export function formatStatus(s: ServerStatus): string {
   if ("legacy" in s) {
     const p = s.legacy;
-    if (p.cleared) return `not running (${s.url}): the pid (${p.pid}) is gone — the pre-split record was cleared`;
-    const head = p.state === "down" ? `not running (${s.url}): the recorded pid ${p.pid} is alive but nothing answers` : `running at ${s.url}  pid ${p.pid}  since ${p.startedAt}`;
-    const advice = p.state === "down" ? "clear it with: blackboard serve stop" : "adopt it with: blackboard serve restart (or: blackboard serve stop)";
-    return [head, `a pre-split record (single process, written before the app+api split) — ${advice}`].join("\n");
+    if (p.cleared)
+      return `not running (${s.url}): the pid (${p.pid}) is gone — the pre-split record was cleared`;
+    const head =
+      p.state === "down"
+        ? `not running (${s.url}): the recorded pid ${p.pid} is alive but nothing answers`
+        : `running at ${s.url}  pid ${p.pid}  since ${p.startedAt}`;
+    const advice =
+      p.state === "down"
+        ? "clear it with: blackboard serve stop"
+        : "adopt it with: blackboard serve restart (or: blackboard serve stop)";
+    return [head, `a pre-split record (single process, written before the app+api split) — ${advice}`].join(
+      "\n",
+    );
   }
   if ("pair" in s) {
     const p = s.pair;
-    const head = p.ui === "running" ? `running at ${s.url}  ui pid ${p.pids.ui}` : `not running (${s.url}): the recorded UI is ${p.ui}`;
+    const head =
+      p.ui === "running"
+        ? `running at ${s.url}  ui pid ${p.pids.ui}`
+        : `not running (${s.url}): the recorded UI is ${p.ui}`;
     const apiLine = `api: ${p.api} (pid ${p.pids.api})`;
-    const note = "a two-process record, written before the fold — restart it with: blackboard serve restart (or: blackboard serve stop)";
+    const note =
+      "a two-process record, written before the fold — restart it with: blackboard serve restart (or: blackboard serve stop)";
     return [head, apiLine, note].join("\n");
   }
   if (!s.running && "partial" in s) {
-    return [`not running (${s.url}): the recorded process is ${s.partial.ui} (pid ${s.partial.pid})`, "run: blackboard serve stop, then blackboard serve start"].join("\n");
+    return [
+      `not running (${s.url}): the recorded process is ${s.partial.ui} (pid ${s.partial.pid})`,
+      "run: blackboard serve stop, then blackboard serve start",
+    ].join("\n");
   }
   if (!s.running) return `not running (${s.url})`;
   if (!s.managed) return `running at ${s.url} (not started by this command)`;
-  const note = s.degraded.length === 0 ? [] : [`degraded: ${s.degraded.join(", ")} is up but slow to answer its health route (it may still be starting)`];
-  return [`running at ${s.url}  pid ${s.ui.pid}  since ${s.ui.startedAt}`, ...note, `log: ${s.ui.log}`].join("\n");
+  const note =
+    s.degraded.length === 0
+      ? []
+      : [
+          `degraded: ${s.degraded.join(", ")} is up but slow to answer its health route (it may still be starting)`,
+        ];
+  return [`running at ${s.url}  pid ${s.ui.pid}  since ${s.ui.startedAt}`, ...note, `log: ${s.ui.log}`].join(
+    "\n",
+  );
 }

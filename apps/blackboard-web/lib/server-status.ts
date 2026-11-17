@@ -5,7 +5,7 @@
  * serve code.
  */
 import { connect as netConnect } from "node:net";
-import { clearState, pidAlive, portOf, readState, uiLogPath, resolveUrl, type Proc } from "./server-record";
+import { clearState, type Proc, pidAlive, portOf, readState, resolveUrl, uiLogPath } from "./server-record";
 
 /** One process as status sees it. `degraded`: its port accepts connections but the app does not answer in time. */
 export type ProcState = "running" | "degraded" | "down";
@@ -18,7 +18,11 @@ export type ServerStatus =
   | { running: true; url: string; managed: false }
   | { running: false; url: string; partial: { ui: ProcState; pid: number } }
   | { running: boolean; url: string; legacy: Proc & { state: ProcState; cleared: boolean } }
-  | { running: boolean; url: string; pair: { ui: ProcState; api: ProcState; pids: { ui: number; api: number } } };
+  | {
+      running: boolean;
+      url: string;
+      pair: { ui: ProcState; api: ProcState; pids: { ui: number; api: number } };
+    };
 
 /**
  * True when something answers HTTP at `url`, whatever the status. The UI process proves it is alive by
@@ -48,7 +52,9 @@ export async function healthAnswers(url: string, timeoutMs = HEALTH_BUDGET_MS): 
   try {
     const res = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(timeoutMs) });
     if (!res.ok) return false;
-    return (await res.json())?.app === "blackboard";
+    // The envelope: {success:true,data:{app,...}}. A body without `data` is not a Blackboard.
+    const body = (await res.json()) as { data?: { app?: string } };
+    return body?.data?.app === "blackboard";
   } catch {
     return false;
   }
@@ -83,7 +89,11 @@ export async function status(home: string, url = resolveUrl()): Promise<ServerSt
       return { running: false, url: st.legacy.url, legacy: { ...st.legacy, state: "down", cleared: true } };
     }
     const proc = await procState(st.legacy.pid, st.legacy.url);
-    return { running: proc !== "down", url: st.legacy.url, legacy: { ...st.legacy, state: proc, cleared: false } };
+    return {
+      running: proc !== "down",
+      url: st.legacy.url,
+      legacy: { ...st.legacy, state: proc, cleared: false },
+    };
   }
   if (st && "api" in st) {
     // A two-process record: both pids gone is stale and cleared; anything alive is ours to stop. The
@@ -92,8 +102,15 @@ export async function status(home: string, url = resolveUrl()): Promise<ServerSt
     if (!pidAlive(st.ui.pid) && !pidAlive(st.api.pid)) {
       clearState(home);
     } else {
-      const [ui, api] = await Promise.all([procState(st.ui.pid, st.ui.url), procState(st.api.pid, st.api.url)]);
-      return { running: ui === "running", url: st.ui.url, pair: { ui, api, pids: { ui: st.ui.pid, api: st.api.pid } } };
+      const [ui, api] = await Promise.all([
+        procState(st.ui.pid, st.ui.url),
+        procState(st.api.pid, st.api.url),
+      ]);
+      return {
+        running: ui === "running",
+        url: st.ui.url,
+        pair: { ui, api, pids: { ui: st.ui.pid, api: st.api.pid } },
+      };
     }
   } else if (st) {
     if (!pidAlive(st.ui.pid)) {
@@ -102,7 +119,13 @@ export async function status(home: string, url = resolveUrl()): Promise<ServerSt
       const ui = await procState(st.ui.pid, st.ui.url);
       if (ui === "down") return { running: false, url: st.ui.url, partial: { ui, pid: st.ui.pid } };
       const degraded: ProcName[] = ui === "degraded" ? ["ui"] : [];
-      return { running: true, url: st.ui.url, managed: true, degraded, ui: { ...st.ui, log: uiLogPath(home) } };
+      return {
+        running: true,
+        url: st.ui.url,
+        managed: true,
+        degraded,
+        ui: { ...st.ui, log: uiLogPath(home) },
+      };
     }
   }
   return (await healthAnswers(url, 1500)) ? { running: true, url, managed: false } : { running: false, url };

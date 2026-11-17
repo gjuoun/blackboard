@@ -1,7 +1,7 @@
+import { afterEach } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach } from "bun:test";
 
 /** Temp folders the serve tests create; removed after each test. */
 export const dirs: string[] = [];
@@ -32,7 +32,8 @@ export function slowServer(delayMs: number) {
     hostname: "127.0.0.1",
     async fetch(req) {
       await Bun.sleep(delayMs);
-      if (new URL(req.url).pathname === "/api/health") return Response.json({ app: "blackboard", version: "x" });
+      if (new URL(req.url).pathname === "/api/health")
+        return Response.json({ success: true, data: { app: "blackboard", version: "x" } });
       return new Response("ok");
     },
   });

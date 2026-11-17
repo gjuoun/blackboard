@@ -1,11 +1,11 @@
 {
   "health.GET": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"app\":\"blackboard\",\"version\":\"0.3.0-beta.0\"}"
+    "body": "{\"success\":true,\"data\":{\"app\":\"blackboard\",\"version\":\"0.3.0-beta.0\"}}"
   },
   "comments.GET.unknown-session": {
     "status": 400,
