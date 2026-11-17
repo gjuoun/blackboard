@@ -1,29 +1,22 @@
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect, FileSystem } from "effect";
+import { Safe } from "@gjuoun/safe-ts";
 import { open } from "../../lib/cli/sessions";
-import { run } from "../../test/app";
+import { run, services } from "../../test/app";
 import { app } from "../app";
 
 /** A temp Blackboard home and one doc, the same fixture the other api tests build. */
 async function setup() {
-  const { base, design } = await run(
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const base = yield* fs.realPath(
-        yield* fs.makeTempDirectory({ directory: tmpdir(), prefix: "bb-watch-" }),
-      );
-      const docs = join(base, "docs");
-      yield* fs.makeDirectory(docs, { recursive: true });
-      const design = join(docs, "design.md");
-      yield* fs.writeFileString(design, "# Design\n\nLater text.\n");
-      return { base, design };
-    }),
-  );
+  const base = realpathSync(mkdtempSync(join(tmpdir(), "bb-watch-")));
+  const docs = join(base, "docs");
+  mkdirSync(docs, { recursive: true });
+  const design = join(docs, "design.md");
+  writeFileSync(design, "# Design\n\nLater text.\n");
   const home = join(base, "home");
   process.env.BLACKBOARD_HOME = home;
-  const { session } = await run(open(home, design));
+  const { session } = await run(open(services.sessions, home, design));
   return { home, design, session: session.id };
 }
 
@@ -35,7 +28,7 @@ describe("GET /api/watch", () => {
     await setup();
     const res = await app.request("http://127.0.0.1/api/watch?session=nosuchid", { headers: HOST });
     expect(res.status).toBe(400);
-    expect(await res.text()).toBe("unknown session");
+    expect(await res.json()).toMatchObject({ success: false, error: { message: "unknown session" } });
   });
 
   test("a comment mutation on the api emits a changed frame", async () => {

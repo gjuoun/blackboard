@@ -3,7 +3,7 @@ import { utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { commentGeneral } from "../../lib/cli/comments";
 import { fixture, LOCAL, register } from "../../test/api-fixture";
-import { run } from "../../test/app";
+import { run, services } from "../../test/app";
 import { app } from "../app";
 
 /**
@@ -28,7 +28,7 @@ describe("GET /api/reading/doc", () => {
     const { id } = await setup();
     const res = await get(id);
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const { data } = await res.json();
     expect(data.id).toBe(id);
     expect(data.title).toBe("Design");
     expect(data.html).toContain("Design");
@@ -39,8 +39,10 @@ describe("GET /api/reading/doc", () => {
 
   test("a general comment appears as a reply under the document", async () => {
     const { home, design, id } = await setup();
-    await run(commentGeneral(home, design, "Please tighten this.", "jun"));
-    const data = await (await get(id)).json();
+    await run(
+      commentGeneral(services.sessions, services.comments, home, design, "Please tighten this.", "jun"),
+    );
+    const { data } = await (await get(id)).json();
     expect(data.replies).toHaveLength(1);
     expect(data.replies[0]).toMatchObject({ author: "jun", body: "Please tighten this." });
   });
@@ -49,7 +51,7 @@ describe("GET /api/reading/doc", () => {
     await setup();
     const res = await get("nosuchid");
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "unknown session" });
+    expect(await res.json()).toMatchObject({ success: false, error: { message: "unknown session" } });
   });
 });
 
@@ -59,7 +61,8 @@ describe("a file session picks up later edits", () => {
     const design = join(docs, "design.md");
     const { id } = await register(home, design);
     const fetchBody = async () =>
-      (await (await app.request(`http://127.0.0.1/api/session?id=${id}`, { headers: LOCAL })).json()) as {
+      (await (await app.request(`http://127.0.0.1/api/session?id=${id}`, { headers: LOCAL })).json())
+        .data as {
         body: string | null;
       };
     expect((await fetchBody()).body).toContain("First version.");

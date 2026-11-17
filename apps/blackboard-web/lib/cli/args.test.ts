@@ -1,20 +1,22 @@
 import { describe, expect, test } from "bun:test";
-import { Cause, Effect, Exit, Result } from "effect";
+import { Runtime, type Safe } from "@gjuoun/safe-ts";
+import { run } from "../../test/app";
 import type { CliError } from "../cli";
 import { CommentArgs, decodeArgs } from "./args";
 
 /** The refusal a decode ends with, so a test asserts the message and code the CLI prints. */
-async function refusal<A>(effect: Effect.Effect<A, CliError>): Promise<{ message: string; code: number }> {
-  const exit = await Effect.runPromiseExit(effect);
-  if (Exit.isSuccess(exit)) throw new Error(`expected a refusal, decoded ${JSON.stringify(exit.value)}`);
-  const found = Cause.findError(exit.cause);
-  if (Result.isFailure(found)) throw new Error("expected a typed failure, not a defect");
-  return { message: found.success.message, code: found.success.code };
+async function refusal<A>(safe: Safe<A, CliError>): Promise<{ message: string; code: number }> {
+  const outcome = await Runtime.run(safe);
+  if (outcome._tag === "success")
+    throw new Error("expected a refusal, decoded " + JSON.stringify(outcome.value));
+  if (outcome._tag !== "fail") throw new Error("expected a typed failure, not a defect");
+  const failure = (outcome.error as CliError).CliError;
+  return { message: failure.message, code: failure.code };
 }
 
 describe("the option records", () => {
   test("comment: an empty --occurrence is not given, so the first match", async () => {
-    const empty = await Effect.runPromise(decodeArgs(CommentArgs, { quote: "Later text.", occurrence: "" }));
+    const empty = await run(decodeArgs(CommentArgs, { quote: "Later text.", occurrence: "" }));
     expect(empty.occurrence).toBeUndefined();
     expect(empty.occurrence ?? 1).toBe(1);
     expect(await refusal(decodeArgs(CommentArgs, { quote: "Later text.", occurrence: "abc" }))).toEqual({
@@ -33,9 +35,13 @@ describe("the option records", () => {
       message: "--occurrence must be a whole number",
       code: 2,
     });
-    expect(
-      await Effect.runPromise(decodeArgs(CommentArgs, { quote: "Later text.", occurrence: "2" })),
-    ).toEqual({ quote: "Later text.", occurrence: 2 });
-    expect(await Effect.runPromise(decodeArgs(CommentArgs, { general: true }))).toEqual({ general: true });
+    const whole = (await run(decodeArgs(CommentArgs, { quote: "Later text.", occurrence: "2" }))) as {
+      quote?: string;
+      occurrence?: number;
+    };
+    expect(whole.quote).toBe("Later text.");
+    expect(whole.occurrence).toBe(2);
+    const general = (await run(decodeArgs(CommentArgs, { general: true }))) as { general?: boolean };
+    expect(general.general).toBe(true);
   });
 });

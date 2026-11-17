@@ -2,42 +2,31 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Safe } from "@gjuoun/safe-ts";
+import { run, services } from "../../../test/app";
 import { commentId } from "../../comments-file";
-import { type Db, layer as dbLayer } from "../client";
-import { CommentsRepo, layer as commentsLayer } from "./comments";
-import { ContentBlocksRepo, layer as contentBlocksLayer } from "./content-blocks";
-import { DocumentsRepo, layer as documentsLayer } from "./documents";
+import type { Db } from "../client";
+import { CommentsRepo } from "./comments";
+import { ContentBlocksRepo } from "./content-blocks";
+import { DocumentsRepo } from "./documents";
 
 const fresh = () => realpathSync(mkdtempSync(join(tmpdir(), "bb-cb-")));
 const at = "2026-11-10T00:00:00.000Z";
 const quote = { exact: "warm", prefix: "is ", suffix: "." };
 
-const run = <A>(
-  effect: Effect.Effect<A, unknown, Db | DocumentsRepo | CommentsRepo | ContentBlocksRepo>,
-): Promise<A> =>
-  Effect.runPromise(
-    effect.pipe(
-      Effect.provide(documentsLayer),
-      Effect.provide(commentsLayer),
-      Effect.provide(contentBlocksLayer),
-      Effect.provide(dbLayer),
-    ),
-  );
-
 const seed = (home: string, id = "doc1") =>
   run(
-    Effect.gen(function* () {
-      const d = yield* DocumentsRepo;
-      return yield* d.upsert(home, { id, path: "/tmp/doc.md" });
+    Safe.try(function* () {
+      const d = services.documents;
+      return yield d.upsert(home, { id, path: "/tmp/doc.md" });
     }),
   );
 
 const comment = (home: string, doc: string, q = quote) =>
   run(
-    Effect.gen(function* () {
-      const repo = yield* CommentsRepo;
-      return yield* repo.add(home, {
+    Safe.try(function* () {
+      const repo = services.commentsRepo;
+      return yield repo.add(home, {
         id: commentId(),
         documentId: doc,
         doc: "doc.md",
@@ -67,58 +56,58 @@ describe("ContentBlocksRepo.reconcile", () => {
     const home = fresh();
     await seed(home);
     const r = await run(
-      Effect.gen(function* () {
-        const c = yield* ContentBlocksRepo;
-        return yield* c.reconcile(home, "doc1", "# T\n\n- a\n- b\n\npara.\n");
+      Safe.try(function* () {
+        const c = services.contentBlocks;
+        return yield c.reconcile(home, "doc1", "# T\n\n- a\n- b\n\npara.\n");
       }),
     );
     expect(r.bodyRev).toBe(1);
     expect(r.added).toBe(4);
     const rows = await run(
-      Effect.gen(function* () {
-        const c = yield* ContentBlocksRepo;
-        return yield* c.list(home, "doc1");
+      Safe.try(function* () {
+        const c = services.contentBlocks;
+        return yield c.list(home, "doc1");
       }),
     );
-    expect(rows.map((x) => x.kind)).toEqual(["heading", "listItem", "listItem", "paragraph"]);
+    expect(rows.map((x: any) => x.kind)).toEqual(["heading", "listItem", "listItem", "paragraph"]);
   });
 
   test("改写一段：id 不变，rev+1，旧文本入 revs，评论显示 modified + before", async () => {
     const home = fresh();
     await seed(home);
     await run(
-      Effect.gen(function* () {
-        const c = yield* ContentBlocksRepo;
-        return yield* c.reconcile(home, "doc1", V1);
+      Safe.try(function* () {
+        const c = services.contentBlocks;
+        return yield c.reconcile(home, "doc1", V1);
       }),
     );
     await comment(home, "doc1");
     // 评论回填到 warm words 所在块
     const before = await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.list(home, "doc1");
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.list(home, "doc1");
       }),
     );
-    const warm = before.find((b) => b.plain.includes("warm"))!;
+    const warm = before.find((b: any) => b.plain.includes("warm"))!;
     await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.reconcile(home, "doc1", V1.replace("warm words here.", "warm words rewritten."));
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.reconcile(home, "doc1", V1.replace("warm words here.", "warm words rewritten."));
       }),
     );
     const after = await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.get(home, warm.id);
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.get(home, warm.id);
       }),
     );
     expect(after?.id).toBe(warm.id);
     expect(after?.rev).toBe(2);
     const oldText = await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.revText(home, warm.id, 1);
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.revText(home, warm.id, 1);
       }),
     );
     expect(oldText).toBe("warm words here.");
@@ -130,21 +119,21 @@ describe("ContentBlocksRepo.reconcile", () => {
     await comment(home, "doc1"); // written BEFORE blocks exist
     await comment(home, "doc1", { exact: "no such words anywhere", prefix: "", suffix: "" });
     await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.reconcile(home, "doc1", V1);
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.reconcile(home, "doc1", V1);
       }),
     );
     const rows = await run(
-      Effect.gen(function* () {
-        const repo = yield* CommentsRepo;
-        return yield* repo.list(home, "doc1");
+      Safe.try(function* () {
+        const repo = services.commentsRepo;
+        return yield repo.list(home, "doc1");
       }),
     );
-    const warm = rows.find((r) => r.quote?.exact === "warm");
+    const warm = rows.find((r: any) => r.quote?.exact === "warm");
     expect(warm?.blockId).toMatch(/^cb_/);
     expect(warm?.blockRev).toBe(1);
-    const dead2 = rows.find((r) => r.quote?.exact === "no such words anywhere");
+    const dead2 = rows.find((r: any) => r.quote?.exact === "no such words anywhere");
     expect(dead2?.blockId).toBeNull();
   });
 
@@ -152,35 +141,35 @@ describe("ContentBlocksRepo.reconcile", () => {
     const home = fresh();
     await seed(home);
     await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.reconcile(home, "doc1", V1);
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.reconcile(home, "doc1", V1);
       }),
     );
     const before = await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.list(home, "doc1");
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.list(home, "doc1");
       }),
     );
-    const warm = before.find((b) => b.plain.includes("warm"))!;
+    const warm = before.find((b: any) => b.plain.includes("warm"))!;
     await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.reconcile(home, "doc1", "# Doc\n\nkeep this paragraph.\n");
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.reconcile(home, "doc1", "# Doc\n\nkeep this paragraph.\n");
       }),
     );
     const rows = await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.list(home, "doc1");
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.list(home, "doc1");
       }),
     );
-    expect(rows.find((b) => b.id === warm.id)).toBeUndefined();
+    expect(rows.find((b: any) => b.id === warm.id)).toBeUndefined();
     const old = await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.revText(home, warm.id, 1);
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.revText(home, warm.id, 1);
       }),
     );
     expect(old).toBe("warm words here.");
@@ -190,22 +179,22 @@ describe("ContentBlocksRepo.reconcile", () => {
     const home = fresh();
     await seed(home);
     await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.reconcile(home, "doc1", V1);
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.reconcile(home, "doc1", V1);
       }),
     );
     const r = await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.reconcile(home, "doc1", null);
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.reconcile(home, "doc1", null);
       }),
     );
     expect(r.removed).toBeGreaterThan(0);
     const rows = await run(
-      Effect.gen(function* () {
-        const repo = yield* ContentBlocksRepo;
-        return yield* repo.list(home, "doc1");
+      Safe.try(function* () {
+        const repo = services.contentBlocks;
+        return yield repo.list(home, "doc1");
       }),
     );
     expect(rows).toHaveLength(0);

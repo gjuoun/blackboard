@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { type AgentPayload, notifyAgent, payloadFor, postPayload } from "./agent-notify";
-import type { Binding } from "./agents-store";
 import type { Comment } from "./comments-store";
+import type { AgentRow } from "./db/repos/agents";
 
 /** A listener that records what it is posted, standing in for the pi extension. */
 function listener(handler?: (payload: AgentPayload) => Promise<Response> | Response) {
@@ -40,7 +40,7 @@ const comment = (extra: Partial<Comment> = {}): Comment => ({
   ...extra,
 });
 
-const binding = (url: string): Binding => ({
+const binding = (url: string): AgentRow => ({
   session: "abc123",
   path: "/tmp/design.md",
   piSession: "pi-abc123",

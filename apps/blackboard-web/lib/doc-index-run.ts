@@ -1,11 +1,11 @@
 import { existsSync, statSync } from "node:fs";
+import { Safe } from "@gjuoun/safe-ts";
 import { eq, isNull } from "drizzle-orm";
-import { type Context, Effect } from "effect";
-import { Db } from "./db/client";
+import type { Db } from "./db/client";
 import { applyReconcile } from "./db/repos/content-blocks";
 import { documents } from "./db/schema";
 import { factsOf, RepoMemo } from "./doc-index";
-import { type DbFailure, errorMessage, IoFailure } from "./errors";
+import { type DbFailure, errorMessage, failures, type IoFailure } from "./errors";
 
 /** What one index run did. `updated` counts rows rewritten; a run over an unchanged database updates none. */
 export type IndexReport = {
@@ -34,37 +34,33 @@ function stale(
   return row.srcMtime !== Math.floor(st.mtimeMs) || row.srcSize !== st.size;
 }
 
-/**
- * Index every open document whose stored body is missing or no longer matches its file. A run is idempotent: a second
- * run over an unchanged file system rewrites nothing. The git commands a run needs are shared across its documents.
- */
 /** What one row's index step did: rewritten, left as it was, or recorded as missing. */
 export type RowOutcome = "updated" | "skipped" | "missing";
 
 /**
- * Bring one row up to date with its file: read the file once, rewrite the row, or leave it alone when it is current.
- * `memo` shares git answers with the other rows of the same run; a single-document call passes a fresh one.
+ * Bring one row up to date with its file: read the file once, rewrite the row, or leave it alone when
+ * it is current. `memo` shares git answers with the other rows of the same run; a single-document call
+ * passes a fresh one.
  */
 export function indexRow(
-  db: Context.Service.Shape<typeof Db>,
+  db: Db,
   home: string,
   row: typeof documents.$inferSelect,
   memo: RepoMemo,
   force = false,
-): Effect.Effect<RowOutcome, IoFailure | DbFailure> {
-  return Effect.gen(function* () {
+): Safe<RowOutcome, IoFailure | DbFailure> {
+  return Safe.try(function* () {
     if (!row.path || (!force && !stale(row, row.path))) {
-      // The file is current, but a row that never went through the reconciler still needs its
-      // content blocks built once — a no-op on every later run.
+      // The file is current, but a row that never went through the reconciler still needs its content
+      // blocks built once — a no-op on every later run.
       if (row.bodyRev == null && row.body != null)
-        yield* db.use(home, (d) => void applyReconcile(d, row.id, row.body));
+        yield db.use(home, (d) => void applyReconcile(d, row.id, row.body));
       return "skipped" as const;
     }
     if (!existsSync(row.path)) {
       const now = new Date().toISOString();
-      yield* db.use(home, (d) => {
-        void d
-          .update(documents)
+      yield db.use(home, (d) => {
+        d.update(documents)
           .set({
             body: null,
             title: row.title ?? null,
@@ -74,18 +70,17 @@ export function indexRow(
           })
           .where(eq(documents.id, row.id))
           .run();
-        void applyReconcile(d, row.id, null);
+        applyReconcile(d, row.id, null);
       });
       return "missing" as const;
     }
-    const facts = yield* Effect.try({
-      try: () => factsOf(row.path!, memo),
-      catch: (error) => new IoFailure({ message: errorMessage(error), status: 500 }),
-    });
+    const facts = (yield Safe.call(
+      () => factsOf(row.path!, memo),
+      (error) => failures.IoFailure(errorMessage(error), 500),
+    )) as ReturnType<typeof factsOf>;
     const now = new Date().toISOString();
-    yield* db.use(home, (d) => {
-      void d
-        .update(documents)
+    yield db.use(home, (d) => {
+      d.update(documents)
         .set({
           body: facts.body,
           title: facts.title,
@@ -106,26 +101,26 @@ export function indexRow(
         })
         .where(eq(documents.id, row.id))
         .run();
-      void applyReconcile(d, row.id, facts.body);
+      applyReconcile(d, row.id, facts.body);
     });
     return "updated" as const;
   });
 }
 
-/** Index every open document whose row is missing or no longer matches its file. Idempotent: a second run updates nothing. */
+/** Index every open document whose row is missing or no longer matches its file. Idempotent. */
 export function indexDocuments(
+  db: Db,
   home: string,
   force = false,
-): Effect.Effect<IndexReport, IoFailure | DbFailure, Db> {
-  return Effect.gen(function* () {
-    const db = yield* Db;
-    const rows = yield* db.use(home, (d) =>
+): Safe<IndexReport, IoFailure | DbFailure> {
+  return Safe.try(function* () {
+    const rows = (yield db.use(home, (d) =>
       d.select().from(documents).where(isNull(documents.closedAt)).all(),
-    );
+    )) as (typeof documents.$inferSelect)[];
     const memo = new RepoMemo();
     const report: IndexReport = { scanned: rows.length, updated: 0, skipped: 0, missing: 0, gitCommands: 0 };
     for (const row of rows) {
-      const outcome = yield* indexRow(db, home, row, memo, force);
+      const outcome = (yield indexRow(db, home, row, memo, force)) as RowOutcome;
       if (outcome === "updated") report.updated += 1;
       else if (outcome === "missing") {
         report.missing += 1;

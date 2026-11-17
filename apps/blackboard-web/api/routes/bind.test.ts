@@ -31,7 +31,7 @@ describe("POST /api/bind", () => {
     await setup();
     const res = await bind({ session: "nosuchid", piSession: "pi-1", url: "http://127.0.0.1:40000" });
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "unknown session" });
+    expect(await res.json()).toMatchObject({ success: false, error: { message: "unknown session" } });
   });
 
   test("a body that is not JSON is the same refusal", async () => {
@@ -43,7 +43,7 @@ describe("POST /api/bind", () => {
     const { session } = await setup();
     const res = await bind({ session, url: "http://127.0.0.1:40000" });
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "piSession is required" });
+    expect(await res.json()).toMatchObject({ success: false, error: { message: "piSession is required" } });
   });
 
   test("only a loopback http url is accepted", async () => {
@@ -57,7 +57,10 @@ describe("POST /api/bind", () => {
     ]) {
       const res = await bind({ session, piSession: "pi-1", url });
       expect(res.status).toBe(400);
-      expect(await res.json()).toEqual({ error: "url must be a loopback http url" });
+      expect(await res.json()).toMatchObject({
+        success: false,
+        error: { message: "url must be a loopback http url" },
+      });
     }
   });
 
@@ -65,14 +68,16 @@ describe("POST /api/bind", () => {
     const { design, session } = await setup();
     const res = await bind({ session, piSession: "pi-1", url: "http://127.0.0.1:40000/" });
     expect(res.status).toBe(200);
-    const { binding } = await res.json();
+    const {
+      data: { binding },
+    } = await res.json();
     expect(binding.session).toBe(session);
     expect(binding.path).toBe(design);
     expect(binding.piSession).toBe("pi-1");
     expect(binding.url).toBe("http://127.0.0.1:40000");
 
     // The record the route stored, read back through the same API.
-    expect((await (await get(session)).json()).binding).toMatchObject({
+    expect((await (await get(session)).json()).data.binding).toMatchObject({
       session,
       piSession: "pi-1",
       url: "http://127.0.0.1:40000",
@@ -80,7 +85,7 @@ describe("POST /api/bind", () => {
 
     await bind({ session, piSession: "pi-2", url: "http://localhost:40001" });
     expect((await get(session)).status).toBe(200);
-    const again = (await (await get(session)).json()).binding;
+    const again = (await (await get(session)).json()).data.binding;
     expect(again.piSession).toBe("pi-2");
     expect(again.url).toBe("http://localhost:40001");
   });
@@ -91,7 +96,7 @@ describe("GET and DELETE /api/bind", () => {
     const { session } = await setup();
     const res = await get(session);
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ binding: null });
+    expect(await res.json()).toEqual({ success: true, data: { binding: null } });
     expect((await get("nosuchid")).status).toBe(400);
   });
 
@@ -100,8 +105,8 @@ describe("GET and DELETE /api/bind", () => {
     await bind({ session, piSession: "pi-1", url: "http://127.0.0.1:40000" });
     const first = await remove(session);
     expect(first.status).toBe(200);
-    expect(await first.json()).toEqual({ unbound: session });
-    expect(await (await remove(session)).json()).toEqual({ unbound: null });
-    expect(await (await get(session)).json()).toEqual({ binding: null });
+    expect(await first.json()).toEqual({ success: true, data: { unbound: session } });
+    expect(await (await remove(session)).json()).toEqual({ success: true, data: { unbound: null } });
+    expect(await (await get(session)).json()).toEqual({ success: true, data: { binding: null } });
   });
 });

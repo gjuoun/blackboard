@@ -1,40 +1,42 @@
 import { describe, expect, test } from "bun:test";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { run } from "../../test/app";
+import { run, services } from "../../test/app";
 import { setup } from "../../test/fixtures/cli";
 import { comment } from "./comments";
-import { close, open, sessions } from "./sessions";
+import { close, open, list as sessions } from "./sessions";
 
 describe("open", () => {
   test("open is idempotent", async () => {
     const { home, design } = setup();
-    const a = await run(open(home, design));
-    const b = await run(open(home, design));
+    const a = await run(open(services.sessions, home, design));
+    const b = await run(open(services.sessions, home, design));
     expect(b.session.id).toBe(a.session.id);
-    expect(a.url).toBe(`http://127.0.0.1:38770/s/${a.session.id}`);
-    expect((await run(sessions(home))).map((s) => s.title)).toEqual(["Design"]);
+    expect(a.url).toBe("http://127.0.0.1:38770/s/" + a.session.id);
+    expect((await run(sessions(services.sessions, home))).map((s) => s.title)).toEqual(["Design"]);
   });
 
   test("open refuses a .jsonl file (streaming documents are gone)", async () => {
     const { home, docs } = setup();
     writeFileSync(join(docs, "log.jsonl"), "");
-    await expect(run(open(home, join(docs, "log.jsonl"), docs))).rejects.toThrow(/not a markdown file/);
+    await expect(run(open(services.sessions, home, join(docs, "log.jsonl"), docs))).rejects.toThrow(
+      "not a markdown file",
+    );
   });
 
   test("open refuses what is not a markdown file", async () => {
     const { home, docs } = setup();
-    await expect(run(open(home, docs))).rejects.toThrow(/not a markdown file/);
+    await expect(run(open(services.sessions, home, docs))).rejects.toThrow("not a markdown file");
   });
 });
 
 describe("close", () => {
   test("close forgets the session but keeps its comments for a later open", async () => {
     const { home, design } = setup();
-    const { session } = await run(open(home, design));
-    await run(comment(home, design, "Later text.", "keep me", "jun"));
-    await run(close(home, design));
-    expect(await run(sessions(home))).toEqual([]);
-    expect(session.id).toBe((await run(open(home, design))).session.id);
+    const { session } = await run(open(services.sessions, home, design));
+    await run(comment(services.sessions, services.comments, home, design, "Later text.", "keep me", "jun"));
+    await run(close(services.sessions, home, design));
+    expect(await run(sessions(services.sessions, home))).toEqual([]);
+    expect(session.id).toBe((await run(open(services.sessions, home, design))).session.id);
   });
 });

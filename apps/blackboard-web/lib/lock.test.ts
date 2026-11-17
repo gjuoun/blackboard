@@ -2,20 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Safe } from "@gjuoun/safe-ts";
 import { run } from "../test/app";
 import { Lock } from "./lock";
 
 const fresh = () => join(mkdtempSync(join(tmpdir(), "bb-lock-")), "comments.json");
 
-/** The lock as the app takes it: the service, the shared runtime, no spin on the event loop. */
+/** The lock as the app takes it: one instance, a synchronous body, no spin on the event loop. */
 const withFileLock = <A>(path: string, work: () => A, waitMs?: number): Promise<A> =>
-  run(
-    Effect.gen(function* () {
-      const lock = yield* Lock;
-      return yield* lock.withLock(path, Effect.sync(work), { waitMs });
-    }),
-  );
+  run(new Lock().withLock(path, () => Safe.call(work), { waitMs }));
 
 describe("Lock", () => {
   test("removes the lock after the work, even when it throws", async () => {

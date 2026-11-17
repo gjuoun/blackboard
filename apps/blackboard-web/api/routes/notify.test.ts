@@ -90,7 +90,9 @@ describe("a submitted comment reaches the bound listener", () => {
 
     const res = await comment(session);
     expect(res.status).toBe(201);
-    const { comment: stored } = await res.json();
+    const {
+      data: { comment: stored },
+    } = await res.json();
     const [payload] = await until(fake.received, 1);
     expect(fake.received).toHaveLength(1);
     expect(payload.session).toBe(session);
@@ -123,7 +125,9 @@ describe("only a submit wakes the session", () => {
     const { session } = await setup();
     const fake = start();
     expect((await bind(session, fake.url)).status).toBe(200);
-    const { comment: stored } = await (await comment(session)).json();
+    const {
+      data: { comment: stored },
+    } = await (await comment(session)).json();
     const [submitted] = await until(fake.received, 1);
     expect(submitted.commentId).toBe(stored.id);
 
@@ -133,7 +137,7 @@ describe("only a submit wakes the session", () => {
     await Bun.sleep(200);
     expect(fake.received).toHaveLength(1);
 
-    const list = await (
+    const { data: list } = await (
       await app.request(`http://127.0.0.1/api/comments?session=${session}`, { headers: LOCAL })
     ).json();
     expect(list.comments).toHaveLength(1);
@@ -152,7 +156,7 @@ describe("an unbound or unreachable session changes nothing", () => {
     expect(res.status).toBe(201);
     await Bun.sleep(100);
     expect(fake.received).toHaveLength(0);
-    const list = await (
+    const { data: list } = await (
       await app.request(`http://127.0.0.1/api/comments?session=${session}`, { headers: LOCAL })
     ).json();
     expect(list.comments).toHaveLength(1);
@@ -166,7 +170,9 @@ describe("an unbound or unreachable session changes nothing", () => {
     expect((await bind(session, url)).status).toBe(200);
     const res = await comment(session);
     expect(res.status).toBe(201);
-    const { comment: stored } = await res.json();
+    const {
+      data: { comment: stored },
+    } = await res.json();
     expect(stored.body).toBe("**first** note");
     expect(stored.html).toContain("<strong>first</strong>");
   });

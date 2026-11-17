@@ -1,12 +1,8 @@
-import { Effect } from "effect";
-import { CliError, cliFailure } from "../cli";
+import { Pipe, Safe } from "@gjuoun/safe-ts";
+import { type CliError, cliFailure } from "../cli";
 import type { Db } from "../db/client";
-import { type MigrateReport, migrate, stats } from "../db/migrate";
+import type { MigrateReport, Migrations } from "../db/migrate";
 import { type IndexReport, indexDocuments } from "../doc-index-run";
-import type { Lock } from "../lock";
-
-/** The db subcommand's services. */
-type Needs = Db | Lock;
 
 /** What a migrate run reports, as plain CLI output. */
 const formatReport = (r: MigrateReport): string => {
@@ -17,31 +13,49 @@ const formatReport = (r: MigrateReport): string => {
 };
 
 /** `db migrate [--dry-run]`: move the JSON stores into blackboard.db. */
-export function migrateCmd(home: string, dry: boolean): Effect.Effect<MigrateReport, CliError, Needs> {
-  return migrate(home, { dry }).pipe(Effect.mapError((e) => cliFailure(e)));
+export function migrateCmd(
+  migrations: Migrations,
+  home: string,
+  dry: boolean,
+): Safe<MigrateReport, CliError> {
+  return Safe.pipe(
+    migrations.migrate(home, { dry }),
+    Pipe.catchTag("IoFailure", (e: { message: string }) => Safe.err(cliFailure(e))),
+    Pipe.catchTag("LockTimeout", (e: { message: string }) => Safe.err(cliFailure(e))),
+    Pipe.catchTag("DbFailure", (e: { message: string }) => Safe.err(cliFailure(e))),
+  ) as unknown as Safe<MigrateReport, CliError>;
 }
 
 /** `db stats`: row counts per table plus the file. */
 export function statsCmd(
+  migrations: Migrations,
   home: string,
-): Effect.Effect<{ path: string; tables: Record<string, number>; bytes: number }, CliError, Needs> {
-  return stats(home).pipe(Effect.mapError((e) => cliFailure(e)));
+): Safe<{ path: string; tables: Record<string, number>; bytes: number }, CliError> {
+  return Safe.pipe(
+    migrations.stats(home),
+    Pipe.catchTag("DbFailure", (e: { message: string }) => Safe.err(cliFailure(e))),
+  ) as unknown as Safe<{ path: string; tables: Record<string, number>; bytes: number }, CliError>;
 }
 
 /** `db` usage when the sub-arg is missing or unknown. */
-export const dbUsage = (): CliError =>
-  new CliError({ message: "usage: blackboard db migrate [--dry-run] | stats | reindex [--force]", code: 2 });
+export const dbUsage = (): CliError => ({
+  CliError: { message: "usage: blackboard db migrate [--dry-run] | stats | reindex [--force]", code: 2 },
+});
 
 /** Format a stats result for the terminal. */
 export const formatStats = (s: { path: string; tables: Record<string, number>; bytes: number }): string =>
   [`${s.path} (${s.bytes} bytes)`, ...Object.entries(s.tables).map(([t, n]) => `  ${t}: ${n}`)].join("\n");
 
 /** `db reindex [--force]`: bring every open document's row up to its file. Idempotent; --force re-reads them all. */
-export function reindexCmd(home: string, force: boolean): Effect.Effect<IndexReport, CliError, Needs> {
-  return indexDocuments(home, force).pipe(Effect.mapError((e) => cliFailure(e)));
+export function reindexCmd(db: Db, home: string, force: boolean): Safe<IndexReport, CliError> {
+  return Safe.pipe(
+    indexDocuments(db, home, force),
+    Pipe.catchTag("IoFailure", (e: { message: string }) => Safe.err(cliFailure(e))),
+    Pipe.catchTag("DbFailure", (e: { message: string }) => Safe.err(cliFailure(e))),
+  ) as unknown as Safe<IndexReport, CliError>;
 }
 
 export const formatIndex = (r: IndexReport): string =>
   `indexed: ${r.updated} updated, ${r.skipped} current, ${r.missing} missing, ${r.gitCommands} git commands`;
 
-export { formatReport };
+export { cliFailure, formatReport };
