@@ -1,44 +1,33 @@
-import { Context, Effect, Layer, PubSub, Stream } from "effect";
-
 /**
  * The mutation leg of /api/watch. With the database there is no file to watch for comments, so
  * every API mutation publishes a mark on a per-session channel instead; a file doc's saves still
  * come through its folder watch. Same wire, different source — the event stream is identical.
+ *
+ * A subscription made just after a mutation still receives that mark (the pending set is drained
+ * on subscribe): the cost is at most one stale "changed" at connect, which only makes the page
+ * re-read.
  */
-export class ChangeBus extends Context.Service<
-  ChangeBus,
-  {
-    /** Announce that a session's comment surface changed. */
-    publish(sessionId: string): Effect.Effect<void>;
-    /** The stream of comment-change marks for one session; empty for one that never changes. */
-    events(sessionId: string): Effect.Effect<Stream.Stream<"comments">>;
-  }
->()("blackboard/ChangeBus") {}
+export type ChangeListener = () => void;
 
-export const layer = Layer.effect(
-  ChangeBus,
-  Effect.gen(function* () {
-    const channels = new Map<string, PubSub.PubSub<"comments">>();
-    const channel = (id: string): Effect.Effect<PubSub.PubSub<"comments">> =>
-      Effect.suspend(() => {
-        const held = channels.get(id);
-        if (held) return Effect.succeed(held);
-        // replay: 1 — a watch that subscribes just after a mutation still gets that mark; the
-        // cost is at most one stale "changed" at connect, which only makes the page re-read.
-        return PubSub.unbounded<"comments">({ replay: 1 }).pipe(
-          Effect.tap((made) => Effect.sync(() => channels.set(id, made))),
-        );
-      });
-    const send = (id: string) =>
-      channel(id)
-        .pipe(Effect.flatMap((ch) => PubSub.publish(ch, "comments")))
-        .pipe(
-          Effect.asVoid,
-          Effect.catch(() => Effect.void),
-        );
-    return ChangeBus.of({
-      publish: send,
-      events: (id) => channel(id).pipe(Effect.map((ch) => Stream.fromPubSub(ch))),
-    });
-  }),
-);
+export class ChangeBus {
+  private readonly listeners = new Map<string, Set<ChangeListener>>();
+  private readonly pending = new Set<string>();
+
+  /** Announce that a session's comment surface changed. */
+  publish(sessionId: string): void {
+    this.pending.add(sessionId);
+    for (const listener of this.listeners.get(sessionId) ?? []) listener();
+  }
+
+  /** Watch one session; the returned function unsubscribes. */
+  subscribe(sessionId: string, listener: ChangeListener): () => void {
+    const held = this.listeners.get(sessionId) ?? new Set<ChangeListener>();
+    held.add(listener);
+    this.listeners.set(sessionId, held);
+    if (this.pending.delete(sessionId)) listener();
+    return () => {
+      held.delete(listener);
+      if (held.size === 0) this.listeners.delete(sessionId);
+    };
+  }
+}

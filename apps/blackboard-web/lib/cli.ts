@@ -1,14 +1,16 @@
-import { Data, Effect } from "effect";
+import { Safe } from "@gjuoun/safe-ts";
 import type { Comment, CommentFile } from "./comments-store";
 import { docKey } from "./session-model";
-import { type Session, type SessionRow, SessionsStore } from "./sessions";
+import type { Session, SessionRow, SessionsStore } from "./sessions";
 
 /** A failure the CLI reports on stderr. code 1 = the command failed, 2 = bad usage. */
-export class CliError extends Data.TaggedError("CliError")<{ message: string; code: 1 | 2 }> {}
+export type CliError = { readonly CliError: { readonly message: string; readonly code: 1 | 2 } };
+
+const cliError = (message: string, code: 1 | 2 = 1): CliError => ({ CliError: { message, code } });
 
 /** A store or parsing failure as the CLI reports it: same message, exit code 1 unless given. */
-export const cliFailure = (error: { message: string }, code: 1 | 2 = 1) =>
-  new CliError({ message: error.message, code });
+export const cliFailure = (error: { message: string }, code: 1 | 2 = 1): CliError =>
+  cliError(error.message, code);
 
 export type DocComment = Comment & { doc: string };
 
@@ -17,47 +19,34 @@ export type Target = { session: Session; doc: string };
 
 /** A session named by id or by a path to its file (relative to cwd). */
 export function find(
+  sessions: SessionsStore,
   home: string,
   ref: string,
   cwd = process.cwd(),
-): Effect.Effect<Target, CliError, SessionsStore> {
-  return Effect.gen(function* () {
-    const sessions = yield* SessionsStore;
-    const session = yield* sessions
-      .resolve(home, ref, cwd)
-      .pipe(Effect.mapError((error) => cliFailure(error)));
-    if (!session) {
-      return yield* new CliError({
-        message: `no session "${ref}" (register the file with: blackboard open <file>)`,
-        code: 1,
-      });
-    }
+): Safe<Target, CliError> {
+  return Safe.try(function* () {
+    const session = (yield sessions.resolve(home, ref, cwd)) as Session | null;
+    if (!session)
+      return (yield Safe.err(
+        cliError(`no session "${ref}" (register the file with: blackboard open <file>)`),
+      )) as never;
     return { session, doc: docKey(session) };
-  });
+  }) as unknown as Safe<Target, CliError>;
 }
 
 /** The top-level comment that id is, or that holds id as one of its replies. Ids are unique within a session. */
-export function threadOf(
-  file: CommentFile,
-  id: string,
-): Effect.Effect<{ doc: string; commentId: string }, CliError> {
-  return Effect.suspend(() => {
-    for (const [doc, list] of Object.entries(file.docs)) {
-      const c = list.find((x) => x.id === id || x.replies.some((r) => r.id === id));
-      if (c) return Effect.succeed({ doc, commentId: c.id });
-    }
-    return Effect.fail(new CliError({ message: `no comment ${id} on this session`, code: 1 }));
-  });
+export function threadOf(file: CommentFile, id: string): Safe<{ doc: string; commentId: string }, CliError> {
+  for (const [doc, list] of Object.entries(file.docs)) {
+    const c = list.find((x) => x.id === id || x.replies.some((r) => r.id === id));
+    if (c) return Safe.ok({ doc, commentId: c.id });
+  }
+  return Safe.err(cliError(`no comment ${id} on this session`));
 }
 
 /** Comment ids are unique within a session, so a command can name a comment by id alone. */
-export function docOf(file: CommentFile, id: string): Effect.Effect<string, CliError> {
-  return Effect.suspend(() => {
-    const doc = Object.keys(file.docs).find((d) => file.docs[d].some((c) => c.id === id));
-    return doc
-      ? Effect.succeed(doc)
-      : Effect.fail(new CliError({ message: `no comment ${id} on this session`, code: 1 }));
-  });
+export function docOf(file: CommentFile, id: string): Safe<string, CliError> {
+  const doc = Object.keys(file.docs).find((d) => file.docs[d].some((c) => c.id === id));
+  return doc ? Safe.ok(doc) : Safe.err(cliError(`no comment ${id} on this session`));
 }
 
 const squash = (s: string) => s.replace(/\s+/g, " ").trim();

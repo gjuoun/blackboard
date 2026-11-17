@@ -9,359 +9,371 @@
   },
   "comments.GET.unknown-session": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"unknown session\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"SessionNotFound\",\"message\":\"unknown session\"}}"
   },
   "comments.GET.empty": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"comments\":[]}"
+    "body": "{\"success\":true,\"data\":{\"comments\":[]}}"
   },
   "comments.POST.bad-json": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"unknown session\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"SessionNotFound\",\"message\":\"unknown session\"}}"
   },
   "comments.POST.unknown-session": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"unknown session\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"SessionNotFound\",\"message\":\"unknown session\"}}"
   },
   "comments.POST.no-body": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"body is required\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"body is required\",\"details\":{\"field\":\"body\"}}}"
   },
   "comments.POST.no-anchor": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"exactly one of quote or general is required\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"exactly one of quote or general is required\",\"details\":{\"field\":\"quote\"}}}"
   },
   "comments.POST.two-anchors": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"exactly one of quote or general is required\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"exactly one of quote or general is required\",\"details\":{\"field\":\"quote\"}}}"
   },
   "comments.POST.bad-images": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"images must be up to 4 stored image ids\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"images must be up to 4 stored image ids\",\"details\":{\"field\":\"images\"}}}"
   },
   "comments.POST.too-many-images": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"images must be up to 4 stored image ids\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"images must be up to 4 stored image ids\",\"details\":{\"field\":\"images\"}}}"
   },
   "comments.POST.ok": {
     "status": 201,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"**first** note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p><strong>first</strong> note</p>\"}}"
+    "body": "{\"success\":true,\"data\":{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"**first** note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p><strong>first</strong> note</p>\"}}}"
   },
   "comments.GET.one": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"comments\":[{\"id\":\"<id>\",\"general\":true,\"body\":\"**first** note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p><strong>first</strong> note</p>\"}]}"
+    "body": "{\"success\":true,\"data\":{\"comments\":[{\"id\":\"<id>\",\"general\":true,\"body\":\"**first** note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p><strong>first</strong> note</p>\"}]}}"
   },
   "comments.POST.quoted.ok": {
     "status": 201,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"comment\":{\"id\":\"<id>\",\"quote\":{\"exact\":\"Later text.\",\"prefix\":\"\",\"suffix\":\"\"},\"body\":\"a passage note\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p>a passage note</p>\"}}"
+    "body": "{\"success\":true,\"data\":{\"comment\":{\"id\":\"<id>\",\"quote\":{\"exact\":\"Later text.\",\"prefix\":\"\",\"suffix\":\"\"},\"body\":\"a passage note\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p>a passage note</p>\"}}}"
   },
   "comments.GET.two": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"comments\":[{\"id\":\"<id>\",\"general\":true,\"body\":\"**first** note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p><strong>first</strong> note</p>\"},{\"id\":\"<id>\",\"quote\":{\"exact\":\"Later text.\",\"prefix\":\"\",\"suffix\":\"\"},\"body\":\"a passage note\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p>a passage note</p>\"}]}"
+    "body": "{\"success\":true,\"data\":{\"comments\":[{\"id\":\"<id>\",\"general\":true,\"body\":\"**first** note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p><strong>first</strong> note</p>\"},{\"id\":\"<id>\",\"quote\":{\"exact\":\"Later text.\",\"prefix\":\"\",\"suffix\":\"\"},\"body\":\"a passage note\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p>a passage note</p>\"}]}}"
   },
   "comments.PATCH.unknown-session": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"unknown session\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"SessionNotFound\",\"message\":\"unknown session\"}}"
   },
   "comments.PATCH.no-id": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"id is required\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"id is required\",\"details\":{\"field\":\"id\"}}}"
   },
   "comments.PATCH.unknown-action": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"unknown action\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"unknown action\",\"details\":{\"field\":\"action\"}}}"
   },
   "comments.PATCH.reply-no-body": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"body is required\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"body is required\",\"details\":{\"field\":\"body\"}}}"
   },
   "comments.PATCH.reply-bad-reply-id": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"replyId must be a reply id\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"replyId must be a reply id\",\"details\":{\"field\":\"replyId\"}}}"
   },
   "comments.PATCH.comment-not-found": {
     "status": 404,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"comment <id> not found in design.md\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"IoFailure\",\"message\":\"comment <id> not found in design.md\"}}"
   },
   "comments.PATCH.reply.ok": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"**first** note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[{\"id\":\"<id>\",\"body\":\"answer with `x`\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"html\":\"<p>answer with <code>x</code></p>\"}],\"html\":\"<p><strong>first</strong> note</p>\"}}"
+    "body": "{\"success\":true,\"data\":{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"**first** note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[{\"id\":\"<id>\",\"body\":\"answer with `x`\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"html\":\"<p>answer with <code>x</code></p>\"}],\"html\":\"<p><strong>first</strong> note</p>\"}}}"
   },
   "comments.PATCH.reply-not-found": {
     "status": 404,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"reply <id> not found on <id>\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"IoFailure\",\"message\":\"reply <id> not found on <id>\"}}"
   },
   "comments.PATCH.edit-no-body": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"body is required\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"body is required\",\"details\":{\"field\":\"body\"}}}"
   },
   "comments.PATCH.edit.ok": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"edited body\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[{\"id\":\"<id>\",\"body\":\"answer with `x`\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"html\":\"<p>answer with <code>x</code></p>\"}],\"editedAt\":\"<time>\",\"html\":\"<p>edited body</p>\"}}"
+    "body": "{\"success\":true,\"data\":{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"edited body\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[{\"id\":\"<id>\",\"body\":\"answer with `x`\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"html\":\"<p>answer with <code>x</code></p>\"}],\"editedAt\":\"<time>\",\"html\":\"<p>edited body</p>\"}}}"
   },
   "comments.PATCH.edit-reply-no-reply-id": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"replyId is required\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"replyId is required\",\"details\":{\"field\":\"replyId\"}}}"
   },
   "comments.PATCH.edit-reply-no-body": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"body is required\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"body is required\",\"details\":{\"field\":\"body\"}}}"
   },
   "comments.PATCH.edit-reply.ok": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"edited body\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[{\"id\":\"<id>\",\"body\":\"edited reply\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"editedAt\":\"<time>\",\"html\":\"<p>edited reply</p>\"}],\"editedAt\":\"<time>\",\"html\":\"<p>edited body</p>\"}}"
+    "body": "{\"success\":true,\"data\":{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"edited body\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[{\"id\":\"<id>\",\"body\":\"edited reply\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"editedAt\":\"<time>\",\"html\":\"<p>edited reply</p>\"}],\"editedAt\":\"<time>\",\"html\":\"<p>edited body</p>\"}}}"
   },
   "comments.PATCH.resolve.ok": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"edited body\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"resolved\",\"replies\":[{\"id\":\"<id>\",\"body\":\"edited reply\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"editedAt\":\"<time>\",\"html\":\"<p>edited reply</p>\"}],\"editedAt\":\"<time>\",\"resolvedAt\":\"<time>\",\"resolvedBy\":\"jun\",\"html\":\"<p>edited body</p>\"}}"
+    "body": "{\"success\":true,\"data\":{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"edited body\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"resolved\",\"replies\":[{\"id\":\"<id>\",\"body\":\"edited reply\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"editedAt\":\"<time>\",\"html\":\"<p>edited reply</p>\"}],\"editedAt\":\"<time>\",\"resolvedAt\":\"<time>\",\"resolvedBy\":\"jun\",\"html\":\"<p>edited body</p>\"}}}"
   },
   "comments.PATCH.reopen.ok": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"edited body\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[{\"id\":\"<id>\",\"body\":\"edited reply\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"editedAt\":\"<time>\",\"html\":\"<p>edited reply</p>\"}],\"editedAt\":\"<time>\",\"reopenedAt\":\"<time>\",\"reopenedBy\":\"jun\",\"html\":\"<p>edited body</p>\"}}"
+    "body": "{\"success\":true,\"data\":{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"edited body\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[{\"id\":\"<id>\",\"body\":\"edited reply\",\"author\":\"agent\",\"createdAt\":\"<time>\",\"editedAt\":\"<time>\",\"html\":\"<p>edited reply</p>\"}],\"editedAt\":\"<time>\",\"reopenedAt\":\"<time>\",\"reopenedBy\":\"jun\",\"html\":\"<p>edited body</p>\"}}}"
   },
   "comments.PATCH.delete-reply.ok": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"edited body\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"editedAt\":\"<time>\",\"reopenedAt\":\"<time>\",\"reopenedBy\":\"jun\",\"html\":\"<p>edited body</p>\"}}"
+    "body": "{\"success\":true,\"data\":{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"edited body\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"editedAt\":\"<time>\",\"reopenedAt\":\"<time>\",\"reopenedBy\":\"jun\",\"html\":\"<p>edited body</p>\"}}}"
   },
   "comments.PATCH.delete.ok": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"deleted\":\"<id>\"}"
+    "body": "{\"success\":true,\"data\":{\"deleted\":\"<id>\"}}"
   },
   "bind.POST.unknown-session": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"unknown session\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"SessionNotFound\",\"message\":\"unknown session\"}}"
   },
   "bind.POST.no-pi-session": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"piSession is required\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"piSession is required\",\"details\":{\"field\":\"piSession\"}}}"
   },
   "bind.POST.bad-url": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"url must be a loopback http url\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"InvalidInput\",\"message\":\"url must be a loopback http url\",\"details\":{\"field\":\"url\"}}}"
   },
   "bind.GET.unknown-session": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"unknown session\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"SessionNotFound\",\"message\":\"unknown session\"}}"
   },
   "bind.GET.none": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"binding\":null}"
+    "body": "{\"success\":true,\"data\":{\"binding\":null}}"
   },
   "bind.POST.ok": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"binding\":{\"session\":\"<session>\",\"path\":\"<base>/docs/design.md\",\"piSession\":\"pi-1\",\"url\":\"http://127.0.0.1:41234\",\"boundAt\":\"<time>\",\"lastSeenAt\":\"<time>\"}}"
+    "body": "{\"success\":true,\"data\":{\"binding\":{\"session\":\"<session>\",\"path\":\"<base>/docs/design.md\",\"piSession\":\"pi-1\",\"url\":\"http://127.0.0.1:41234\",\"boundAt\":\"<time>\",\"lastSeenAt\":\"<time>\"}}}"
   },
   "bind.GET.bound": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"binding\":{\"session\":\"<session>\",\"path\":\"<base>/docs/design.md\",\"piSession\":\"pi-1\",\"url\":\"http://127.0.0.1:41234\",\"boundAt\":\"<time>\",\"lastSeenAt\":\"<time>\"}}"
+    "body": "{\"success\":true,\"data\":{\"binding\":{\"session\":\"<session>\",\"path\":\"<base>/docs/design.md\",\"piSession\":\"pi-1\",\"url\":\"http://127.0.0.1:41234\",\"boundAt\":\"<time>\",\"lastSeenAt\":\"<time>\"}}}"
   },
   "bind.DELETE.ok": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"unbound\":\"<session>\"}"
+    "body": "{\"success\":true,\"data\":{\"unbound\":\"<session>\"}}"
   },
   "bind.DELETE.none": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"unbound\":null}"
+    "body": "{\"success\":true,\"data\":{\"unbound\":null}}"
   },
   "comments.POST.no-binding": {
     "status": 201,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"unbound note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p>unbound note</p>\"}}"
+    "body": "{\"success\":true,\"data\":{\"comment\":{\"id\":\"<id>\",\"general\":true,\"body\":\"unbound note\",\"author\":\"jun\",\"createdAt\":\"<time>\",\"status\":\"open\",\"replies\":[],\"html\":\"<p>unbound note</p>\"}}}"
   },
   "asset.GET.no-session": {
     "status": 404,
-    "contentType": "",
-    "headers": {},
-    "body": "no such session"
+    "contentType": "application/json",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"success\":false,\"error\":{\"code\":\"SessionNotFound\",\"message\":\"no such session\"}}"
   },
   "asset.GET.missing-p": {
     "status": 404,
-    "contentType": "",
-    "headers": {},
-    "body": "missing p"
+    "contentType": "application/json",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"success\":false,\"error\":{\"code\":\"IoFailure\",\"message\":\"missing p\"}}"
   },
   "asset.GET.outside-doc-folder": {
     "status": 404,
-    "contentType": "",
-    "headers": {},
-    "body": "outside doc folder"
+    "contentType": "application/json",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"success\":false,\"error\":{\"code\":\"IoFailure\",\"message\":\"outside doc folder\"}}"
   },
   "asset.GET.not-an-image": {
     "status": 404,
-    "contentType": "",
-    "headers": {},
-    "body": "not an image"
+    "contentType": "application/json",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"success\":false,\"error\":{\"code\":\"IoFailure\",\"message\":\"not an image\"}}"
   },
   "asset.GET.empty-file": {
     "status": 404,
-    "contentType": "",
-    "headers": {},
-    "body": "empty file"
+    "contentType": "application/json",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"success\":false,\"error\":{\"code\":\"IoFailure\",\"message\":\"empty file\"}}"
   },
   "asset.GET.no-such-image": {
     "status": 404,
-    "contentType": "",
-    "headers": {},
-    "body": "no such image"
+    "contentType": "application/json",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"success\":false,\"error\":{\"code\":\"IoFailure\",\"message\":\"no such image\"}}"
   },
   "asset.GET.ok": {
     "status": 200,
@@ -376,31 +388,35 @@
   },
   "comment-images.POST.rejected": {
     "status": 400,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"error\":\"not a png, jpeg, gif or webp image\"}"
+    "body": "{\"success\":false,\"error\":{\"code\":\"ImageRejected\",\"message\":\"not a png, jpeg, gif or webp image\"}}"
   },
   "comment-images.POST.ok": {
     "status": 200,
-    "contentType": "application/json;charset=utf-8",
+    "contentType": "application/json",
     "headers": {
-      "content-type": "application/json;charset=utf-8"
+      "content-type": "application/json"
     },
-    "body": "{\"id\":\"<sha256>.png\"}"
+    "body": "{\"success\":true,\"data\":{\"id\":\"<sha256>.png\"}}"
   },
   "comment-images.GET.bad-id": {
     "status": 404,
-    "contentType": "",
-    "headers": {},
-    "body": "not found"
+    "contentType": "application/json",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"success\":false,\"error\":{\"code\":\"IoFailure\",\"message\":\"not found\"}}"
   },
   "comment-images.GET.not-stored": {
     "status": 404,
-    "contentType": "",
-    "headers": {},
-    "body": "not found"
+    "contentType": "application/json",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"success\":false,\"error\":{\"code\":\"IoFailure\",\"message\":\"not found\"}}"
   },
   "comment-images.GET.ok": {
     "status": 200,
@@ -414,9 +430,11 @@
   },
   "watch.GET.unknown-session": {
     "status": 400,
-    "contentType": "",
-    "headers": {},
-    "body": "unknown session"
+    "contentType": "application/json",
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"success\":false,\"error\":{\"code\":\"SessionNotFound\",\"message\":\"unknown session\"}}"
   },
   "watch.GET.stream": {
     "status": 200,

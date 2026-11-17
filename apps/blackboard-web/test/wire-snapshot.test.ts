@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { app } from "@/api/app";
 import { open } from "@/lib/cli/sessions";
-import { run } from "./app";
+import { run, services } from "./app";
 
 /**
  * The wire snapshot: every branch the API answers, driven through the one Hono app. The file next
@@ -20,7 +20,6 @@ const PNG = new Uint8Array(
     "base64",
   ),
 );
-
 const decoder = new TextDecoder();
 const out: Record<string, unknown> = {};
 const literals: [string, string][] = [];
@@ -76,7 +75,7 @@ async function docsFixture() {
   writeFileSync(join(docs, "notes.txt"), "not an image\n");
   process.env.BLACKBOARD_HOME = home;
   process.env.BLACKBOARD_NO_BROWSER = "1";
-  const { session } = await run(open(home, design));
+  const { session } = await run(open(services.sessions, home, design));
   literals.push([base, "<base>"], [session.id, "<session>"]);
   return { base, home, docs, design, session: session.id };
 }
@@ -130,7 +129,8 @@ describe("the wire the api answers today", () => {
       await post({ session: fx.session, general: true, body: "x", images: Array(5).fill("<sha256>.png") }),
     );
     const created = await post({ session: fx.session, general: true, body: "**first** note", author: "jun" });
-    const { comment } = (await created.clone().json()) as { comment: { id: string } };
+    const createdBody = (await created.clone().json()) as { data: { comment: { id: string } } };
+    const comment = createdBody.data.comment;
     await record("comments.POST.ok", created);
     await record("comments.GET.one", await get(fx.session));
     await record(
@@ -172,7 +172,9 @@ describe("the wire the api answers today", () => {
       body: "answer with `x`",
       author: "agent",
     });
-    const { comment: thread } = (await replied.clone().json()) as { comment: { replies: { id: string }[] } };
+    const { comment: thread } = (
+      (await replied.clone().json()) as { data: { comment: { replies: { id: string }[] } } }
+    ).data;
     await record("comments.PATCH.reply.ok", replied);
     const replyId = thread.replies[0].id;
     await record(
@@ -268,7 +270,7 @@ describe("the wire the api answers today", () => {
       api("/api/comment-images", { method: "POST", body: bytes as unknown as BodyInit });
     await record("comment-images.POST.rejected", await upload(new TextEncoder().encode("not an image")));
     const stored = await upload(PNG);
-    const { id: imageId } = (await stored.clone().json()) as { id: string };
+    const { id: imageId } = ((await stored.clone().json()) as { data: { id: string } }).data;
     await record("comment-images.POST.ok", stored);
     const image = (id: string) => api(`/api/comment-images/${id}`);
     await record("comment-images.GET.bad-id", await image("not-an-id"));

@@ -1,21 +1,18 @@
+import { Safe } from "@gjuoun/safe-ts";
 import { eq, sql } from "drizzle-orm";
-import { type Context, Effect } from "effect";
 import type { Db } from "./db/client";
 import { comments, documents } from "./db/schema";
 import { RepoMemo } from "./doc-index";
 import { indexRow } from "./doc-index-run";
 import type { DocMeta } from "./doc-meta";
-import type { DbFailure, IoFailure } from "./errors";
+import { type DbFailure, failures, type IoFailure } from "./errors";
 import type { Session } from "./session-model";
-
-/** The Db service instance, as the layer provides it. */
-type Service = Context.Service.Shape<typeof Db>;
 
 /** A database row for one document, plus the newest time any of its comments carries. */
 export type IndexedRow = typeof documents.$inferSelect & { latestCommentAt: string | null };
 
 /** The row for one session. Null when the id names no row. */
-export function readRow(db: Service, home: string, id: string): Effect.Effect<IndexedRow | null, DbFailure> {
+export function readRow(db: Db, home: string, id: string): Safe<IndexedRow | null, DbFailure> {
   return db.use(home, (d) => {
     const row = d.select().from(documents).where(eq(documents.id, id)).get();
     if (!row) return null;
@@ -33,7 +30,7 @@ export function readRow(db: Service, home: string, id: string): Effect.Effect<In
 }
 
 /** The indexed markdown for a session: its body when the row holds one, null when the file was missing at index time. */
-export function indexedBody(db: Service, home: string, id: string): Effect.Effect<string | null, DbFailure> {
+export function indexedBody(db: Db, home: string, id: string): Safe<string | null, DbFailure> {
   return db.use(home, (d) => {
     const row = d.select({ body: documents.body }).from(documents).where(eq(documents.id, id)).get();
     return row?.body ?? null;
@@ -46,26 +43,25 @@ export function indexedBody(db: Service, home: string, id: string): Effect.Effec
  * file is the source of truth; the row is the cache a read refreshes.
  */
 export function indexIfNeeded(
-  db: Service,
+  db: Db,
   home: string,
   session: Session,
-): Effect.Effect<IndexedRow, IoFailure | DbFailure> {
-  return Effect.gen(function* () {
-    const first = yield* readRow(db, home, session.id);
-    yield* indexRow(db, home, first ?? (yield* insertStub(db, home, session)), new RepoMemo());
-    const after = yield* readRow(db, home, session.id);
-    if (!after) return yield* Effect.die(new Error(`document ${session.id} vanished during indexing`));
-    return after;
+): Safe<IndexedRow, IoFailure | DbFailure> {
+  return Safe.try(function* () {
+    const first = (yield readRow(db, home, session.id)) as IndexedRow | null;
+    const stub = first ?? ((yield insertStub(db, home, session)) as unknown as IndexedRow);
+    yield indexRow(db, home, stub, new RepoMemo());
+    const after = (yield readRow(db, home, session.id)) as IndexedRow | null;
+    if (after) return after;
+    return (yield Safe.err(
+      failures.IoFailure(`document ${session.id} vanished during indexing`, 500),
+    )) as never;
   });
 }
 
 /** A row for a session that the database does not hold yet (a registry entry predating the table). */
-function insertStub(
-  db: Service,
-  home: string,
-  session: Session,
-): Effect.Effect<typeof documents.$inferSelect, DbFailure> {
-  return Effect.gen(function* () {
+function insertStub(db: Db, home: string, session: Session): Safe<typeof documents.$inferSelect, DbFailure> {
+  return db.use(home, (d) => {
     const row = {
       id: session.id,
       path: session.path,
@@ -73,7 +69,7 @@ function insertStub(
       openedAt: session.openedAt,
       closedAt: null,
     } as typeof documents.$inferSelect;
-    yield* db.use(home, (d) => void d.insert(documents).values(row).onConflictDoNothing().run());
+    d.insert(documents).values(row).onConflictDoNothing().run();
     return row;
   });
 }
@@ -86,8 +82,8 @@ export function latestOf(a: string | null | undefined, b: string | null | undefi
 }
 
 /**
- * The metadata the session list and the inbox show, rebuilt from a row in the shape `docMeta` returned. A missing file
- * keeps its basename as title and carries no repo, as before.
+ * The metadata the session list and the inbox show, rebuilt from a row in the shape `docMeta`
+ * returned. A missing file keeps its basename as title and carries no repo, as before.
  */
 export function docMetaFromRow(row: IndexedRow): DocMeta {
   const missing = row.srcSize === -1 || row.body === null;

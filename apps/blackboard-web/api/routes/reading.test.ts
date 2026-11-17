@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { Effect } from "effect";
+import { Safe } from "@gjuoun/safe-ts";
 import { type ReadingFile, ReadingStateStore } from "../../lib/reading-state";
 import { fixture, LOCAL, register } from "../../test/api-fixture";
-import { run } from "../../test/app";
+import { run, services } from "../../test/app";
 import { app } from "../app";
 
 /**
@@ -22,9 +22,9 @@ const send = (payload: unknown) =>
 /** The stored reading state, read through the store the API writes with. */
 const stored = (home: string): Promise<ReadingFile["docs"]> =>
   run(
-    Effect.gen(function* () {
-      const s = yield* ReadingStateStore;
-      return (yield* s.read(home)).docs;
+    Safe.try(function* () {
+      const s = services.reading;
+      return (yield s.read(home)).docs;
     }),
   );
 
@@ -43,7 +43,10 @@ describe("POST /api/reading", () => {
     const { home, designId } = await setup();
     const res = await send({ session: designId, action: "read" });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ docs: { [designId]: { status: "read", progress: 0 } } });
+    expect(await res.json()).toEqual({
+      success: true,
+      data: { docs: { [designId]: { status: "read", progress: 0 } } },
+    });
     // The row is what a restarted API reads back.
     expect((await stored(home))[designId]).toMatchObject({ status: "read", progress: 0 });
     expect((await stored(home))[designId].sourceMtime).toBeGreaterThan(0);
@@ -54,7 +57,10 @@ describe("POST /api/reading", () => {
     await send({ session: designId, action: "read" });
     const res = await send({ session: designId, action: "unread" });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ docs: { [designId]: { status: "unread", progress: 0 } } });
+    expect(await res.json()).toEqual({
+      success: true,
+      data: { docs: { [designId]: { status: "unread", progress: 0 } } },
+    });
     expect((await stored(home))[designId]).toMatchObject({ status: "unread", progress: 0 });
   });
 
@@ -62,13 +68,14 @@ describe("POST /api/reading", () => {
     await setup();
     const res = await send({ session: "nosuchid", action: "read" });
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "unknown session" });
+    expect(await res.json()).toMatchObject({ success: false, error: { message: "unknown session" } });
   });
 
   test("an unknown or missing action is refused", async () => {
     const { designId } = await setup();
-    expect(await (await send({ session: designId, action: "pause" })).json()).toEqual({
-      error: "unknown action",
+    expect(await (await send({ session: designId, action: "pause" })).json()).toMatchObject({
+      success: false,
+      error: { message: "unknown action" },
     });
     expect((await send({ session: designId })).status).toBe(400);
   });
@@ -77,6 +84,6 @@ describe("POST /api/reading", () => {
     await setup();
     const res = await send("{not json");
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "unknown session" });
+    expect(await res.json()).toMatchObject({ success: false, error: { message: "unknown session" } });
   });
 });

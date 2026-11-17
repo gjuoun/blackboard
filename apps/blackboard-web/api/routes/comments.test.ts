@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { comment, comments, reply } from "../../lib/cli/comments";
 import { fixture, LOCAL, register } from "../../test/api-fixture";
-import { run } from "../../test/app";
+import { run, services } from "../../test/app";
 import { app } from "../app";
 
 /**
@@ -33,9 +33,13 @@ async function setup() {
 describe("comments API renders bodies", () => {
   test("GET returns each comment and reply with its body rendered to HTML and the raw text kept", async () => {
     const { home, design, session } = await setup();
-    const c = await run(comment(home, design, "Later text.", "**first** note", "jun"));
-    await run(reply(home, design, c.id, "answer with `x`", "agent"));
-    const { comments: list } = await (await get(session)).json();
+    const c = await run(
+      comment(services.sessions, services.comments, home, design, "Later text.", "**first** note", "jun"),
+    );
+    await run(reply(services.sessions, services.comments, home, design, c.id, "answer with `x`", "agent"));
+    const {
+      data: { comments: list },
+    } = await (await get(session)).json();
     expect(list[0].body).toBe("**first** note");
     expect(list[0].html).toContain("<strong>first</strong>");
     expect(list[0].replies[0].html).toContain("<code>x</code>");
@@ -50,7 +54,9 @@ describe("comments API renders bodies", () => {
       body: "see [x](javascript:alert(1))",
     });
     expect(res.status).toBe(201);
-    const { comment: made } = await res.json();
+    const {
+      data: { comment: made },
+    } = await res.json();
     expect(made.html).toBe("<p>see x</p>");
   });
 });
@@ -58,10 +64,13 @@ describe("comments API renders bodies", () => {
 describe("reply joins the comment thread", () => {
   test("a reply with a reply id joins that comment: one flat list, one more entry, no nesting", async () => {
     const { home, design, session } = await setup();
-    const c = await run(comment(home, design, "Later text.", "q", "jun"));
-    await run(reply(home, design, c.id, "first", "agent"));
-    await run(reply(home, design, c.id, "second", "agent"));
-    const [first, second] = (await run(comments(home, design)))[0].replies;
+    const c = await run(
+      comment(services.sessions, services.comments, home, design, "Later text.", "q", "jun"),
+    );
+    await run(reply(services.sessions, services.comments, home, design, c.id, "first", "agent"));
+    await run(reply(services.sessions, services.comments, home, design, c.id, "second", "agent"));
+    const [first, second] = (await run(comments(services.sessions, services.comments, home, design)))[0]
+      .replies;
     const res = await patch({
       session,
       id: c.id,
@@ -71,7 +80,9 @@ describe("reply joins the comment thread", () => {
       replyId: second.id,
     });
     expect(res.status).toBe(200);
-    const { comment: updated } = await res.json();
+    const {
+      data: { comment: updated },
+    } = await res.json();
     expect(updated.id).toBe(c.id);
     expect(updated.replies.map((r: { body: string }) => r.body)).toEqual([
       "first",
@@ -84,19 +95,28 @@ describe("reply joins the comment thread", () => {
 
   test("a reply id that is not on this comment is refused", async () => {
     const { home, design, session } = await setup();
-    const c = await run(comment(home, design, "Later text.", "q", "jun"));
-    const other = await run(comment(home, design, "More text.", "p", "jun"));
-    await run(reply(home, design, other.id, "elsewhere", "agent"));
-    const otherReply = (await run(comments(home, design))).find((x) => x.id === other.id)!.replies[0];
+    const c = await run(
+      comment(services.sessions, services.comments, home, design, "Later text.", "q", "jun"),
+    );
+    const other = await run(
+      comment(services.sessions, services.comments, home, design, "More text.", "p", "jun"),
+    );
+    await run(reply(services.sessions, services.comments, home, design, other.id, "elsewhere", "agent"));
+    const otherReply = (await run(comments(services.sessions, services.comments, home, design))).find(
+      (x) => x.id === other.id,
+    )!.replies[0];
     const res = await patch({ session, id: c.id, action: "reply", body: "x", replyId: otherReply.id });
     expect(res.status).toBe(404);
   });
 
   test("the id must be a comment id: a reply id in its place is refused", async () => {
     const { home, design, session } = await setup();
-    const c = await run(comment(home, design, "Later text.", "q", "jun"));
-    await run(reply(home, design, c.id, "first", "agent"));
-    const replyId = (await run(comments(home, design)))[0].replies[0].id;
+    const c = await run(
+      comment(services.sessions, services.comments, home, design, "Later text.", "q", "jun"),
+    );
+    await run(reply(services.sessions, services.comments, home, design, c.id, "first", "agent"));
+    const replyId = (await run(comments(services.sessions, services.comments, home, design)))[0].replies[0]
+      .id;
     const res = await patch({ session, id: replyId, action: "reply", body: "x" });
     expect(res.status).toBe(404);
   });

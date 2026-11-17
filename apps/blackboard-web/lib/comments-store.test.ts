@@ -2,9 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
-import { run } from "../test/app";
-import { CommentsStore } from "./comments-store";
+import { Safe } from "@gjuoun/safe-ts";
+import type { ApiFailure } from "../lib/errors";
+import { run, services } from "../test/app";
+import type { CommentsStore } from "./comments-store";
 import { DocumentsRepo } from "./db/repos/documents";
 
 const quote = { exact: "The cache is warm.", prefix: "Later text. ", suffix: " End." };
@@ -12,19 +13,19 @@ const quote = { exact: "The cache is warm.", prefix: "Later text. ", suffix: " E
 const fresh = async () => {
   const home = realpathSync(mkdtempSync(join(tmpdir(), "bb-store-")));
   await run(
-    Effect.gen(function* () {
-      const docs = yield* DocumentsRepo;
-      yield* docs.upsert(home, { id: "testsession", path: join(home, "design.md") });
+    Safe.try(function* () {
+      const docs = services.documents;
+      yield docs.upsert(home, { id: "testsession", path: join(home, "design.md") });
     }),
   );
   return { home, sid: "testsession", doc: "design.md" };
 };
 
-const store = <A>(work: (s: CommentsStore["Service"]) => Effect.Effect<A, { message: string }>): Promise<A> =>
+const store = <A>(work: (s: CommentsStore) => Safe<A, ApiFailure>): Promise<A> =>
   run(
-    Effect.gen(function* () {
-      const s = yield* CommentsStore;
-      return yield* work(s);
+    Safe.try(function* () {
+      const s = services.comments;
+      return yield work(s);
     }),
   );
 

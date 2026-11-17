@@ -50,7 +50,6 @@
         "@vitejs/plugin-react": "^6.0.1",
         "drizzle-kit": "^0.31.11",
         "drizzle-orm": "^0.45.4",
-        "effect": "4.1.2",
         "hono": "^4.13.17",
         "katex": "^0.16.47",
         "lucide-react": "^1.61.0",

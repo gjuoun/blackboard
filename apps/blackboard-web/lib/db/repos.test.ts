@@ -2,37 +2,24 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
-import { type Db, layer as dbLayer } from "./client";
-import { AgentsRepo, layer as agentsLayer } from "./repos/agents";
-import { CommentsRepo, layer as commentsLayer } from "./repos/comments";
-import { DocumentsRepo, layer as documentsLayer } from "./repos/documents";
-import { ReadingStateRepo, layer as readingLayer } from "./repos/reading-state";
+import { Safe } from "@gjuoun/safe-ts";
+import { run, services } from "../../test/app";
+import type { Db } from "./client";
+import { AgentsRepo } from "./repos/agents";
+import { CommentsRepo } from "./repos/comments";
+import { DocumentsRepo } from "./repos/documents";
+import { ReadingStateRepo } from "./repos/reading-state";
 
 const fresh = () => realpathSync(mkdtempSync(join(tmpdir(), "bb-repos-")));
 const at = "2026-11-10T00:00:00.000Z";
 const quote = { exact: "warm", prefix: "is ", suffix: "." };
 
-/** One program with every repo layer provided, the way a store composes them. */
-const run = <A>(
-  effect: Effect.Effect<A, unknown, Db | DocumentsRepo | CommentsRepo | ReadingStateRepo | AgentsRepo>,
-): Promise<A> =>
-  Effect.runPromise(
-    effect.pipe(
-      Effect.provide(documentsLayer),
-      Effect.provide(commentsLayer),
-      Effect.provide(readingLayer),
-      Effect.provide(agentsLayer),
-      Effect.provide(dbLayer),
-    ),
-  );
-
 /** Seed one document so FK-bound children have a parent. */
 const seed = (home: string, id = "doc1", path: string | null = "/tmp/doc.md") =>
   run(
-    Effect.gen(function* () {
-      const docs = yield* DocumentsRepo;
-      return yield* docs.upsert(home, { id, path });
+    Safe.try(function* () {
+      const docs = services.documents;
+      return yield docs.upsert(home, { id, path });
     }),
   );
 
@@ -42,40 +29,40 @@ describe("DocumentsRepo", () => {
     const s1 = await seed(home);
     expect(s1.id).toBe("doc1");
     const got = await run(
-      Effect.gen(function* () {
-        const d = yield* DocumentsRepo;
-        return yield* d.get(home, "doc1");
+      Safe.try(function* () {
+        const d = services.documents;
+        return yield d.get(home, "doc1");
       }),
     );
     expect(got?.path).toBe("/tmp/doc.md");
     // re-open same id: path updated, createdAt kept
     const s2 = await run(
-      Effect.gen(function* () {
-        const d = yield* DocumentsRepo;
-        return yield* d.upsert(home, { id: "doc1", path: "/tmp/doc2.md" });
+      Safe.try(function* () {
+        const d = services.documents;
+        return yield d.upsert(home, { id: "doc1", path: "/tmp/doc2.md" });
       }),
     );
     expect(s2.path).toBe("/tmp/doc2.md");
     expect(s2.createdAt).toBe(s1.createdAt);
     const all = await run(
-      Effect.gen(function* () {
-        const d = yield* DocumentsRepo;
-        return yield* d.list(home);
+      Safe.try(function* () {
+        const d = services.documents;
+        return yield d.list(home);
       }),
     );
     expect(all).toHaveLength(1);
     const removed = await run(
-      Effect.gen(function* () {
-        const d = yield* DocumentsRepo;
-        return yield* d.remove(home, "doc1");
+      Safe.try(function* () {
+        const d = services.documents;
+        return yield d.remove(home, "doc1");
       }),
     );
     expect(removed?.id).toBe("doc1");
     expect(
       await run(
-        Effect.gen(function* () {
-          const d = yield* DocumentsRepo;
-          return yield* d.get(home, "doc1");
+        Safe.try(function* () {
+          const d = services.documents;
+          return yield d.get(home, "doc1");
         }),
       ),
     ).toBeNull();
@@ -87,9 +74,9 @@ describe("CommentsRepo", () => {
     const home = fresh();
     await seed(home);
     const c = await run(
-      Effect.gen(function* () {
-        const r = yield* CommentsRepo;
-        return yield* r.add(home, {
+      Safe.try(function* () {
+        const r = services.commentsRepo;
+        return yield r.add(home, {
           id: "c_1",
           documentId: "doc1",
           doc: "x.md",
@@ -112,45 +99,45 @@ describe("CommentsRepo", () => {
     );
     expect(c.replies).toEqual([]);
     const withReply = await run(
-      Effect.gen(function* () {
-        const r = yield* CommentsRepo;
-        return yield* r.addReply(home, "c_1", { id: "r_1", body: "because", author: "agent" });
+      Safe.try(function* () {
+        const r = services.commentsRepo;
+        return yield r.addReply(home, "c_1", { id: "r_1", body: "because", author: "agent" });
       }),
     );
     expect(withReply?.replies).toHaveLength(1);
     const resolved = await run(
-      Effect.gen(function* () {
-        const r = yield* CommentsRepo;
-        return yield* r.setStatus(home, "c_1", "resolved", "jun");
+      Safe.try(function* () {
+        const r = services.commentsRepo;
+        return yield r.setStatus(home, "c_1", "resolved", "jun");
       }),
     );
     expect(resolved?.resolvedBy).toBe("jun");
     const reopened = await run(
-      Effect.gen(function* () {
-        const r = yield* CommentsRepo;
-        return yield* r.setStatus(home, "c_1", "open", "jun");
+      Safe.try(function* () {
+        const r = services.commentsRepo;
+        return yield r.setStatus(home, "c_1", "open", "jun");
       }),
     );
     expect(reopened?.reopenedBy).toBe("jun");
     expect(reopened?.resolvedAt).toBeNull();
     const list = await run(
-      Effect.gen(function* () {
-        const r = yield* CommentsRepo;
-        return yield* r.list(home, "doc1");
+      Safe.try(function* () {
+        const r = services.commentsRepo;
+        return yield r.list(home, "doc1");
       }),
     );
     expect(list).toHaveLength(1);
     const edited = await run(
-      Effect.gen(function* () {
-        const r = yield* CommentsRepo;
-        return yield* r.update(home, "c_1", "edited");
+      Safe.try(function* () {
+        const r = services.commentsRepo;
+        return yield r.update(home, "c_1", "edited");
       }),
     );
     expect(edited?.editedAt).not.toBeNull();
     const gone = await run(
-      Effect.gen(function* () {
-        const r = yield* CommentsRepo;
-        return yield* r.remove(home, "c_1");
+      Safe.try(function* () {
+        const r = services.commentsRepo;
+        return yield r.remove(home, "c_1");
       }),
     );
     expect(gone?.id).toBe("c_1");
@@ -169,39 +156,39 @@ describe("ReadingStateRepo", () => {
       sourceMtime: 100,
     };
     await run(
-      Effect.gen(function* () {
-        const r = yield* ReadingStateRepo;
-        return yield* r.set(home, row);
+      Safe.try(function* () {
+        const r = services.readingRepo;
+        return yield r.set(home, row);
       }),
     );
     const got = await run(
-      Effect.gen(function* () {
-        const r = yield* ReadingStateRepo;
-        return yield* r.get(home, "doc1");
+      Safe.try(function* () {
+        const r = services.readingRepo;
+        return yield r.get(home, "doc1");
       }),
     );
     expect(got).toEqual(row);
     // upsert over
     await run(
-      Effect.gen(function* () {
-        const r = yield* ReadingStateRepo;
-        return yield* r.set(home, { ...row, status: "read" });
+      Safe.try(function* () {
+        const r = services.readingRepo;
+        return yield r.set(home, { ...row, status: "read" });
       }),
     );
     expect(
       (
         await run(
-          Effect.gen(function* () {
-            const r = yield* ReadingStateRepo;
-            return yield* r.get(home, "doc1");
+          Safe.try(function* () {
+            const r = services.readingRepo;
+            return yield r.get(home, "doc1");
           }),
         )
       )?.status,
     ).toBe("read");
     const removed = await run(
-      Effect.gen(function* () {
-        const r = yield* ReadingStateRepo;
-        return yield* r.remove(home, "doc1");
+      Safe.try(function* () {
+        const r = services.readingRepo;
+        return yield r.remove(home, "doc1");
       }),
     );
     expect(removed?.documentId).toBe("doc1");
@@ -213,9 +200,9 @@ describe("AgentsRepo", () => {
     const home = fresh();
     await seed(home);
     const bound = await run(
-      Effect.gen(function* () {
-        const a = yield* AgentsRepo;
-        return yield* a.bind(home, {
+      Safe.try(function* () {
+        const a = services.agents;
+        return yield a.bind(home, {
           session: "doc1",
           path: "/tmp/doc.md",
           piSession: "pi-1",
@@ -225,34 +212,34 @@ describe("AgentsRepo", () => {
     );
     expect(bound.piSession).toBe("pi-1");
     const seen = await run(
-      Effect.gen(function* () {
-        const a = yield* AgentsRepo;
-        yield* a.touch(home, "doc1");
-        return yield* a.get(home, "doc1");
+      Safe.try(function* () {
+        const a = services.agents;
+        yield a.touch(home, "doc1");
+        return yield a.get(home, "doc1");
       }),
     );
     expect(seen?.lastSeenAt).not.toBeNull();
     // rebind replaces
     await run(
-      Effect.gen(function* () {
-        const a = yield* AgentsRepo;
-        return yield* a.bind(home, { session: "doc1", path: "/tmp/doc.md", piSession: "pi-2", url: "u" });
+      Safe.try(function* () {
+        const a = services.agents;
+        return yield a.bind(home, { session: "doc1", path: "/tmp/doc.md", piSession: "pi-2", url: "u" });
       }),
     );
     expect(
       (
         await run(
-          Effect.gen(function* () {
-            const a = yield* AgentsRepo;
-            return yield* a.get(home, "doc1");
+          Safe.try(function* () {
+            const a = services.agents;
+            return yield a.get(home, "doc1");
           }),
         )
       )?.piSession,
     ).toBe("pi-2");
     const gone = await run(
-      Effect.gen(function* () {
-        const a = yield* AgentsRepo;
-        return yield* a.unbind(home, "doc1");
+      Safe.try(function* () {
+        const a = services.agents;
+        return yield a.unbind(home, "doc1");
       }),
     );
     expect(gone?.session).toBe("doc1");

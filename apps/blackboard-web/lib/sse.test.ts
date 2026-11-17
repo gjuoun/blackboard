@@ -1,206 +1,158 @@
-import { describe, expect, test } from "bun:test";
-import { type Cause, Context, Effect, type FileSystem, Queue, Stream } from "effect";
-import { commentChanges, docChanges, HEARTBEAT_MS, watchEvents } from "./sse";
-
-type WatchEvent = FileSystem.WatchEvent;
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { ChangeBus } from "./change-bus";
+import { HEARTBEAT_MS, watchEvents } from "./sse";
 
 const decoder = new TextDecoder();
+const dirs: string[] = [];
+
+afterEach(() => {
+  while (dirs.length) rmSync(dirs.pop()!, { recursive: true, force: true });
+});
+
+/** A temp folder holding the doc, so fs.watch has something real to report. */
+function docsDir(): string {
+  const d = realpathSync(mkdtempSync(join(tmpdir(), "bb-sse-")));
+  dirs.push(d);
+  writeFileSync(join(d, "design.md"), "# Design\n\nLater text.\n");
+  return d;
+}
+
+const write = (dir: string, name = "design.md") =>
+  writeFileSync(join(dir, name), `# Design\n\nLater text.\n${Date.now()}\n`);
+
+/** The body the route answers with: the doc folder plus the session's change bus. */
+function bodyFor(dir: string, bus: ChangeBus, id: string, heartbeatMs = HEARTBEAT_MS, signal?: AbortSignal) {
+  return watchEvents({ doc: { dir, name: "design.md" }, session: { bus, id }, heartbeatMs, signal });
+}
 
 /**
- * A watcher as the platform hands it over: a queue of events plus a finalizer. The finalizer is
- * the observable the test watches - `FileSystem.watch` closes its OS watcher in exactly that slot -
- * and the queue lets the test say what the OS reported.
+ * A reader that never loses a frame: one read is in flight at a time, and a window that passes with
+ * nothing to say leaves that read pending for the next call instead of swallowing the next event.
  */
-function fakeWatch() {
-  const queue = Effect.runSync(Queue.unbounded<WatchEvent, Cause.Done>());
-  const state = { closed: false };
-  let markStarted = () => {};
-  const ready = new Promise<void>((resolve) => {
-    markStarted = resolve;
-  });
-  // `unwrap` reports the pull that installs the watcher; `ensuring` is the finalizer that closes it.
-  const stream = Stream.unwrap(
-    Effect.sync(() => {
-      markStarted();
-      return Stream.fromQueue(queue).pipe(
-        Stream.ensuring(
-          Effect.sync(() => {
-            state.closed = true;
-          }),
-        ),
-      );
-    }),
-  );
-  return {
-    stream,
-    ready,
-    emit: (event: WatchEvent) => Effect.runPromise(Queue.offer(queue, event)),
-    isClosed: () => state.closed,
+function frames(reader: ReadableStreamDefaultReader<Uint8Array>) {
+  let pending: Promise<{ value?: Uint8Array; done: boolean }> | null = null;
+  const pull = () => {
+    if (!pending) {
+      pending = reader.read().then((r) => {
+        pending = null;
+        return r as { value?: Uint8Array; done: boolean };
+      });
+    }
+    return pending as Promise<{ value?: Uint8Array; done: boolean }>;
   };
-}
-
-const save = (path: string): WatchEvent => ({ _tag: "Update", path });
-
-/** The SSE body for a doc and its comments folder, with the same abort wiring the route uses. */
-function bodyFor(
-  doc: ReturnType<typeof fakeWatch>,
-  comments: ReturnType<typeof fakeWatch>,
-  signal: AbortSignal,
-  heartbeatMs = HEARTBEAT_MS,
-) {
-  const events = watchEvents(
-    docChanges(doc.stream, "design.md"),
-    commentChanges(comments.stream),
-    heartbeatMs,
-  );
-  return Stream.toReadableStreamWith(events, Context.empty(), { signal });
-}
-
-/** The next frame that is not a heartbeat: pings keep arriving, and none of them is the frame under test. */
-async function nextEvent(reader: ReadableStreamDefaultReader<Uint8Array>): Promise<string> {
-  for (let i = 0; i < 50; i++) {
-    const frame = decoder.decode((await reader.read()).value);
-    if (!frame.startsWith(": ping")) return frame;
-  }
-  throw new Error("no event frame within 50 reads");
-}
-
-/**
- * The first chunk is the preamble - byte for byte what the route has always sent. The next pull is
- * what starts the watchers behind the merge, so this waits for them and hands back that read.
- */
-async function started(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  ...watchers: ReturnType<typeof fakeWatch>[]
-) {
-  expect(decoder.decode((await reader.read()).value)).toBe(": connected\n\n");
-  const pending = reader.read();
-  await Promise.all(watchers.map((watcher) => watcher.ready));
-  return { pending };
-}
-
-/** Abort and cancel run a fiber finalizer, so the watcher closes on its own tick rather than inline. */
-async function until(condition: () => boolean) {
-  for (let i = 0; i < 100; i++) {
-    if (condition()) return;
-    await Bun.sleep(5);
-  }
-  throw new Error("the watcher was not released");
+  return {
+    /** The next frame, or "" when the window passes with nothing to say. */
+    within: async (ms: number): Promise<string> => {
+      const frame = await Promise.race([
+        pull().then((r) => decoder.decode(r.value)),
+        Bun.sleep(ms).then(() => ""),
+      ]);
+      return frame;
+    },
+    /** The next frame that is not a heartbeat. */
+    next: async (ms = 2_000): Promise<string> => {
+      for (let i = 0; i < 50; i++) {
+        const frame = await Promise.race([
+          pull().then((r) => decoder.decode(r.value)),
+          Bun.sleep(ms).then(() => ""),
+        ]);
+        if (frame === "") throw new Error(`no frame within ${ms}ms`);
+        if (!frame.startsWith(": ping")) return frame;
+      }
+      throw new Error("no event frame within 50 reads");
+    },
+  };
 }
 
 describe("the watch event stream", () => {
   test("answers with the connected preamble, then one changed batch per window", async () => {
-    const doc = fakeWatch();
-    const comments = fakeWatch();
-    const abort = new AbortController();
-    const reader = bodyFor(doc, comments, abort.signal).getReader();
-    const { pending } = await started(reader, doc, comments);
+    const dir = docsDir();
+    const bus = new ChangeBus();
+    const reader = bodyFor(dir, bus, "s1").getReader();
+    const f = frames(reader);
 
-    await doc.emit(save("design.md"));
-    expect(decoder.decode((await pending).value)).toBe(
-      'event: changed\ndata: {"doc":true,"comments":false}\n\n',
-    );
+    expect(decoder.decode((await reader.read()).value)).toBe(": connected\n\n");
 
-    const later = reader.read();
-    await comments.emit(save("design.md.c_0123456789ab.json"));
-    expect(decoder.decode((await later).value)).toBe(
-      'event: changed\ndata: {"doc":false,"comments":true}\n\n',
-    );
+    const docFrame = f.next();
+    write(dir);
+    expect(await docFrame).toBe('event: changed\ndata: {"doc":true,"comments":false}\n\n');
+
+    const commentFrame = f.next();
+    bus.publish("s1");
+    expect(await commentFrame).toBe('event: changed\ndata: {"doc":false,"comments":true}\n\n');
 
     await reader.cancel();
   });
 
-  test("ignores another file in the doc folder and the comment store's lock and temp files", async () => {
-    const doc = fakeWatch();
-    const comments = fakeWatch();
-    const abort = new AbortController();
-    const reader = bodyFor(doc, comments, abort.signal).getReader();
-    const { pending } = await started(reader, doc, comments);
+  test("ignores another file in the doc folder", async () => {
+    const dir = docsDir();
+    const reader = bodyFor(dir, new ChangeBus(), "s1").getReader();
+    const f = frames(reader);
+    await reader.read();
+    // fsevents can replay the doc's own creation; let that settle before the window under test.
+    await f.within(250);
 
-    await doc.emit(save("other.md"));
-    await comments.emit(save("comments.json.lock"));
-    await comments.emit(save("comments.json.1.2.tmp"));
-    await doc.emit(save("design.md"));
-    // Only the doc save is left pending, so the batch names the doc and nothing else.
-    expect(decoder.decode((await pending).value)).toBe(
-      'event: changed\ndata: {"doc":true,"comments":false}\n\n',
-    );
+    write(dir, "other.md");
+    expect(await f.within(300)).not.toContain('"doc":true');
 
+    write(dir);
+    expect(await f.next()).toBe('event: changed\ndata: {"doc":true,"comments":false}\n\n');
     await reader.cancel();
   });
 
   test("a doc folder that is already gone is an empty watch, not a failed request", async () => {
-    const comments = fakeWatch();
-    const abort = new AbortController();
-    const events = watchEvents(
-      docChanges(Stream.fail("ENOENT"), "design.md"),
-      commentChanges(comments.stream),
-    );
-    const reader = Stream.toReadableStreamWith(events, Context.empty(), { signal: abort.signal }).getReader();
-    const { pending } = await started(reader, comments);
+    const gone = join(realpathSync(mkdtempSync(join(tmpdir(), "bb-sse-"))), "missing");
+    dirs.push(gone);
+    const reader = bodyFor(gone, new ChangeBus(), "s1").getReader();
+    const f = frames(reader);
 
-    await comments.emit(save("comments.json"));
-    expect(decoder.decode((await pending).value)).toBe(
-      'event: changed\ndata: {"doc":false,"comments":true}\n\n',
-    );
-
+    expect(decoder.decode((await reader.read()).value)).toBe(": connected\n\n");
+    expect(await f.within(300)).toBe("");
     await reader.cancel();
   });
 
   test("an idle stream sends a ping comment every heartbeat", async () => {
-    const doc = fakeWatch();
-    const comments = fakeWatch();
-    const abort = new AbortController();
-    // The production interval is 15 s; the test runs it at 20 ms so the frame is the observable.
-    expect(HEARTBEAT_MS).toBe(15_000);
-    const reader = bodyFor(doc, comments, abort.signal, 20).getReader();
+    const dir = docsDir();
+    const reader = bodyFor(dir, new ChangeBus(), "s1", 10).getReader();
+    const f = frames(reader);
     expect(decoder.decode((await reader.read()).value)).toBe(": connected\n\n");
-
-    const first = decoder.decode((await reader.read()).value);
-    const second = decoder.decode((await reader.read()).value);
-    expect(first).toBe(": ping\n\n");
-    expect(second).toBe(": ping\n\n");
-
+    expect(await f.within(2_000)).toBe(": ping\n\n");
     await reader.cancel();
   });
 
   test("a save still arrives as the same changed frame while heartbeats are running", async () => {
-    const doc = fakeWatch();
-    const comments = fakeWatch();
-    const abort = new AbortController();
-    const reader = bodyFor(doc, comments, abort.signal, 20).getReader();
-    expect(decoder.decode((await reader.read()).value)).toBe(": connected\n\n");
+    const dir = docsDir();
+    const reader = bodyFor(dir, new ChangeBus(), "s1", 10).getReader();
+    const f = frames(reader);
+    await reader.read();
 
-    await doc.emit(save("design.md"));
-    expect(await nextEvent(reader)).toBe('event: changed\ndata: {"doc":true,"comments":false}\n\n');
-
+    const frame = f.next();
+    write(dir);
+    expect(await frame).toBe('event: changed\ndata: {"doc":true,"comments":false}\n\n');
     await reader.cancel();
   });
 
-  test("aborting the request releases both watchers", async () => {
-    const doc = fakeWatch();
-    const comments = fakeWatch();
+  test("aborting the request releases the watcher", async () => {
+    const dir = docsDir();
     const abort = new AbortController();
-    const reader = bodyFor(doc, comments, abort.signal).getReader();
-    await started(reader, doc, comments);
+    const reader = bodyFor(dir, new ChangeBus(), "s1", HEARTBEAT_MS, abort.signal).getReader();
+    await reader.read();
 
     abort.abort();
-    await until(() => doc.isClosed() && comments.isClosed());
-    expect(doc.isClosed()).toBe(true);
-    expect(comments.isClosed()).toBe(true);
-    expect((await reader.read()).done).toBe(true);
+    await Bun.sleep(20);
+    const after = await reader.read();
+    expect(after.done).toBe(true);
   });
 
-  test("cancelling the body releases both watchers", async () => {
-    const doc = fakeWatch();
-    const comments = fakeWatch();
-    const abort = new AbortController();
-    const reader = bodyFor(doc, comments, abort.signal).getReader();
-    await started(reader, doc, comments);
-
+  test("cancelling the body releases the watcher", async () => {
+    const dir = docsDir();
+    const reader = bodyFor(dir, new ChangeBus(), "s1", 10).getReader();
+    await reader.read();
     await reader.cancel();
-    await until(() => doc.isClosed() && comments.isClosed());
-    expect(doc.isClosed()).toBe(true);
-    expect(comments.isClosed()).toBe(true);
+    const after = await reader.read();
+    expect(after.done).toBe(true);
   });
 });

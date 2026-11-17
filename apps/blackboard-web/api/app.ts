@@ -1,23 +1,27 @@
 import { Safe } from "@gjuoun/safe-ts";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { bootstrap } from "../lib/bootstrap";
 import pkg from "../package.json";
 import { json } from "./platform/http/envelope";
 import { guard } from "./platform/http/guard.middleware";
 import { HttpFailure, INTERNAL_ERROR } from "./platform/http/http.failure";
-import { respond } from "./respond";
-import { asset } from "./routes/asset";
-import { bind } from "./routes/bind";
-import { comments } from "./routes/comments";
-import { doc } from "./routes/doc";
-import { images } from "./routes/images";
-import { reading } from "./routes/reading";
-import { watch } from "./routes/watch";
+import { assetRoutes } from "./routes/asset";
+import { bindRoutes } from "./routes/bind";
+import { commentsRoutes } from "./routes/comments";
+import { docRoutes } from "./routes/doc";
+import { imagesRoutes } from "./routes/images";
+import { readingRoutes } from "./routes/reading";
+import { watchRoutes } from "./routes/watch";
 
 /**
- * The Blackboard API: the business layer the UI forwards to. One Hono app, mounted under /api so
- * the browser URLs and the internal URLs are identical.
+ * The Blackboard API: the business layer the UI forwards to. One Hono app, mounted under /api so the
+ * browser URLs and the internal URLs are identical.
+ *
+ * This file only wires: every dependency is built once in `bootstrap()` and handed to a route factory.
  */
+const services = bootstrap();
+
 export const app = new Hono();
 
 app.use("*", guard);
@@ -35,10 +39,10 @@ app.onError((err, _c) => {
 /** Lets `blackboard serve` tell a running Blackboard API from any other server on the port. */
 app.get("/api/health", (c) => json(c, Safe.ok({ app: "blackboard", version: pkg.version })));
 
-app.route("/api/comments", comments);
-app.route("/api/bind", bind);
-app.route("/api/reading", reading);
-app.route("/api/comment-images", images);
-app.route("/api/asset", asset);
-app.route("/api/watch", watch);
-app.route("/api", doc);
+app.route("/api/comments", commentsRoutes(services.comments, services.sessions, services.agents));
+app.route("/api/bind", bindRoutes(services.agents, services.sessions));
+app.route("/api/reading", readingRoutes(services.sessions, services.reading, services.comments));
+app.route("/api/comment-images", imagesRoutes());
+app.route("/api/asset", assetRoutes(services.sessions));
+app.route("/api/watch", watchRoutes(services.sessions, services.bus));
+app.route("/api", docRoutes(services.sessions, services.comments, services.reading));

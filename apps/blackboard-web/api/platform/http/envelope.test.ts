@@ -5,7 +5,7 @@ import { HTTPException } from "hono/http-exception";
 import { json } from "./envelope";
 import { errorEnvelope, HttpFailure, INTERNAL_ERROR } from "./http.failure";
 
-const NoteError = {
+const _NoteError = {
   NOTE_NOT_FOUND: { status: 404 as const, message: "no such note" },
   QUERY_FAILED: { status: 500 as const, message: "query failed" },
 } as const;
@@ -30,6 +30,18 @@ function appOn() {
   return app;
 }
 
+/** Capture console.error for one block: 5xx must be logged, 4xx must stay silent. */
+async function logged<T>(fn: () => Promise<T>): Promise<{ result: T; calls: unknown[][] }> {
+  const calls: unknown[][] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => void calls.push(args);
+  try {
+    return { result: await fn(), calls };
+  } finally {
+    console.error = original;
+  }
+}
+
 describe("json(c, safe)", () => {
   test("the success arm answers 200 with {success:true,data}", async () => {
     const app = appOn();
@@ -40,35 +52,38 @@ describe("json(c, safe)", () => {
   });
 
   test("a failure answers its own status, a code, and the variant's extra fields as details", async () => {
-    const app = appOn();
-    app.get("/x", (c) => json(c, Safe.err(notFound)));
-    const res = await app.request("http://127.0.0.1/x");
-    expect(res.status).toBe(404);
-    expect(await res.json()).toEqual({
-      success: false,
-      error: { code: "NOTE_NOT_FOUND", message: "no such note", details: { id: "n1" } },
+    const { calls } = await logged(async () => {
+      const app = appOn();
+      app.get("/x", (c) => json(c, Safe.err(notFound)));
+      const res = await app.request("http://127.0.0.1/x");
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({
+        success: false,
+        error: { code: "NOTE_NOT_FOUND", message: "no such note", details: { id: "n1" } },
+      });
     });
+    expect(calls).toEqual([]);
   });
 
-  test("a 5xx keeps its reason off the wire: code and message only", async () => {
+  test("a 5xx keeps its reason off the wire: code and message only, but the log sees it", async () => {
     expect(errorEnvelope(queryFailed)).toEqual({
       success: false,
       error: { code: "QUERY_FAILED", message: "query failed" },
     });
-    const app = appOn();
-    app.get("/x", (c) => json(c, Safe.err(queryFailed)));
-    const res = await app.request("http://127.0.0.1/x");
-    const body = (await res.json()) as { error: Record<string, unknown> };
-    expect(res.status).toBe(500);
-    expect(body.error.details).toBeUndefined();
-    expect(JSON.stringify(body)).not.toContain("SQLITE_BUSY");
+    const { calls } = await logged(async () => {
+      const app = appOn();
+      app.get("/x", (c) => json(c, Safe.err(queryFailed)));
+      const res = await app.request("http://127.0.0.1/x");
+      const body = (await res.json()) as { error: Record<string, unknown> };
+      expect(res.status).toBe(500);
+      expect(body.error.details).toBeUndefined();
+      expect(JSON.stringify(body)).not.toContain("SQLITE_BUSY");
+    });
+    expect(calls).toEqual([["GET /x", queryFailed]]);
   });
 
   test("a defect is one 500 with no internals, and the detail goes to the log", async () => {
-    const logged: unknown[] = [];
-    const original = console.error;
-    console.error = (...args: unknown[]) => void logged.push(args[0]);
-    try {
+    const { calls } = await logged(async () => {
       const app = appOn();
       app.get("/x", (c) =>
         json(
@@ -84,9 +99,9 @@ describe("json(c, safe)", () => {
         success: false,
         error: { code: "INTERNAL_ERROR", message: "internal error" },
       });
-      expect(logged.length).toBe(1);
-    } finally {
-      console.error = original;
-    }
+    });
+    expect(calls.length).toBe(1);
+    expect(calls[0][0]).toBe("GET /x");
+    expect(String(calls[0][1])).toContain("sqlite exploded");
   });
 });

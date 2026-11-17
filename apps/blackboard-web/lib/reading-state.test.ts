@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect } from "effect";
-import { run } from "../test/app";
+import { Safe } from "@gjuoun/safe-ts";
+import { run, services } from "../test/app";
 import { DocumentsRepo } from "./db/repos/documents";
 import { markRead, markUnread, type ReadingEntry } from "./reading-model";
 import { type ReadingFile, ReadingStateStore } from "./reading-state";
@@ -20,9 +20,9 @@ const entry = (status: ReadingEntry["status"], progress: number): ReadingEntry =
 const fresh = async (...ids: string[]) => {
   const home = realpathSync(mkdtempSync(join(tmpdir(), "bb-reading-")));
   await run(
-    Effect.gen(function* () {
-      const docs = yield* DocumentsRepo;
-      for (const id of ids) yield* docs.upsert(home, { id, path: join(home, `${id}.md`) });
+    Safe.try(function* () {
+      const docs = services.documents;
+      for (const id of ids) yield docs.upsert(home, { id, path: join(home, `${id}.md`) });
     }),
   );
   return home;
@@ -30,16 +30,16 @@ const fresh = async (...ids: string[]) => {
 
 const read = (home: string): Promise<ReadingFile> =>
   run(
-    Effect.gen(function* () {
-      const s = yield* ReadingStateStore;
-      return yield* s.read(home);
+    Safe.try(function* () {
+      const s = services.reading;
+      return yield s.read(home);
     }),
   );
 const set = (home: string, id: string, e: ReadingEntry): Promise<void> =>
   run(
-    Effect.gen(function* () {
-      const s = yield* ReadingStateStore;
-      return yield* s.set(home, id, e);
+    Safe.try(function* () {
+      const s = services.reading;
+      return yield s.set(home, id, e);
     }),
   );
 
