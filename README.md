@@ -1,6 +1,6 @@
 # Blackboard
 
-![Blackboard](docs/social-preview.png)
+![Blackboard](apps/blackboard-web/docs/social-preview.png)
 
 A local web app for reviewing markdown documents (with mermaid diagrams) and leaving comments
 on the text, so a person and a coding agent can go back and forth on a plan.
@@ -11,11 +11,11 @@ You select text and comment; an agent reads the file from disk and takes part th
 same `blackboard` CLI (see [CLI for agents](#cli-for-agents)).
 
 <p>
-  <img src="docs/screenshots/doc.png" alt="A doc with its contents on the left and comments on the right" width="720">
-  <img src="docs/screenshots/phone.png" alt="The same doc on a phone, with the comments sheet open" width="170">
+  <img src="apps/blackboard-web/docs/screenshots/doc.png" alt="A doc with its contents on the left and comments on the right" width="720">
+  <img src="apps/blackboard-web/docs/screenshots/phone.png" alt="The same doc on a phone, with the comments sheet open" width="170">
 </p>
 
-![Home: every session as a card](docs/screenshots/home.png)
+![Home: every session as a card](apps/blackboard-web/docs/screenshots/home.png)
 
 ## Install
 
@@ -24,9 +24,9 @@ npm install -g @gjuoun/blackboard        # or: bun add -g @gjuoun/blackboard
 blackboard open docs/design.md           # starts the web app the first time, then opens the doc
 ```
 
-Runs on **Bun 1.3+**. macOS and Linux; browsers: Chrome/Edge and Safari 17.2+ (CSS Custom Highlight API). It is a
-Next.js app, shipped as a pre-built standalone server: about 8 MB to download, 37 MB on disk, and
-no dependencies to install.
+Runs on **Bun 1.3+**. macOS and Linux; browsers: Chrome/Edge and Safari 17.2+ (CSS Custom Highlight API).
+It is a TanStack Start app on Vite, shipped as a pre-built standalone server: one process on one port,
+with no dependencies to install.
 
 The web app runs in the background on `http://127.0.0.1:38770`:
 
@@ -296,7 +296,8 @@ proxy.ts                  localhost-only Host and Origin checks
 
 ## Look and themes
 
-Built with Next.js 16, React 19, Tailwind 4 and [shadcn/ui](https://ui.shadcn.com) components.
+Built with TanStack Start, React 19, Tailwind 4 and [shadcn/ui](https://ui.shadcn.com) components,
+with the theme and primitives in `packages/bb-ui`.
 
 **Three palettes.** `paper` is the warm theme the app had, with two tokens moved to reach AA
 (`--muted-foreground` `#8a8178` → `#6f675e` at 5.24:1, `--primary` `#c4603f` → `#b3532f` at
@@ -331,12 +332,13 @@ the list says which choices stay aligned. Regenerate the shipped subsets with
 ## Titles, icons and share cards
 
 - Each tab title is the doc's own title (`Doc title · Blackboard`); Home is `Sessions · Blackboard`.
-- The site icon is `app/icon.svg` (plus `favicon.ico` and `apple-icon.png`).
-- `/opengraph-image` and `/s/<id>/opengraph-image` draw the share cards that social apps show. The
+- The site icon is `public/icon.svg` (plus `favicon.ico` and `apple-icon.png`).
+- `/og.png` and `/s/<id>/og.png` draw the share cards that social apps show. The
   card's built-in font draws Latin text only, so a title with other scripts falls back to the file name.
 - Set `BLACKBOARD_URL` (for example `https://notes.example.com`) when the app is reachable from outside, so
-  the card URLs in the page are absolute. In `bun dev` Next always uses `localhost`.
-- `docs/social-preview.png` is the same default card; upload it under GitHub's Settings → Social preview.
+  the card URLs in the page are absolute. `bun dev` serves on `127.0.0.1:38792`.
+- `apps/blackboard-web/docs/social-preview.png` is the same default card; upload it under GitHub's
+  Settings → Social preview.
 
 ## Releasing
 
