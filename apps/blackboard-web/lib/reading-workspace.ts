@@ -131,7 +131,7 @@ export const previewDoc = (
       html: rendered.html,
       replies,
     };
-  });
+  }) as unknown as Safe<PreviewData | null, IoFailure | ApiFailure>;
 
 /** The doc file's own mtime, or 0 when it cannot be read: the reading state uses it to spot edits. */
 const mtimeOf = (path: string): number =>

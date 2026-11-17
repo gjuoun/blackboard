@@ -6,7 +6,7 @@ import type { CommentsStore } from "./comments-store";
 import type { Db } from "./db/client";
 import { type DocRow, type DocumentsRepo } from "./db/repos/documents";
 import type { DocMeta } from "./doc-meta";
-import { docMetaFromRow, indexedBody, indexIfNeeded, latestOf } from "./doc-read";
+import { docMetaFromRow, type IndexedRow, indexedBody, indexIfNeeded, latestOf } from "./doc-read";
 import { type DbFailure, errorMessage, IoFailure, type LockTimeout } from "./errors";
 import { checkDoc, realDoc, type Session, SessionError, tildify } from "./session-model";
 
@@ -82,7 +82,7 @@ const asIo = <A>(safe: Safe<A, DbFailure | IoFailure>): Safe<A, IoFailure> =>
   Safe.pipe(
     safe,
     Pipe.catchTag("DbFailure", (error: DbFailure) => Safe.err(toIo(error))),
-  );
+  ) as unknown as Safe<A, IoFailure>;
 
 /** The session registry, backed by the documents table. */
 export class SessionsStore {
@@ -94,16 +94,19 @@ export class SessionsStore {
 
   list(home: string): Safe<Session[], IoFailure> {
     const docs = this.docs;
-    return asIo(Safe.call(() => docs.list(home))) as unknown as Safe<Session[], IoFailure>;
+    return Safe.try(function* () {
+      const rows = (yield docs.list(home)) as DocRow[];
+      return rows.map(toSession);
+    }) as unknown as Safe<Session[], IoFailure>;
   }
 
   get(home: string, id: string): Safe<Session | null, IoFailure> {
     if (!ID.test(id)) return Safe.ok(null);
     const docs = this.docs;
     return Safe.try(function* () {
-      const row = (yield asIo(docs.get(home, id))) as DocRow | null;
+      const row = (yield docs.get(home, id)) as DocRow | null;
       return row ? toSession(row) : null;
-    });
+    }) as unknown as Safe<Session | null, IoFailure>;
   }
 
   open(home: string, file: string, cwd: string = process.cwd()): Safe<Session, IoFailure | LockTimeout> {
@@ -111,7 +114,7 @@ export class SessionsStore {
     const db = this.db;
     return Safe.try(function* () {
       const real = (yield Safe.call(() => realDoc(file, cwd), failure)) as string;
-      const row = (yield asIo(docs.upsert(home, { id: sessionId(real), path: real }))) as DocRow;
+      const row = (yield docs.upsert(home, { id: sessionId(real), path: real })) as DocRow;
       // Index it now, so the first read finds a body. Registration already succeeded; an index failure
       // here leaves the row for the next read to index, and does not fail the open.
       yield Safe.pipe(
@@ -120,16 +123,16 @@ export class SessionsStore {
         Pipe.catchTag("IoFailure", () => Safe.ok(null)),
       );
       return toSession(row);
-    });
+    }) as unknown as Safe<Session, IoFailure | LockTimeout>;
   }
 
   close(home: string, id: string): Safe<Session, IoFailure | LockTimeout> {
     const docs = this.docs;
     return Safe.try(function* () {
-      const row = (yield asIo(docs.remove(home, id))) as DocRow | null;
+      const row = (yield docs.remove(home, id)) as DocRow | null;
       if (!row) return (yield Safe.err(new IoFailure({ message: `no session ${id}`, status: 500 }))) as never;
       return toSession(row);
-    });
+    }) as unknown as Safe<Session, IoFailure | LockTimeout>;
   }
 
   resolve(home: string, idOrPath: string, cwd: string = process.cwd()): Safe<Session | null, IoFailure | LockTimeout> {
@@ -153,7 +156,7 @@ export class SessionsStore {
         comments.countOpen(home, s.id),
         Pipe.catchTag("IoFailure", () => Safe.ok(0)),
       )) as number;
-      const indexed = (yield asIo(indexIfNeeded(db, home, s))) as Awaited<ReturnType<typeof docMetaFromRow>>;
+      const indexed = (yield indexIfNeeded(db, home, s)) as unknown as IndexedRow;
       const m = docMetaFromRow(indexed);
       return {
         ...s,
@@ -170,7 +173,7 @@ export class SessionsStore {
         open,
         srcMtime: indexed.srcSize === -1 ? null : indexed.srcMtime,
       };
-    });
+    }) as unknown as Safe<SessionRow, IoFailure>;
   }
 
   rows(home: string): Safe<SessionRow[], IoFailure | LockTimeout> {

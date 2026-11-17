@@ -5,7 +5,7 @@ import { comments, documents } from "./db/schema";
 import { RepoMemo } from "./doc-index";
 import { indexRow } from "./doc-index-run";
 import type { DocMeta } from "./doc-meta";
-import type { DbFailure, IoFailure } from "./errors";
+import { type DbFailure, IoFailure } from "./errors";
 import type { Session } from "./session-model";
 
 /** A database row for one document, plus the newest time any of its comments carries. */
@@ -49,7 +49,7 @@ export function indexIfNeeded(
 ): Safe<IndexedRow, IoFailure | DbFailure> {
   return Safe.try(function* () {
     const first = (yield readRow(db, home, session.id)) as IndexedRow | null;
-    const stub = first ?? ((yield insertStub(db, home, session)) as IndexedRow);
+    const stub = first ?? ((yield insertStub(db, home, session)) as unknown as IndexedRow);
     yield indexRow(db, home, stub, new RepoMemo());
     const after = (yield readRow(db, home, session.id)) as IndexedRow | null;
     if (after) return after;

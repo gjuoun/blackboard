@@ -42,7 +42,7 @@ const create = (lockPath: string): Safe<number, Busy> =>
   );
 
 /** Age and holder of a lock file; null when it vanished between calls, which just means retry. */
-const info = (lockPath: string): Safe<{ age: number; pid: number } | null> =>
+const info = (lockPath: string): Safe<{ age: number; pid: number } | null, null> =>
   Safe.call(
     () => ({
       age: Date.now() - statSync(lockPath).mtimeMs,
@@ -52,7 +52,7 @@ const info = (lockPath: string): Safe<{ age: number; pid: number } | null> =>
   );
 
 /** True when the recorded holder is still running. EPERM means it exists under another user. */
-const holderAlive = (pid: number): Safe<boolean> =>
+const holderAlive = (pid: number): Safe<boolean, boolean> =>
   Safe.call(
     () => {
       process.kill(pid, 0);
@@ -62,7 +62,7 @@ const holderAlive = (pid: number): Safe<boolean> =>
   );
 
 /** Stale means old, or held by a process that is gone when the caller asks about the holder. */
-const isStale = (lockPath: string, options: LockOptions): Safe<boolean> =>
+const isStale = (lockPath: string, options: LockOptions): Safe<boolean, boolean | null> =>
   Safe.try(function* () {
     const got = (yield info(lockPath)) as { age: number; pid: number } | null;
     if (!got) return false;
@@ -92,9 +92,9 @@ const acquire = (lockPath: string, options: LockOptions): Safe<number, LockTimeo
       if (Date.now() >= deadline) return (yield Safe.err(timeoutOf(lockPath, options))) as never;
       sleep(RETRY_MS);
     }
-  });
+  }) as unknown as Safe<number, LockTimeout>;
 
-const release = (lockPath: string, fd: number): Safe<void> =>
+const release = (lockPath: string, fd: number): Safe<void, never> =>
   Safe.call(() => {
     closeSync(fd);
     rmSync(lockPath, { force: true });
@@ -112,7 +112,9 @@ export class Lock {
       const fd = (yield acquire(lockPath, options)) as number;
       return (yield Safe.pipe(
         body(),
-        Pipe.ensuring(() => release(lockPath, fd)),
+        Pipe.ensuring(() => {
+          release(lockPath, fd);
+        }),
       )) as A;
     });
   }

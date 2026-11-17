@@ -1,6 +1,6 @@
 /** Where comment images are kept on disk: `<home>/comment-images/<sha256>.<ext>`. */
 
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Safe } from "@gjuoun/safe-ts";
 import { acceptImage, IMAGE_ID } from "./comment-images";
@@ -35,12 +35,8 @@ export function readImage(home: string, id: string): Safe<Uint8Array | null, IoF
   return Safe.try(function* () {
     if (!IMAGE_ID.test(id)) return null;
     const path = join(imageDir(home), id);
-    // A stat that failed means the file is not there; the caller has always called that a missing image.
-    const stored = (yield Safe.call(
-      () => statSync(path).isFile(),
-      () => false,
-    )) as boolean;
-    if (!stored) return null;
+    // No file means no image; the caller has always called that a missing image.
+    if (!existsSync(path)) return null;
     return (yield Safe.call(() => new Uint8Array(readFileSync(path)), ioFailure)) as Uint8Array;
   });
 }
