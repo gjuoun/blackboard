@@ -2,6 +2,7 @@
 
 import { cn } from "@gjuoun/bb-ui/lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { unwrapJson } from "@/lib/envelope";
 import { clampInbox, LIST_MIN, type PanelKey } from "@/lib/prefs";
 import {
   countStatuses,
@@ -35,7 +36,7 @@ const useMediaQuery = (query: string) =>
 
 const post = (url: string, body: unknown) =>
   fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
-    .then((res) => (res.ok ? res.json() : null))
+    .then((res) => (res.ok ? unwrapJson(res.json()) : null))
     .catch(() => null);
 
 /** The view the URL asked for (`?f=…`), read once after mount — the server render cannot see it. */
@@ -174,7 +175,8 @@ export function ReadingWorkspace({ initial }: { initial: WorkspaceData }) {
     let alive = true;
     fetch(`/api/reading/doc?session=${encodeURIComponent(selected)}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("preview"))))
-      .then((data: PreviewData) => {
+      .then((data) => unwrapJson<PreviewData>(data))
+      .then((data) => {
         if (!alive) return;
         setPreview(data);
         setLoading(false);

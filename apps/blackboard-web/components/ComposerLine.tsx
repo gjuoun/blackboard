@@ -2,6 +2,7 @@
 
 import { ArrowUp, ImagePlus } from "lucide-react";
 import { useRef, useState } from "react";
+import { unwrapJson } from "@/lib/envelope";
 
 /**
  * The right rail's one write point: an image button, a text input and a round send. No toolbar, no hint,
@@ -16,7 +17,7 @@ export function ComposerLine({ onSend }: { onSend: (text: string, images: string
 
   const upload = async (f: File) => {
     const res = await fetch("/api/comment-images", { method: "POST", body: f });
-    const data = (await res.json()) as { id?: string; error?: string };
+    const data = unwrapJson<{ id?: string; error?: string }>(await res.json());
     if (data.id) setImages((xs) => [...xs, data.id as string].slice(0, 4));
   };
 
