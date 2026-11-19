@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import type { QuoteSelector } from "@/lib/anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
+import { unwrapJson } from "@/lib/envelope";
 
 type Answer = { comment?: RenderedComment; deleted?: string };
 
@@ -12,8 +13,16 @@ async function call(method: string, payload: unknown): Promise<Answer> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? `HTTP ${res.status}`);
-  return res.json();
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
+    const err = body?.error;
+    const msg =
+      typeof err === "object" && err !== null && "message" in err
+        ? (err as { message: string }).message
+        : String(err ?? `HTTP ${res.status}`);
+    throw new Error(msg);
+  }
+  return unwrapJson<Answer>(await res.json());
 }
 
 /** Comments for one doc, kept in sync with the server after each change. */
@@ -44,7 +53,7 @@ export function useComments(session: string, initial: RenderedComment[], author:
 
   const reload = useCallback(async () => {
     const res = await fetch(`/api/comments?session=${encodeURIComponent(session)}`);
-    if (res.ok) setComments((await res.json()).comments);
+    if (res.ok) setComments(unwrapJson<{ comments: RenderedComment[] }>(await res.json()).comments);
   }, [session]);
 
   const patch = (id: string, action: string, extra: Record<string, string> = {}) =>
