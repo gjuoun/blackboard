@@ -14,6 +14,19 @@ const refused = (message: string): ApiRefused => ({ ApiRefused: { message } });
 
 const NOT_RUNNING = "the API is not running — start it with: blackboard serve start";
 
+/** The API's envelope unwraps here: `{success:true,data}` → `data`. Older answers pass through raw. */
+function unwrap<T>(payload: unknown): T {
+  if (
+    payload !== null &&
+    typeof payload === "object" &&
+    (payload as { success?: unknown }).success === true &&
+    "data" in payload
+  ) {
+    return (payload as { data: T }).data;
+  }
+  return payload as T;
+}
+
 /**
  * The reason a refused call carries. Two shapes reach here: the old `{error:"…"}` text and the
  * envelope's `{success:false,error:{code,message}}`, because routes move over one at a time.
@@ -54,7 +67,7 @@ export function apiRequest(
       () => refused(text || res.statusText),
     )) as unknown;
     if (!res.ok) return (yield Safe.err(refused(messageOf(data, res.statusText)))) as never;
-    return data;
+    return unwrap(data);
   }) as unknown as Safe<unknown, ApiFailure>;
 }
 
@@ -69,5 +82,5 @@ export async function apiGetJson<T>(home: string, path: string): Promise<T> {
     const body = (await res.json().catch(() => null)) as { error?: unknown } | null;
     throw new Error(messageOf(body, `API ${path} answered ${res.status}`));
   }
-  return (await res.json()) as T;
+  return unwrap<T>(await res.json());
 }
