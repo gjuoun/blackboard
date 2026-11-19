@@ -3,6 +3,7 @@
 import { Button } from "@gjuoun/bb-ui/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@gjuoun/bb-ui/components/ui/sheet";
 import { cn } from "@gjuoun/bb-ui/lib/utils";
+import { MessageSquarePlus } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { QuoteSelector } from "@/lib/anchor";
 import type { RenderedComment } from "@/lib/comment-markdown";
@@ -190,9 +191,9 @@ export function DocView({ session, title, path, html, initialComments, header, t
   const vars: Record<string, string> = {};
   if (desktop) {
     if (!(chrome.tocOpen && toc)) vars["--toc-w"] = "0px";
-    else if (resizing?.which === "toc") vars["--toc-w"] = resizing.width + "px";
+    else if (resizing?.which === "toc") vars[`--toc-w`] = `${resizing.width}px`;
     if (!chrome.cmOpen) vars["--cm-w"] = "0px";
-    else if (resizing?.which === "cm") vars["--cm-w"] = resizing.width + "px";
+    else if (resizing?.which === "cm") vars[`--cm-w`] = `${resizing.width}px`;
   }
   return (
     <VirtualDocProvider value={virt}>
@@ -241,14 +242,16 @@ export function DocView({ session, title, path, html, initialComments, header, t
           </div>
           {draft ? (
             <Button
-              size="sm"
+              size="icon-sm"
               data-testid="comment-button"
+              aria-label="Comment on selection"
+              title="Comment on selection"
               className="absolute z-5 shadow-md"
               style={{ top: draft.top, left: draft.left }}
               onMouseDown={(e) => e.preventDefault()}
               onClick={startComment}
             >
-              Comment
+              <MessageSquarePlus aria-hidden />
             </Button>
           ) : null}
         </main>
